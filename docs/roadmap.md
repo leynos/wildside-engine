@@ -7,10 +7,10 @@ core data structures of the engine.
 
 - **Set up Project Structure**
 
-- [ ] Run `cargo new --lib wildside-engine` to create the workspace root.
-- [ ] Within the `wildside-engine` directory, create the initial crates:
+- [x] Run `cargo new --lib wildside-engine` to create the workspace root.
+- [x] Within the `wildside-engine` directory, create the initial crates:
   `cargo new --lib core`, `cargo new --lib data`, and `cargo new --bin cli`.
-- [ ] Configure the root `Cargo.toml` to define the workspace members (`core`,
+- [x] Configure the root `Cargo.toml` to define the workspace members (`core`,
   `data`, `cli`).
 
 - **Define Core Domain Model**
@@ -26,8 +26,7 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
-  .
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
