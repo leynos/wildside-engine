@@ -371,9 +371,10 @@ specific implementation a configurable choice.
 
 The `wildside-core` crate will define a `Solver` trait. This trait will have a
 single primary method,
-`solve(request: &SolveRequest) -> Result<SolveResponse, Error>`, which
-encapsulates the entire process of finding an optimal route. This abstraction
-is the key to making the engine flexible and future-proof.
+`solve(request: &SolveRequest) -> Result<SolveResponse, core::Error>`, which
+encapsulates the entire process of finding an optimal route. The trait is
+object-safe and keeps the solver synchronous for embeddability. This
+abstraction is the key to making the engine flexible and future-proof.
 
 ### 4.2. Recommended Native Rust Solution with `vrp-core`
 
@@ -414,9 +415,9 @@ solver itself is an abstract mathematical engine; it requires an external
 component to provide the walking time between every pair of candidate POIs.
 
 This is handled by the `TravelTimeProvider` trait defined in `wildside-core`.
-This trait defines the async boundary for the entire library. While the core
-solver logic remains synchronous and embeddable, an implementation of this
-trait can be asynchronous.
+This trait forms the asynchronous boundary for the library with the signature
+`async fn get_travel_time_matrix(...) -> Result<..., core::Error>`. Keeping the
+solver synchronous preserves object safety and makes the core embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an
 external, open-source routing engine like OSRM or Valhalla, running as a
