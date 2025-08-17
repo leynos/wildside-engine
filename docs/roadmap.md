@@ -9,9 +9,10 @@ core data structures of the engine.
 
 - [x] Run `cargo new --lib wildside-engine` to create the workspace root.
 - [x] Within the `wildside-engine` directory, create the initial crates:
-  `cargo new --lib core`, `cargo new --lib data`, and `cargo new --bin cli`.
-- [x] Configure the root `Cargo.toml` to define the workspace members (`core`,
-  `data`, `cli`).
+  `cargo new --lib wildside-core`, `cargo new --lib wildside-data`, and
+  `cargo new --bin wildside-cli`.
+- [x] Configure the root `Cargo.toml` to define the workspace members
+  (`wildside-core`, `wildside-data`, `wildside-cli`).
 
 - **Define Core Domain Model**
 
@@ -45,7 +46,7 @@ core data structures of the engine.
 
 - **Adopt GeoRust Primitives**
 
-- [ ] Standardize on `geo::Coord` for all location data within the
+- [ ] Standardise on `geo::Coord` for all location data within the
   `PointOfInterest` struct.
 - [ ] Create a function
   `build_spatial_index(pois: &[PointOfInterest]) -> rstar::RTree<PointOfInterest>`
@@ -81,8 +82,8 @@ This phase implements the core logic that gives the engine its intelligence.
 - [ ] Create the `wildside-scorer` crate.
 - [ ] Implement an offline process that iterates through `pois.db`, calculates
   a popularity score for each POI based on its sitelink count and heritage
-  status, and normalizes the scores.
-- [ ] Serialize the resulting `HashMap<PoiId, f32>` of scores to a compact
+  status, and normalises the scores.
+- [ ] Serialise the resulting `HashMap<PoiId, f32>` of scores to a compact
   binary file (`popularity.bin`) using a library like `bincode`.
 
 - **Implement User Relevance Scorer**
@@ -117,7 +118,7 @@ This phase tackles the complex route-finding algorithm.
 - [ ] It will then fetch the travel time matrix for these candidates from the
   `TravelTimeProvider`.
 - [ ] It will configure the `vrp-core` problem and objective function to
-  maximize the total collected score within the given time budget.
+  maximise the total collected score within the given time budget.
 - [ ] Finally, it will run the `vrp-core` solver and transform the result into
   a `SolveResponse`.
 
@@ -132,7 +133,7 @@ This phase tackles the complex route-finding algorithm.
 
 - [ ] Add a `solve` command to `wildside-cli` that accepts a path to a
   JSON file.
-- [ ] The command will deserialize the JSON into a `SolveRequest`, instantiate
+- [ ] The command will deserialise the JSON into a `SolveRequest`, instantiate
   the necessary components (store, scorer, solver), call the solver, and print
   the resulting `SolveResponse` as formatted JSON.
 
@@ -158,11 +159,11 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
   different solver and store implementations.
 
-- **Finalize Licensing and Versioning**
+- **Finalise Licensing and Versioning**
 
 - [ ] Add the ISC `LICENSE` file to the root of the workspace and to each
   crate's `Cargo.toml`.
-- [ ] Initialize a `CHANGELOG.md` file at the root, documenting the initial
+- [ ] Initialise a `CHANGELOG.md` file at the root, documenting the initial
   `0.1.0` feature set.
 
 - **(Optional) Implement OR-Tools Solver**

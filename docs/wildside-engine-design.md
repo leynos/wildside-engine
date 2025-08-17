@@ -256,7 +256,7 @@ the core logic.
 A Rust workspace will be used to manage the engine's components, enforcing
 clear boundaries while allowing for atomic changes across crates when necessary.
 
-- `wildside-engine-core`: This crate is the heart of the engine. It contains
+- `wildside-core`: This crate is the heart of the engine. It contains
   the pure domain model and traits, with no I/O or specific framework
   dependencies (i.e., it is `#![no_std]` compatible where possible, without
   `tokio` or `actix`).
@@ -271,7 +271,7 @@ clear boundaries while allowing for atomic changes across crates when necessary.
   - This crate is deterministic and side-effect free, making it easy to test
     rigorously with property-based testing and fuzzing.
 
-- `wildside-engine-data`: Contains the ETL logic and data adapters.
+- `wildside-data`: Contains the ETL logic and data adapters.
 
   - Implements the `PoiStore` trait from the core crate.
 
@@ -279,22 +279,22 @@ clear boundaries while allowing for atomic changes across crates when necessary.
     building the data artifacts (e.g., SQLite/RocksDB stores and the `rstar`
     index).
 
-- `wildside-engine-scorer`: Implements the `Scorer` trait.
+- `wildside-scorer`: Implements the `Scorer` trait.
 
   - Contains the logic for both the offline pre-computation of global
     popularity scores and the per-request calculation of user relevance.
 
-- `wildside-engine-solver-vrp`: The default, native Rust implementation of the
+- `wildside-solver-vrp`: The default, native Rust implementation of the
   `Solver` trait, using the `vrp-core` library.
 
-- `wildside-engine-solver-ortools`: An optional implementation of the `Solver`
+- `wildside-solver-ortools`: An optional implementation of the `Solver`
   trait, using bindings to Google's CP-SAT solver. This would be enabled via a
   feature flag for users who require its specific performance characteristics
   and are willing to manage the C++ dependency.
 
-- `wildside-engine-cli`: A small command-line application for operational tasks.
+- `wildside-cli`: A small command-line application for operational tasks.
 
-  - `ingest`: Runs the full ETL pipeline from `wildside-engine-data` to build
+  - `ingest`: Runs the full ETL pipeline from `wildside-data` to build
     the necessary data artifacts.
 
   - `score`: Triggers the batch computation of global popularity scores.
@@ -339,7 +339,7 @@ benchmarking, and diagnosing production incidents.
 A strict separation between offline preparation and online serving is essential
 for performance and scalability.
 
-- **Offline Path:** The `wildside-engine-cli` is used to execute the idempotent
+- **Offline Path:** The `wildside-cli` is used to execute the idempotent
   ETL process. This process takes raw OSM and Wikidata data and produces a set
   of optimized, read-only artifacts:
 
@@ -369,8 +369,8 @@ specific implementation a configurable choice.
 
 ### 4.1. The `Solver` Trait: A Common Interface
 
-The `wildside-engine-core` crate will define a `Solver` trait. This trait will
-have a single primary method,
+The `wildside-core` crate will define a `Solver` trait. This trait will have a
+single primary method,
 `solve(request: &SolveRequest) -> Result<SolveResponse, Error>`, which
 encapsulates the entire process of finding an optimal route. This abstraction
 is the key to making the engine flexible and future-proof.
@@ -391,14 +391,14 @@ will be configured to maximize the total collected `Score(POI)` from visited
 powerful built-in metaheuristics will efficiently find a high-quality route
 within the required few-second timeframe.15 This implementation will live in the
 
-`wildside-engine-solver-vrp` crate.
+`wildside-solver-vrp` crate.
 
-### 4.3. Optional High-Performance Backend: `wildside-engine-solver-ortools`
+### 4.3. Optional High-Performance Backend: `wildside-solver-ortools`
 
 To allow for future performance comparisons or to meet extreme optimization
 requirements, a second implementation of the `Solver` trait can be provided in
-the `wildside-engine-solver-ortools` crate. This would use bindings to Google's
-highly optimized CP-SAT solver, such as the `cp_sat` crate.
+the `wildside-solver-ortools` crate. This would use bindings to Google's highly
+optimized CP-SAT solver, such as the `cp_sat` crate.
 
 This approach offers potentially world-class performance but comes at the cost
 of significant build and deployment complexity, requiring a C++ compiler and a
@@ -413,10 +413,10 @@ A critical prerequisite for any VRP solver is the travel time matrix. The
 solver itself is an abstract mathematical engine; it requires an external
 component to provide the walking time between every pair of candidate POIs.
 
-This is handled by the `TravelTimeProvider` trait defined in
-`wildside-engine-core`. This trait defines the async boundary for the entire
-library. While the core solver logic remains synchronous and embeddable, an
-implementation of this trait can be asynchronous.
+This is handled by the `TravelTimeProvider` trait defined in `wildside-core`.
+This trait defines the async boundary for the entire library. While the core
+solver logic remains synchronous and embeddable, an implementation of this
+trait can be asynchronous.
 
 The recommended implementation will be an adapter that makes API calls to an
 external, open-source routing engine like OSRM or Valhalla, running as a
@@ -434,7 +434,7 @@ plan covering packaging, testing, and versioning.
 
 The engine will be structured for robust dependency management and deployment.
 
-- **Licensing:** All engine crates (`wildside-engine-*`) will be licensed under
+- **Licensing:** All engine crates (`wildside-*`) will be licensed under
   the permissive **ISC license**, satisfying the project's legal requirements
   while being clear and concise.
 
@@ -493,14 +493,14 @@ own repository with no code churn, as the boundaries are already established.
 The migration from an initial "engine-in-app" prototype to the final library
 structure follows a clear path:
 
-1. Extract all domain types into `wildside-engine-core` and update the
+1. Extract all domain types into `wildside-core` and update the
    application to import from the new crate.
 
-2. Move scoring and solver logic into the `wildside-engine-scorer` and
-   `wildside-engine-solver-vrp` crates, implementing the traits from `core`.
-   The application code becomes a thin adapter.
+2. Move scoring and solver logic into the `wildside-scorer` and
+   `wildside-solver-vrp` crates, implementing the traits from `core`. The
+   application code becomes a thin adapter.
 
-3. Introduce the `wildside-engine-cli` and integrate it into the CI pipeline
+3. Introduce the `wildside-cli` and integrate it into the CI pipeline
    for repeatable data ingestion and performance snapshots.
 
 4. Change the application's dependency on the engine crates from a local

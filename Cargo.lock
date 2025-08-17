@@ -13,7 +13,3 @@ version = "0.1.0"
 [[package]]
 name = "wildside-data"
 version = "0.1.0"
-
-[[package]]
-name = "wildside-engine"
-version = "0.1.0"
