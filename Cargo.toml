@@ -1,14 +1,19 @@
 [workspace]
 members = [
-    "core",
-    "data",
-    "cli",
+    "wildside-core",
+    "wildside-data",
+    "wildside-cli",
 ]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
 
 [package]
 name = "wildside-engine"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+publish = false
 
 [dependencies]
 
