@@ -17,11 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-      - uses: actions-rs/toolchain@63eb9591781c46a70274cb3ebdf190fce92702e8 # v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2025-06-26
           components: rustfmt, clippy, llvm-tools-preview
-          override: true
       - uses: Swatinem/rust-cache@7939da402645ba29a2df566723491a2c856e8f8a # v2
       - name: Check formatting
         run: make check-fmt

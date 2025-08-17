@@ -3,7 +3,7 @@
 //! Responsibilities:
 //! - Define repository and source traits for ingestion and query.
 //! - Provide adapters for files, HTTP and databases.
-//! - Encapsulate serialisation formats and schema evolution.
+//! - Encapsulate serialization formats and schema evolution.
 //!
 //! Boundaries:
 //! - Do not encode domain rules (live in `wildside-core`).
