@@ -30,5 +30,15 @@ jobs:
         run: make test
       - name: Lint Markdown
         run: make markdownlint
+      - name: Install uv
+        # v6.4.3
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
+        with:
+          cache-dependency-glob: |
+            **/pyproject.toml
+            **/uv.lock
+            **/scripts/*.py
+      - name: Install Nixie
+        run: uv tool install --from git+https://github.com/leynos/nixie nixie
       - name: Validate diagrams
         run: make nixie
