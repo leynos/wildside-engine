@@ -276,32 +276,33 @@ clear boundaries while allowing for atomic changes across crates when necessary.
   - Implements the `PoiStore` trait from the core crate.
 
   - Handles OSM PBF ingestion (using `osmpbf`), Wikidata dump parsing, and
-    building the data artifacts (e.g., SQLite/RocksDB stores and the `rstar`
+    building the data artefacts (e.g., SQLite/RocksDB stores and the `rstar`
     index).
 
-- `wildside-scorer`: Implements the `Scorer` trait.
+- (Planned) `wildside-scorer`: Implements the `Scorer` trait.
 
   - Contains the logic for both the offline pre-computation of global
     popularity scores and the per-request calculation of user relevance.
 
-- `wildside-solver-vrp`: The default, native Rust implementation of the
-  `Solver` trait, using the `vrp-core` library.
+- (Planned) `wildside-solver-vrp`: The default, native Rust implementation of
+  the `Solver` trait, using the `vrp-core` library.
 
-- `wildside-solver-ortools`: An optional implementation of the `Solver`
-  trait, using bindings to Google's CP-SAT solver. This would be enabled via a
-  feature flag for users who require its specific performance characteristics
-  and are willing to manage the C++ dependency.
+- (Planned) `wildside-solver-ortools`: An optional implementation of the
+  `Solver` trait, using bindings to Google's CP-SAT solver. This would be
+  enabled via a feature flag for users who require its specific performance
+  characteristics and are willing to manage the C++ dependency.
 
 - `wildside-cli`: A small command-line application for operational tasks.
 
   - `ingest`: Runs the full ETL pipeline from `wildside-data` to build
-    the necessary data artifacts.
+    the necessary data artefacts.
 
-  - `score`: Triggers the batch computation of global popularity scores.
+  - (Planned) `score`: Triggers the batch computation of global popularity
+    scores.
 
-  - `solve`: A utility to run the solver from the command line by feeding it a
-    JSON request, which is invaluable for performance testing and offline
-    debugging.
+  - (Planned) `solve`: A utility to run the solver from the command line by
+    feeding it a JSON request, which is invaluable for performance testing and
+    offline debugging.
 
 ### 3.3. A Stable, Performant, and Boring API Surface
 
@@ -341,7 +342,7 @@ for performance and scalability.
 
 - **Offline Path:** The `wildside-cli` is used to execute the idempotent
   ETL process. This process takes raw OSM and Wikidata data and produces a set
-  of optimized, read-only artifacts:
+  of optimized, read-only artefacts:
 
   - `pois.db`: An SQLite (or RocksDB) file containing the enriched POI data,
     indexed for fast lookups.
@@ -352,6 +353,9 @@ for performance and scalability.
 
   - `popularity.bin`: A compact binary file of pre-calculated global popularity
     scores.
+
+  - Embed a file-format version in each artefact header; bump on
+    incompatible changes, provide a migrator in `wildside-cli`.
 
 - **Online Path:** The core engine library, when used by the web app, interacts
   *only* with these read-only artifacts. This design choice means the engine

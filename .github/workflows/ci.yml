@@ -29,6 +29,8 @@ jobs:
       - name: Test
         run: make test
       - name: Lint Markdown
-        run: make markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          globs: '**/*.md'
       - name: Validate diagrams
         run: make nixie
