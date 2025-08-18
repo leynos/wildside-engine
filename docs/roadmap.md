@@ -35,7 +35,8 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
+  .
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -80,7 +81,7 @@ core data structures of the engine.
   `ingest_osm_pbf`, then the Wikidata ETL process, and finally
   `build_spatial_index`, saving the resulting `pois.db` and `pois.rstar` files.
 
-## Phase 2: Scoring and Personalization
+## Phase 2: Scoring and personalization
 
 This phase implements the core logic that gives the engine its intelligence.
 
@@ -170,6 +171,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
   [features]
   solver-vrp = ["dep:wildside-solver-vrp"]
   solver-ortools = ["dep:wildside-solver-ortools"]
+  store-sqlite = ["dep:wildside-data?/sqlite"]
   ```
 
 - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the

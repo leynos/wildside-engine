@@ -355,7 +355,7 @@ for performance and scalability.
   - `popularity.bin`: A compact binary file of pre-calculated global
     popularity scores. The structure remains stable across releases.
 
-#### 3.4.1. Artefact Versioning and Migration
+#### 3.4.1. Artefact versioning and migration
 
 Embed a file-format version in each artefact header. Bump the version on
 incompatible changes and provide a migrator in `wildside-cli` to upgrade
