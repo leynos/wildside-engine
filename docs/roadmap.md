@@ -35,8 +35,7 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
-  .
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -166,6 +165,13 @@ This phase ensures the engine is robust, reliable, and ready for integration.
   `solver-ortools`, and `store-sqlite`.
 - [ ] Forward feature flags from member crates using `[features]` and
   `dep:`-scoped features to ensure a single source of truth.
+
+  ```toml
+  [features]
+  solver-vrp = ["dep:wildside-solver-vrp"]
+  solver-ortools = ["dep:wildside-solver-ortools"]
+  ```
+
 - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
   different solver and store implementations.
 
