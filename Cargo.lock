@@ -3,5 +3,13 @@
 version = 4
 
 [[package]]
-name = "wildside-engine"
+name = "wildside-cli"
+version = "0.1.0"
+
+[[package]]
+name = "wildside-core"
+version = "0.1.0"
+
+[[package]]
+name = "wildside-data"
 version = "0.1.0"

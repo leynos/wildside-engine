@@ -1,38 +1,34 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      CARGO_TERM_COLOR: always
-      BUILD_PROFILE: debug
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: leynos/shared-actions/.github/actions/setup-rust@v1.1.0
-      - name: Format
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-06-26
+          components: rustfmt, clippy, llvm-tools-preview
+      - uses: Swatinem/rust-cache@7939da402645ba29a2df566723491a2c856e8f8a # v2
+      - name: Check formatting
         run: make check-fmt
       - name: Lint
         run: make lint
       - name: Test
         run: make test
-      - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin
-      - name: Run coverage
-        run: cargo tarpaulin --out lcov
-      - name: Upload coverage data to CodeScene
-        if: ${{ secrets.CS_ACCESS_TOKEN }}
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@v1.1.0
-        with:
-          format: lcov
-          access-token: ${{ secrets.CS_ACCESS_TOKEN }}
-          installer-checksum: ${{ vars.CODESCENE_CLI_SHA256 }}
-
+      - name: Lint Markdown
+        run: make markdownlint
+      - name: Validate diagrams
+        run: make nixie

@@ -1,0 +1,10 @@
+[package]
+name = "wildside-cli"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+default-run = "wildside"
+
+[[bin]]
+name = "wildside"
+path = "src/main.rs"

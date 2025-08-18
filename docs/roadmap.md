@@ -7,15 +7,24 @@ core data structures of the engine.
 
 - **Set up Project Structure**
 
-- [ ] Run `cargo new --lib wildside-engine` to create the workspace root.
-- [ ] Within the `wildside-engine` directory, create the initial crates:
-  `cargo new --lib core`, `cargo new --lib data`, and `cargo new --bin cli`.
-- [ ] Configure the root `Cargo.toml` to define the workspace members (`core`,
-  `data`, `cli`).
+- [x] Create the repository root directory `wildside-engine` and initialise a
+  virtual workspace:
+
+  ```bash
+  mkdir wildside-engine && cd wildside-engine
+  git init
+  cargo init --vcs git
+  ```
+
+- [x] Replace the root `Cargo.toml` with a virtual workspace manifest (no
+  `[package]`), defining members: `cargo new --lib wildside-core`,
+  `cargo new --lib wildside-data`, and `cargo new --bin wildside-cli`.
+- [x] Configure the root `Cargo.toml` to define the workspace members
+  (`wildside-core`, `wildside-data`, `wildside-cli`) and set `resolver = "2"`.
 
 - **Define Core Domain Model**
 
-- [ ] In `wildside-engine-core`, define the public struct `PointOfInterest`
+- [ ] In `wildside-core`, define the public struct `PointOfInterest`
   with essential fields like `id`, `location: geo::Coord`, and
   `tags: HashMap<String, String>`.
 - [ ] Define the `InterestProfile` struct to hold a user's selected themes and
@@ -26,8 +35,7 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
-  .
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -36,7 +44,7 @@ core data structures of the engine.
 
 - **Implement OSM PBF Ingestion**
 
-- [ ] In `wildside-engine-data`, add `osmpbf` and `geo` as dependencies.
+- [ ] In `wildside-data`, add `osmpbf` and `geo` as dependencies.
 - [ ] Create a public function `ingest_osm_pbf(path: &Path)` that uses
   `osmpbf::par_map_reduce` to process a PBF file in parallel.
 - [ ] Implement the logic to filter for relevant OSM elements (e.g., nodes and
@@ -55,7 +63,7 @@ core data structures of the engine.
 
 - **Build Wikidata ETL Pipeline**
 
-- [ ] In `wildside-engine-data`, add `wikidata-rust`, `simd-json`, and
+- [ ] In `wildside-data`, add `wikidata-rust`, `simd-json`, and
   `rusqlite` dependencies.
 - [ ] Write a script that downloads the latest Wikidata JSON dump.
 - [ ] Implement a parser that iterates through the dump, filters for entities
@@ -66,7 +74,7 @@ core data structures of the engine.
 
 - **Develop Initial CLI**
 
-- [ ] In `wildside-engine-cli`, use the `clap` crate to define an `ingest`
+- [ ] In `wildside-cli`, use the `clap` crate to define an `ingest`
   command with arguments for the OSM PBF and Wikidata dump file paths.
 - [ ] Implement the command's handler to orchestrate the full pipeline: call
   `ingest_osm_pbf`, then the Wikidata ETL process, and finally
@@ -78,7 +86,7 @@ This phase implements the core logic that gives the engine its intelligence.
 
 - **Implement Global Popularity Scorer**
 
-- [ ] Create the `wildside-engine-scorer` crate.
+- [ ] Create the `wildside-scorer` crate.
 - [ ] Implement an offline process that iterates through `pois.db`, calculates
   a popularity score for each POI based on its sitelink count and heritage
   status, and normalises the scores.
@@ -96,7 +104,7 @@ This phase implements the core logic that gives the engine its intelligence.
 
 - **Define Stable API**
 
-- [ ] In `wildside-engine-core`, define the `SolveRequest` struct with public
+- [ ] In `wildside-core`, define the `SolveRequest` struct with public
   fields for `start: geo::Coord`, `duration_minutes: u16`,
   `interests: InterestProfile`, and a `seed: u64` for reproducible results.
 - [ ] Define the `SolveResponse` struct to include the final `Route`, the total
@@ -109,7 +117,7 @@ This phase tackles the complex route-finding algorithm.
 
 - **Implement Native VRP Solver**
 
-- [ ] Create the `wildside-engine-solver-vrp` crate with a dependency on
+- [ ] Create the `wildside-solver-vrp` crate with a dependency on
   `vrp-core`.
 - [ ] Create a `VrpSolver` struct that implements the `Solver` trait from the
   core crate.
@@ -130,7 +138,7 @@ This phase tackles the complex route-finding algorithm.
 
 - **Integrate Solver into CLI**
 
-- [ ] Add a `solve` command to `wildside-engine-cli` that accepts a path to a
+- [ ] Add a `solve` command to `wildside-cli` that accepts a path to a
   JSON file.
 - [ ] The command will deserialise the JSON into a `SolveRequest`, instantiate
   the necessary components (store, scorer, solver), call the solver, and print
@@ -167,7 +175,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 
 - **(Optional) Implement OR-Tools Solver**
 
-- [ ] Create a `wildside-engine-solver-ortools` crate, conditionally compiled
+- [ ] Create a `wildside-solver-ortools` crate, conditionally compiled
   via the `ortools` feature flag.
 - [ ] Add a dependency on a suitable OR-Tools wrapper crate.
 - [ ] Implement the `Solver` trait using the CP-SAT solver, mapping the

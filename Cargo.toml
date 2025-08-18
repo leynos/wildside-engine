@@ -1,11 +1,15 @@
-[package]
-name = "wildside-engine"
-version = "0.1.0"
+[workspace]
+members = [
+    "wildside-core",
+    "wildside-data",
+    "wildside-cli",
+]
+resolver = "2"
+
+[workspace.package]
 edition = "2024"
 
-[dependencies]
-
-[lints.clippy]
+[workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 
 # 1. hygiene
