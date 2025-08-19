@@ -27,15 +27,16 @@ core data structures of the engine.
 - [x] In `wildside-core`, define the public struct `PointOfInterest`
   with essential fields like `id`, `location: geo::Coord`, and
   `tags: HashMap<String, String>`.
-- [x] Define the `InterestProfile` struct to hold a user's selected themes and
-  their corresponding weights.
+- [x] Define the `InterestProfile` struct to hold selected themes and their
+  corresponding weights.
 - [x] Define the `Route` struct, containing an ordered `Vec<PointOfInterest>`
   and a `total_duration: std::time::Duration`.
 - [ ] Define the `PoiStore` trait with methods like
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
+  .
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -98,7 +99,7 @@ This phase implements the core logic that gives the engine its intelligence.
 - [ ] Implement the `score` method of the `Scorer` trait.
 - [ ] The method will receive a `PointOfInterest` and an `InterestProfile`.
 - [ ] It will perform fast, indexed lookups against `pois.db` to check for
-  Wikidata properties matching the user's interests.
+  Wikidata properties matching selected interests.
 - [ ] It will combine these matches with the pre-calculated global popularity
   score loaded from `popularity.bin`.
 

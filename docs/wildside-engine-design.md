@@ -40,7 +40,7 @@ providing a stable vocabulary across crates.
   key/value pairs common in OpenStreetMap.
 - `InterestProfile` represents a visitor's thematic preferences as a
   `HashMap<String, f32>` of weights. `f32` offers sufficient precision for
-  scoring while keeping serialised representations compact.
+  scoring while keeping serialized representations compact.
 - `Route` contains the ordered list of `PointOfInterest` values selected for a
   tour and the overall `Duration` required to visit them.
 

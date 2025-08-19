@@ -21,9 +21,17 @@ fn world() -> RefCell<World> {
 
 #[given("an interest profile with {theme} weight {weight:f32}")]
 fn given_profile(#[from(world)] world: &RefCell<World>, theme: String, weight: f32) {
-    let mut weights = HashMap::new();
-    weights.insert(theme, weight);
-    world.borrow_mut().profile = Some(InterestProfile { weights });
+    let mut world = world.borrow_mut();
+    if let Some(profile) = world.profile.as_mut() {
+        profile.set_weight(theme, weight);
+    } else {
+        world.profile = Some(InterestProfile::new(HashMap::from([(theme, weight)])));
+    }
+}
+
+#[given("an empty interest profile")]
+fn given_empty_profile(#[from(world)] world: &RefCell<World>) {
+    world.borrow_mut().profile = Some(InterestProfile::new(HashMap::new()));
 }
 
 #[when("I query the weight for {theme}")]
@@ -32,14 +40,17 @@ fn when_query(#[from(world)] world: &RefCell<World>, theme: String) {
         .borrow()
         .profile
         .as_ref()
-        .and_then(|p| p.weights.get(&theme))
-        .copied();
+        .and_then(|p| p.weight(&theme));
     world.borrow_mut().result = weight;
 }
 
 #[then("I get {weight:f32}")]
 fn then_result(#[from(world)] world: &RefCell<World>, weight: f32) {
-    assert_eq!(world.borrow().result, Some(weight));
+    let actual = world.borrow().result.expect("expected weight");
+    assert!(
+        (actual - weight).abs() < 1.0e-6,
+        "actual={actual}, expected={weight}"
+    );
 }
 
 #[then("no weight is returned")]
@@ -52,3 +63,9 @@ fn known_theme(world: RefCell<World>) {}
 
 #[scenario(path = "tests/features/interest_profile.feature", index = 1)]
 fn unknown_theme(world: RefCell<World>) {}
+
+#[scenario(path = "tests/features/interest_profile.feature", index = 2)]
+fn empty_profile(world: RefCell<World>) {}
+
+#[scenario(path = "tests/features/interest_profile.feature", index = 3)]
+fn multiple_themes(world: RefCell<World>) {}

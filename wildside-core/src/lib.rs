@@ -37,15 +37,61 @@ pub struct PointOfInterest {
 /// use std::collections::HashMap;
 /// use wildside_core::InterestProfile;
 ///
-/// let mut weights = HashMap::new();
-/// weights.insert("history".to_string(), 0.8);
-/// let profile = InterestProfile { weights };
-///
-/// assert_eq!(profile.weights.get("history"), Some(&0.8));
+/// let profile =
+///     InterestProfile::new(HashMap::from([("history".to_string(), 0.8)]));
+/// assert_eq!(profile.weight("history"), Some(0.8));
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterestProfile {
-    pub weights: HashMap<String, f32>,
+    weights: HashMap<String, f32>,
+}
+
+impl InterestProfile {
+    /// Construct a profile from the provided weights.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use wildside_core::InterestProfile;
+    ///
+    /// let profile =
+    ///     InterestProfile::new(HashMap::from([("art".to_string(), 0.5)]));
+    /// assert_eq!(profile.weight("art"), Some(0.5));
+    /// ```
+    pub fn new(weights: HashMap<String, f32>) -> Self {
+        Self { weights }
+    }
+
+    /// Return the weight for a theme, if present.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use wildside_core::InterestProfile;
+    ///
+    /// let profile =
+    ///     InterestProfile::new(HashMap::from([("art".to_string(), 0.5)]));
+    /// assert_eq!(profile.weight("art"), Some(0.5));
+    /// assert!(profile.weight("history").is_none());
+    /// ```
+    pub fn weight(&self, theme: &str) -> Option<f32> {
+        self.weights.get(theme).copied()
+    }
+
+    /// Insert or update a theme weight.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::collections::HashMap;
+    /// use wildside_core::InterestProfile;
+    ///
+    /// let mut profile = InterestProfile::new(HashMap::new());
+    /// profile.set_weight("music".into(), 0.7);
+    /// assert_eq!(profile.weight("music"), Some(0.7));
+    /// ```
+    pub fn set_weight(&mut self, theme: String, weight: f32) {
+        self.weights.insert(theme, weight);
+    }
 }
 
 /// An ordered path through points of interest with an overall duration.
@@ -90,10 +136,27 @@ mod tests {
     #[case("history", Some(0.5))]
     #[case("art", None)]
     fn interest_lookup(#[case] theme: &str, #[case] expected: Option<f32>) {
-        let mut weights = HashMap::new();
-        weights.insert("history".into(), 0.5);
-        let profile = InterestProfile { weights };
-        assert_eq!(profile.weights.get(theme).copied(), expected);
+        let profile = InterestProfile::new(HashMap::from([("history".to_string(), 0.5)]));
+        assert_eq!(profile.weight(theme), expected);
+    }
+
+    #[rstest]
+    fn multiple_theme_lookup() {
+        let mut profile = InterestProfile::new(HashMap::new());
+        profile.set_weight("sports".into(), 0.8);
+        profile.set_weight("music".into(), 0.5);
+        profile.set_weight("art".into(), 0.3);
+
+        assert_eq!(profile.weight("sports"), Some(0.8));
+        assert_eq!(profile.weight("music"), Some(0.5));
+        assert_eq!(profile.weight("art"), Some(0.3));
+        assert!(profile.weight("science").is_none());
+    }
+
+    #[rstest]
+    fn empty_profile_returns_none() {
+        let profile = InterestProfile::new(HashMap::new());
+        assert!(profile.weight("nature").is_none());
     }
 
     #[rstest]
