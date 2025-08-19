@@ -1,6 +1,6 @@
 # Wildside recommendation engine roadmap
 
-## Phase 1: Data Foundation and Core Types
+## Phase 1: Data foundation and core types
 
 This phase focuses on establishing the data ingestion pipeline and defining the
 core data structures of the engine.
@@ -35,8 +35,7 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
-  Result<Vec<Vec<Duration>>, Error>.`
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -112,7 +111,7 @@ This phase implements the core logic that gives the engine its intelligence.
   `score`, and a `Diagnostics` struct for metrics like solve time and number of
   candidates.
 
-## Phase 3: The Orienteering Problem Solver
+## Phase 3: The orienteering problem solver
 
 This phase tackles the complex route-finding algorithm.
 
@@ -145,7 +144,7 @@ This phase tackles the complex route-finding algorithm.
   the necessary components (store, scorer, solver), call the solver, and print
   the resulting `SolveResponse` as formatted JSON.
 
-## Phase 4: Testing, Deployment, and Polish
+## Phase 4: Testing, deployment, and polish
 
 This phase ensures the engine is robust, reliable, and ready for integration.
 
