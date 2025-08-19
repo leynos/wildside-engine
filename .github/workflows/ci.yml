@@ -29,6 +29,18 @@ jobs:
       - name: Test
         run: make test
       - name: Lint Markdown
-        run: make markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@992badcdf24e3b8eb7e87ff9287fe931bcb00c6e # v20
+        with:
+          globs: '**/*.md'
+      - name: Install uv
+        id: setup-uv
+        # v6.4.3
+        uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc
+        with:
+          cache-dependency-glob: |
+            **/pyproject.toml
+            **/uv.lock
+      - name: Install Nixie
+        run: uv tool install --from git+https://github.com/leynos/nixie nixie
       - name: Validate diagrams
         run: make nixie
