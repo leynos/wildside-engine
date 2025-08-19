@@ -29,6 +29,24 @@ that every technical decision is justified, every trade-off is examined, and
 the final proposed architecture is powerful, pragmatic, and built for long-term
 maintainability.
 
+### Core domain model
+
+The engine relies on a small set of shared data structures housed in the
+`wildside-core` crate. Keeping these types minimal reduces coupling while
+providing a stable vocabulary across crates.
+
+- `PointOfInterest` stores a unique identifier, a `geo::Coord`, and a map of
+  tags. Tags are stored as `HashMap<String, String>` to mirror the free-form
+  key/value pairs common in OpenStreetMap.
+- `InterestProfile` represents a visitor's thematic preferences as a
+  `HashMap<String, f32>` of weights. `f32` offers sufficient precision for
+  scoring while keeping serialised representations compact.
+- `Route` contains the ordered list of `PointOfInterest` values selected for a
+  tour and the overall `Duration` required to visit them.
+
+These definitions form the backbone of the recommendation engine; higher level
+components such as scorers and solvers operate exclusively on these types.
+
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
 The intelligence of the Wildside engine is predicated on the quality and
