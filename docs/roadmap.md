@@ -35,8 +35,8 @@ core data structures of the engine.
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
-  .
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
+  Result<Vec<Vec<Duration>>, Error>.`
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.
@@ -165,13 +165,20 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 - [ ] In the root `Cargo.toml`, define features like `solver-vrp`,
   `solver-ortools`, and `store-sqlite`.
 - [ ] Forward feature flags from member crates using `[features]` and
-  `dep:`-scoped features to ensure a single source of truth.
+  `dep:`-scoped entries to ensure a single source of truth.
 
   ```toml
+  # In the root Cargo.toml
+  [dependencies]
+  wildside-solver-vrp = { version = "0.1", optional = true, default-features = false }
+  wildside-solver-ortools = { version = "0.1", optional = true, default-features = false }
+  wildside-data = { version = "0.1", optional = true, default-features = false }
+
   [features]
   solver-vrp = ["dep:wildside-solver-vrp"]
   solver-ortools = ["dep:wildside-solver-ortools"]
-  store-sqlite = ["dep:wildside-data?/sqlite"]
+  # Enable the optional dependency and forward its `sqlite` feature
+  store-sqlite = ["dep:wildside-data", "wildside-data/sqlite"]
   ```
 
 - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
