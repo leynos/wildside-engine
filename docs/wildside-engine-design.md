@@ -358,11 +358,12 @@ for performance and scalability.
 
 #### 3.4.1. Artefact versioning and migration
 
-Embed a magic number and a version tuple in each artefact header (e.g., 4-byte
-magic "WSID", u16 major, u16 minor). Bump the major for incompatible changes;
-bump the minor for backward-compatible additions. Provide a
-`wildside-cli migrate` subcommand to upgrade older artefacts, and emit a clear
-error showing expected vs. found versions on mismatch.
+Embed a fixed header: 4-byte ASCII magic "WSID", u16 major, u16 minor, u8
+flags, all little-endian. Bump MAJOR for incompatible changes; bump MINOR for
+backward-compatible additions. Readers MUST refuse unknown MAJOR versions and
+MAY accept newer MINOR versions. Provide a `wildside-cli migrate` subcommand
+that detects legacy headers, runs the appropriate migrator, and emits a clear
+error with expected vs found MAJOR.MINOR on mismatch.
 
 - **Online Path:** The core engine library, when used by the web app, interacts
   *only* with these read-only artefacts. This design choice means the engine
