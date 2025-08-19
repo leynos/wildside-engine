@@ -24,18 +24,19 @@ core data structures of the engine.
 
 - **Define Core Domain Model**
 
-- [ ] In `wildside-core`, define the public struct `PointOfInterest`
+- [x] In `wildside-core`, define the public struct `PointOfInterest`
   with essential fields like `id`, `location: geo::Coord`, and
   `tags: HashMap<String, String>`.
-- [ ] Define the `InterestProfile` struct to hold a user's selected themes and
+- [x] Define the `InterestProfile` struct to hold a user's selected themes and
   their corresponding weights.
-- [ ] Define the `Route` struct, containing an ordered `Vec<PointOfInterest>`
+- [x] Define the `Route` struct, containing an ordered `Vec<PointOfInterest>`
   and a `total_duration: std::time::Duration`.
 - [ ] Define the `PoiStore` trait with methods like
   `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Vec<PointOfInterest>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`.
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`
+  .
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.

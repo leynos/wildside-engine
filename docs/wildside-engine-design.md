@@ -29,6 +29,16 @@ that every technical decision is justified, every trade-off is examined, and
 the final proposed architecture is powerful, pragmatic, and built for long-term
 maintainability.
 
+## Core Domain Model
+
+The `wildside-core` crate defines the engine's public data structures. A
+`PointOfInterest` bundles an identifier, a `geo::Coord` location and
+OpenStreetMap-style tags. `InterestProfile` stores user themes with weights in
+the inclusive range `0.0..=1.0`. `Route` ties an ordered collection of points
+to a positive total duration. Each constructor performs lightweight validation
+and returns a semantic error enum so that invalid input is caught at the
+boundary of the domain layer.
+
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
 The intelligence of the Wildside engine is predicated on the quality and
