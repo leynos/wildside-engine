@@ -37,7 +37,7 @@ system: building a robust, efficient, and scalable data ingestion pipeline for
 the OpenStreetMap (OSM) and Wikidata datasets. The architectural and library
 choices made here will fundamentally impact the performance, operational cost,
 and development complexity of the entire application. The goal is to transform
-raw, community-driven data into a set of structured, read-only artifacts that
+raw, community-driven data into a set of structured, read-only artefacts that
 can be efficiently queried by the core engine.
 
 ### 1.1. Processing Geospatial Structure: A Comparative Analysis of OpenStreetMap PBF Parsers
@@ -171,7 +171,7 @@ in-memory spatial index of POIs for fast and efficient candidate selection.
 This section translates the abstract scoring formula,
 Score(POI)=wp​⋅P(POI)+wu​⋅U(POI,user_profile), into a concrete implementation
 plan. This logic will be encapsulated within a dedicated `Scorer` component,
-leveraging the data artifacts produced by the pipeline in Section 1.
+leveraging the data artefacts produced by the pipeline in Section 1.
 
 ### 2.1. Calculating Global Popularity `P(POI)`
 
@@ -200,7 +200,7 @@ The implementation steps within the ETL pipeline are as follows:
 
 3. These individual metrics are then normalized and combined using a weighted
    formula to produce a single floating-point `global_popularity_score`, which
-   is then saved to the `popularity.bin` artifact.
+   is then saved to the `popularity.bin` artefact.
 
 ### 2.2. Calculating User Relevance `U(POI, user_profile)`
 
@@ -226,7 +226,7 @@ The implementation steps at request time are as follows:
    the pre-computed `P(POI)` (loaded from `popularity.bin`) and the
    just-in-time `U(POI)` using the specified weights: wp​ and wu​.
 
-The architectural decision to use offline, read-only data artifacts is the key
+The architectural decision to use offline, read-only data artefacts is the key
 technical enabler for this entire personalization feature. Performing thousands
 of property checks as indexed queries against a local database can be
 accomplished in milliseconds, ensuring a responsive user experience.
@@ -276,32 +276,33 @@ clear boundaries while allowing for atomic changes across crates when necessary.
   - Implements the `PoiStore` trait from the core crate.
 
   - Handles OSM PBF ingestion (using `osmpbf`), Wikidata dump parsing, and
-    building the data artifacts (e.g., SQLite/RocksDB stores and the `rstar`
+    building the data artefacts (e.g., SQLite/RocksDB stores and the `rstar`
     index).
 
-- `wildside-scorer`: Implements the `Scorer` trait.
+- (Planned) `wildside-scorer`: Implements the `Scorer` trait.
 
   - Contains the logic for both the offline pre-computation of global
     popularity scores and the per-request calculation of user relevance.
 
-- `wildside-solver-vrp`: The default, native Rust implementation of the
-  `Solver` trait, using the `vrp-core` library.
+- (Planned) `wildside-solver-vrp`: The default, native Rust implementation of
+  the `Solver` trait, using the `vrp-core` library.
 
-- `wildside-solver-ortools`: An optional implementation of the `Solver`
-  trait, using bindings to Google's CP-SAT solver. This would be enabled via a
-  feature flag for users who require its specific performance characteristics
-  and are willing to manage the C++ dependency.
+- (Planned) `wildside-solver-ortools`: An optional implementation of the
+  `Solver` trait, using bindings to Google's CP-SAT solver. This would be
+  enabled via a feature flag for users who require its specific performance
+  characteristics and are willing to manage the C++ dependency.
 
 - `wildside-cli`: A small command-line application for operational tasks.
 
   - `ingest`: Runs the full ETL pipeline from `wildside-data` to build
-    the necessary data artifacts.
+    the necessary data artefacts.
 
-  - `score`: Triggers the batch computation of global popularity scores.
+  - (Planned) `score`: Triggers the batch computation of global popularity
+    scores.
 
-  - `solve`: A utility to run the solver from the command line by feeding it a
-    JSON request, which is invaluable for performance testing and offline
-    debugging.
+  - (Planned) `solve`: A utility to run the solver from the command line by
+    feeding it a JSON request, which is invaluable for performance testing and
+    offline debugging.
 
 ### 3.3. A Stable, Performant, and Boring API Surface
 
@@ -341,20 +342,31 @@ for performance and scalability.
 
 - **Offline Path:** The `wildside-cli` is used to execute the idempotent
   ETL process. This process takes raw OSM and Wikidata data and produces a set
-  of optimized, read-only artifacts:
+  of optimized, read-only artefacts:
 
   - `pois.db`: An SQLite (or RocksDB) file containing the enriched POI data,
-    indexed for fast lookups.
+    indexed for fast lookups. Schema changes are backward compatible within a
+    major release.
 
   - `pois.rstar`: A serialized R\*-tree file for fast spatial queries, which
     can be loaded into memory using memory-mapping (e.g., with `memmap2`) for
-    near-instant startup.
+    near-instant startup. The layout remains stable across 0.x releases.
 
-  - `popularity.bin`: A compact binary file of pre-calculated global popularity
-    scores.
+  - `popularity.bin`: A compact binary file of pre-calculated global
+    popularity scores. The structure remains stable across 0.x releases; bump
+    the artefact header version per §3.4.1 when making breaking changes.
+
+#### 3.4.1. Artefact versioning and migration
+
+Embed a fixed header: 4-byte ASCII magic "WSID", u16 major, u16 minor, u8
+flags, all little-endian. Bump MAJOR for incompatible changes; bump MINOR for
+backward-compatible additions. Readers MUST refuse unknown MAJOR versions and
+MAY accept newer MINOR versions. Provide a `wildside-cli migrate` subcommand
+that detects legacy headers, runs the appropriate migrator, and emits a clear
+error with expected vs found MAJOR.MINOR on mismatch.
 
 - **Online Path:** The core engine library, when used by the web app, interacts
-  *only* with these read-only artifacts. This design choice means the engine
+  *only* with these read-only artefacts. This design choice means the engine
   itself is side-effect free during a request. It allows application instances
   to be scaled horizontally without needing complex shared state or writeable
   database connections, dramatically simplifying deployment and improving
