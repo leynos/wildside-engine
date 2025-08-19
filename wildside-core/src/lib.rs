@@ -26,7 +26,7 @@ use geo::Coord;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PointOfInterest {
     pub id: u64,
-    pub location: Coord,
+    pub location: Coord<f64>,
     pub tags: HashMap<String, String>,
 }
 
@@ -159,8 +159,8 @@ mod tests {
         assert!(profile.weight("nature").is_none());
     }
 
-    #[rstest]
-    fn route_preserves_order() {
+    #[fixture]
+    fn two_pois() -> (PointOfInterest, PointOfInterest) {
         let poi1 = PointOfInterest {
             id: 1,
             location: Coord { x: 0.0, y: 0.0 },
@@ -171,12 +171,17 @@ mod tests {
             location: Coord { x: 1.0, y: 1.0 },
             tags: HashMap::new(),
         };
+        (poi1, poi2)
+    }
+
+    #[rstest]
+    fn route_preserves_order(two_pois: (PointOfInterest, PointOfInterest)) {
+        let (poi1, poi2) = two_pois;
         let route = Route {
             pois: vec![poi1.clone(), poi2.clone()],
             total_duration: Duration::from_secs(120),
         };
-        assert_eq!(route.pois[0], poi1);
-        assert_eq!(route.pois[1], poi2);
+        assert_eq!(route.pois, vec![poi1, poi2]);
         assert_eq!(route.total_duration.as_secs(), 120);
     }
 

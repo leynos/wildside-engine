@@ -3,7 +3,7 @@ Feature: Interest profiles
   Scenario: known theme
     Given an interest profile with history weight 0.8
     When I query the weight for history
-    Then I get 0.8
+    Then I get approximately 0.8
 
   Scenario: unknown theme
     Given an interest profile with history weight 0.8
@@ -19,6 +19,6 @@ Feature: Interest profiles
     Given an interest profile with history weight 0.8
     And an interest profile with art weight 0.3
     When I query the weight for history
-    Then I get 0.8
+    Then I get approximately 0.8
     When I query the weight for art
-    Then I get 0.3
+    Then I get approximately 0.3

@@ -1,3 +1,5 @@
+//! Behaviour-driven tests verifying interest weight lookups for InterestProfile.
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -5,8 +7,6 @@ use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 
 use wildside_core::InterestProfile;
-
-// Behaviour tests verifying interest weight lookups.
 
 #[derive(Default)]
 struct World {
@@ -44,7 +44,7 @@ fn when_query(#[from(world)] world: &RefCell<World>, theme: String) {
     world.borrow_mut().result = weight;
 }
 
-#[then("I get {weight:f32}")]
+#[then("I get approximately {weight:f32}")]
 fn then_result(#[from(world)] world: &RefCell<World>, weight: f32) {
     let actual = world.borrow().result.expect("expected weight");
     assert!(
