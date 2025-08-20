@@ -1,24 +1,15 @@
 Feature: Interest profiles
 
-  Scenario: known theme
-    Given an interest profile with history weight 0.8
-    When I query the weight for history
-    Then I get approximately 0.8
+  Scenario Outline: Querying interest profile weights
+    Given an interest profile with weights <weights>
+    When I query the weight for "<theme>"
+    Then the result is <expected>
 
-  Scenario: unknown theme
-    Given an interest profile with history weight 0.8
-    When I query the weight for art
-    Then no weight is returned
-
-  Scenario: empty profile
-    Given an empty interest profile
-    When I query the weight for history
-    Then no weight is returned
-
-  Scenario: multiple themes
-    Given an interest profile with history weight 0.8
-    And an interest profile with art weight 0.3
-    When I query the weight for history
-    Then I get approximately 0.8
-    When I query the weight for art
-    Then I get approximately 0.3
+    Examples:
+      | weights                      | theme    | expected |
+      | {"history": 0.8}             | history  | 0.8      |
+      | {"history": 0.8}             | art      | null     |
+      | {}                           | history  | null     |
+      | {"history": 0.8, "art": 0.3} | history  | 0.8      |
+      | {"history": 0.8, "art": 0.3} | art      | 0.3      |
+      | {"history": 0.8}             | invalid  | error    |

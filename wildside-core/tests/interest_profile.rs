@@ -1,76 +1,28 @@
-//! Behaviour-driven tests verifying interest weight lookups for InterestProfile.
+//! Behaviour tests verifying interest profile weight lookups.
 
-use std::cell::RefCell;
+use std::collections::HashMap;
+use std::str::FromStr;
 
-use rstest::fixture;
-use rstest_bdd_macros::{given, scenario, then, when};
-
+use rstest::rstest;
 use wildside_core::{InterestProfile, Theme};
 
-#[derive(Default)]
-struct World {
-    profile: Option<InterestProfile>,
-    result: Option<f32>,
-}
-
-#[fixture]
-fn world() -> RefCell<World> {
-    RefCell::new(World::default())
+#[rstest]
+#[case(r#"{"history":0.8}"#, "history", Some(0.8))]
+#[case(r#"{"history":0.8}"#, "art", None)]
+#[case(r#"{}"#, "history", None)]
+#[case(r#"{"history":0.8,"art":0.3}"#, "history", Some(0.8))]
+#[case(r#"{"history":0.8,"art":0.3}"#, "art", Some(0.3))]
+fn query_weights(#[case] weights: &str, #[case] theme: &str, #[case] expected: Option<f32>) {
+    let map: HashMap<String, f32> = serde_json::from_str(weights).expect("valid weights");
+    let mut profile = InterestProfile::new();
+    for (k, v) in map {
+        profile.set_weight(Theme::from_str(&k).unwrap(), v);
+    }
+    let theme = Theme::from_str(theme).unwrap();
+    assert_eq!(profile.weight(&theme), expected);
 }
 
 #[test]
-fn query_theme_in_empty_interest_profile() {
-    let profile = InterestProfile::new();
-    assert!(profile.weight(&Theme::Nature).is_none());
+fn invalid_theme_name() {
+    assert!(Theme::from_str("sci-fi").is_err());
 }
-
-#[given("an interest profile with {theme} weight {weight:f32}")]
-fn given_profile(#[from(world)] world: &RefCell<World>, theme: Theme, weight: f32) {
-    let mut world = world.borrow_mut();
-    if let Some(profile) = world.profile.as_mut() {
-        profile.set_weight(theme, weight);
-    } else {
-        world.profile = Some(InterestProfile::new().with_weight(theme, weight));
-    }
-}
-
-#[given("an empty interest profile")]
-fn given_empty_profile(#[from(world)] world: &RefCell<World>) {
-    world.borrow_mut().profile = Some(InterestProfile::new());
-}
-
-#[when("I query the weight for {theme}")]
-fn when_query(#[from(world)] world: &RefCell<World>, theme: Theme) {
-    let weight = world
-        .borrow()
-        .profile
-        .as_ref()
-        .and_then(|p| p.weight(&theme));
-    world.borrow_mut().result = weight;
-}
-
-#[then("I get approximately {weight:f32}")]
-fn then_result(#[from(world)] world: &RefCell<World>, weight: f32) {
-    let actual = world.borrow().result.expect("expected weight");
-    assert!(
-        (actual - weight).abs() < 1.0e-6,
-        "actual={actual}, expected={weight}"
-    );
-}
-
-#[then("no weight is returned")]
-fn then_none(#[from(world)] world: &RefCell<World>) {
-    assert!(world.borrow().result.is_none());
-}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 0)]
-fn known_theme(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 1)]
-fn unknown_theme(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 2)]
-fn empty_profile(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 3)]
-fn multiple_themes(world: RefCell<World>) {}

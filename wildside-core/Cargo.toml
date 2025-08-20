@@ -9,5 +9,4 @@ geo = "0.30.0"
 
 [dev-dependencies]
 rstest = "0.26.1"
-rstest-bdd = { git = "https://github.com/leynos/rstest-bdd", rev = "19ac43e8005eb25314ebc64c2e76f8d6b2b3d93c", version = "0.1.0" }
-rstest-bdd-macros = { git = "https://github.com/leynos/rstest-bdd", rev = "19ac43e8005eb25314ebc64c2e76f8d6b2b3d93c", version = "0.1.0", package = "rstest-bdd-macros" }
+serde_json = "1"
