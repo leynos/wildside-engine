@@ -27,8 +27,8 @@ core data structures of the engine.
 - [x] In `wildside-core`, define the public struct `PointOfInterest`
   with essential fields like `id`, `location: geo::Coord`, and
   `tags: HashMap<String, String>`.
-- [x] Define the `InterestProfile` struct to hold selected themes and their
-  corresponding weights.
+- [x] Define the `InterestProfile` struct to hold selected themes for visitors
+  and their corresponding weights.
 - [x] Define the `Route` struct, containing an ordered `Vec<PointOfInterest>`
   and a `total_duration: std::time::Duration`.
 - [ ] Define the `PoiStore` trait with methods like
