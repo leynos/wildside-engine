@@ -25,7 +25,7 @@ core data structures of the engine.
 - **Define Core Domain Model**
 
 - [x] In `wildside-core`, define the public struct `PointOfInterest`
-  with essential fields like `id`, `location: geo::Coord`, and
+  with essential fields like `id`, `location: geo::Coord<f64>`, and
   `tags: HashMap<String, String>`.
 - [x] Define the `InterestProfile` struct to hold selected themes for visitors
   and their corresponding weights.

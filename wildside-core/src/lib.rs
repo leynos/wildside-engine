@@ -78,6 +78,7 @@ impl std::str::FromStr for Theme {
 
 /// A location worth visiting.
 ///
+/// Coordinates are WGS84 with `x = longitude` and `y = latitude`.
 /// Tags mirror OpenStreetMap's free-form key/value structure.
 ///
 /// # Examples
