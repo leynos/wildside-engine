@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 geo = "0.30.0"
+thiserror = "1"
 
 [dev-dependencies]
 rstest = "0.26.1"

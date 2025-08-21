@@ -17,15 +17,15 @@ use crate::PointOfInterest;
 /// let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
 /// let route = Route::new(vec![poi], Duration::from_secs(60));
 ///
-/// assert_eq!(route.pois.len(), 1);
-/// assert_eq!(route.total_duration.as_secs(), 60);
+/// assert_eq!(route.pois().len(), 1);
+/// assert_eq!(route.total_duration().as_secs(), 60);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Route {
     /// Points of interest visited in order.
-    pub pois: Vec<PointOfInterest>,
+    pois: Vec<PointOfInterest>,
     /// Total duration of the route.
-    pub total_duration: Duration,
+    total_duration: Duration,
 }
 
 impl Route {
@@ -39,7 +39,7 @@ impl Route {
     ///
     /// let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
     /// let route = Route::new(vec![poi.clone()], Duration::from_secs(30));
-    /// assert_eq!(route.pois, vec![poi]);
+    /// assert_eq!(route.pois(), &[poi]);
     /// ```
     pub fn new(pois: Vec<PointOfInterest>, total_duration: Duration) -> Self {
         Self {
@@ -55,11 +55,21 @@ impl Route {
     /// use wildside_core::Route;
     ///
     /// let route = Route::empty();
-    /// assert!(route.pois.is_empty());
-    /// assert_eq!(route.total_duration.as_secs(), 0);
+    /// assert!(route.pois().is_empty());
+    /// assert_eq!(route.total_duration().as_secs(), 0);
     /// ```
     pub fn empty() -> Self {
         Self::new(Vec::new(), Duration::ZERO)
+    }
+
+    /// Points of interest in order.
+    pub fn pois(&self) -> &[PointOfInterest] {
+        &self.pois
+    }
+
+    /// Total duration of the route.
+    pub fn total_duration(&self) -> Duration {
+        self.total_duration
     }
 }
 
@@ -73,14 +83,14 @@ mod tests {
         let poi1 = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
         let poi2 = PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 1.0 });
         let route = Route::new(vec![poi1.clone(), poi2.clone()], Duration::from_secs(120));
-        assert_eq!(route.pois, vec![poi1, poi2]);
-        assert_eq!(route.total_duration.as_secs(), 120);
+        assert_eq!(route.pois(), &[poi1, poi2]);
+        assert_eq!(route.total_duration().as_secs(), 120);
     }
 
     #[test]
     fn empty_route_has_zero_duration() {
         let route = Route::empty();
-        assert!(route.pois.is_empty());
-        assert_eq!(route.total_duration.as_secs(), 0);
+        assert!(route.pois().is_empty());
+        assert_eq!(route.total_duration().as_secs(), 0);
     }
 }
