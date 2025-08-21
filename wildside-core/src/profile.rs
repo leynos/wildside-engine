@@ -1,3 +1,9 @@
+//! Interest profiles: per-theme user preference weights in `[0.0, 1.0]`.
+//!
+//! Provides an API to set, get, and chain theme weights. Prefer the
+//! non-panicking `try_*` methods (to be added) for validation in library
+//! code.
+
 use std::collections::HashMap;
 
 use crate::Theme;
@@ -13,15 +19,9 @@ use crate::Theme;
 ///     .with_weight(Theme::Art, 0.6);
 /// assert_eq!(profile.weight(&Theme::History), Some(0.8));
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct InterestProfile {
     weights: HashMap<Theme, f32>,
-}
-
-impl Default for InterestProfile {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl InterestProfile {
@@ -35,9 +35,7 @@ impl InterestProfile {
     /// assert!(profile.weight(&wildside_core::Theme::Food).is_none());
     /// ```
     pub fn new() -> Self {
-        Self {
-            weights: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Return the weight for a theme, if present.
@@ -56,9 +54,7 @@ impl InterestProfile {
 
     /// Insert or update a theme weight.
     ///
-    /// # Panics
-    ///
-    /// Panics if `weight` is outside `0.0..=1.0`.
+    /// Values are clamped into `0.0..=1.0`.
     ///
     /// # Examples
     /// ```
@@ -69,11 +65,8 @@ impl InterestProfile {
     /// assert_eq!(profile.weight(&Theme::Shopping), Some(0.7));
     /// ```
     pub fn set_weight(&mut self, theme: Theme, weight: f32) {
-        assert!(
-            (0.0..=1.0).contains(&weight),
-            "weight must be between 0.0 and 1.0",
-        );
-        self.weights.insert(theme, weight);
+        let clamped = weight.clamp(0.0, 1.0);
+        self.weights.insert(theme, clamped);
     }
 
     /// Add a theme weight while returning `self` for chaining.
@@ -122,9 +115,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn set_weight_rejects_invalid_range() {
+    fn set_weight_clamps_out_of_range() {
         let mut profile = InterestProfile::new();
         profile.set_weight(Theme::History, 1.2);
+        assert_eq!(profile.weight(&Theme::History), Some(1.0));
+        profile.set_weight(Theme::Art, -0.5);
+        assert_eq!(profile.weight(&Theme::Art), Some(0.0));
     }
 }

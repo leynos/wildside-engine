@@ -11,13 +11,21 @@
 //! ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Theme {
+    /// Historical attractions.
     History,
+    /// Artistic venues and galleries.
     Art,
+    /// Natural landscapes and parks.
     Nature,
+    /// Food and cuisine experiences.
     Food,
+    /// Architectural landmarks.
     Architecture,
+    /// Shopping districts and markets.
     Shopping,
+    /// Entertainment and nightlife.
     Entertainment,
+    /// Cultural centres and events.
     Culture,
 }
 

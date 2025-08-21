@@ -1,3 +1,7 @@
+//! Routes through points of interest.
+//!
+//! Aggregates ordered POIs with a total duration.
+
 use std::time::Duration;
 
 use crate::PointOfInterest;
@@ -18,7 +22,9 @@ use crate::PointOfInterest;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Route {
+    /// Points of interest visited in order.
     pub pois: Vec<PointOfInterest>,
+    /// Total duration of the route.
     pub total_duration: Duration,
 }
 

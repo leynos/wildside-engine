@@ -1,11 +1,14 @@
+//! Points of interest (POIs).
+//!
+//! Defines the `PointOfInterest` domain type and helpers.
+//! Coordinates are WGS84 (`x = longitude`, `y = latitude`); tags mirror
+//! OpenStreetMap keys.
+
 use std::collections::HashMap;
 
 use geo::Coord;
 
 /// A location worth visiting.
-///
-/// Coordinates are WGS84 with `x = longitude` and `y = latitude`.
-/// Tags mirror OpenStreetMap's free-form key/value structure.
 ///
 /// # Examples
 /// ```
@@ -24,8 +27,11 @@ use geo::Coord;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct PointOfInterest {
+    /// Unique identifier for the POI.
     pub id: u64,
+    /// Geographic location (WGS84; `x = longitude`, `y = latitude`).
     pub location: Coord<f64>,
+    /// Free-form tags, e.g., from OpenStreetMap.
     pub tags: HashMap<String, String>,
 }
 
