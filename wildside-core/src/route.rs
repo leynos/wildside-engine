@@ -1,6 +1,8 @@
-//! Routes through points of interest.
+//! Routes: ordered paths through points of interest with a caller-supplied duration.
 //!
-//! Aggregates ordered POIs with a total duration.
+//! This module defines [`Route`], representing an ordered sequence of points of
+//! interest along with an overall duration. The duration is not computed from
+//! POIs; supply it from your planning logic.
 
 use std::time::Duration;
 
@@ -21,6 +23,7 @@ use crate::PointOfInterest;
 /// assert_eq!(route.total_duration().as_secs(), 60);
 /// ```
 #[derive(Debug, Clone, PartialEq, Default)]
+#[must_use]
 pub struct Route {
     /// Points of interest visited in order.
     pois: Vec<PointOfInterest>,

@@ -44,7 +44,10 @@ fn try_set_weight_rejects_out_of_range(#[case] weights: &str, #[case] theme: &st
     assert!(profile.weight(&theme).is_none());
 }
 
-#[test]
-fn invalid_theme_name() {
-    assert!(Theme::from_str("sci-fi").is_err());
+#[rstest]
+#[case("sci-fi")]
+#[case("")]
+#[case("HISTORY!")]
+fn invalid_theme_name(#[case] s: &str) {
+    assert!(Theme::from_str(s).is_err());
 }
