@@ -1,4 +1,4 @@
-//! Behaviour tests verifying interest profile weight lookups.
+//! Unit tests verifying interest profile weight lookups and validation.
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -16,7 +16,8 @@ use wildside_core::{InterestProfile, Theme};
 #[case(r#"{"history":0.8,"art":0.3}"#, "history", Some(0.8))]
 #[case(r#"{"history":0.8,"art":0.3}"#, "art", Some(0.3))]
 fn query_weights(#[case] weights: &str, #[case] theme: &str, #[case] expected: Option<f32>) {
-    let map: HashMap<String, f32> = serde_json::from_str(weights).expect("valid weights");
+    let map: HashMap<String, f32> =
+        serde_json::from_str(weights).expect("failed to parse test JSON weights");
     let mut profile = InterestProfile::new();
     for (k, v) in map {
         profile.set_weight(Theme::from_str(&k).expect("valid theme key"), v);
@@ -29,7 +30,8 @@ fn query_weights(#[case] weights: &str, #[case] theme: &str, #[case] expected: O
 #[case(r#"{"history":1.5}"#, "history")]
 #[case(r#"{"history":-0.2}"#, "history")]
 fn try_set_weight_rejects_out_of_range(#[case] weights: &str, #[case] theme: &str) {
-    let map: HashMap<String, f32> = serde_json::from_str(weights).expect("valid weights");
+    let map: HashMap<String, f32> =
+        serde_json::from_str(weights).expect("failed to parse test JSON weights");
     let mut profile = InterestProfile::new();
     for (k, v) in map {
         assert!(

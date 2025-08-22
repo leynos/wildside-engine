@@ -20,7 +20,7 @@ use crate::PointOfInterest;
 /// assert_eq!(route.pois().len(), 1);
 /// assert_eq!(route.total_duration().as_secs(), 60);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Route {
     /// Points of interest visited in order.
     pois: Vec<PointOfInterest>,

@@ -65,7 +65,7 @@ impl InterestProfile {
 
     /// Insert or update a theme weight.
     ///
-    /// Delegates to [`try_set_weight`] and panics on error.
+    /// Delegates to [`Self::try_set_weight`] and panics on error.
     ///
     /// # Panics
     /// Panics if `weight` is outside `0.0..=1.0` or not finite (NaN/∞).
