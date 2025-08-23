@@ -35,6 +35,8 @@ markdownlint: ## Lint Markdown files
 	find . -type f -name '*.md' -not -path './target/*' -print0 | xargs -0 $(MDLINT)
 
 nixie: ## Validate Mermaid diagrams
+	# CI currently requires --no-sandbox; remove once nixie supports
+	# environment variable control for this option
 	nixie --no-sandbox
 
 help: ## Show available targets
