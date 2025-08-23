@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use rstest::rstest;
-use wildside_core::{InterestProfile, Theme};
+use wildside_core::{InterestProfile, Theme, profile::WeightError};
 
 #[rstest]
 #[case(r#"{"history":0.8}"#, "history", Some(0.8))]
@@ -23,7 +23,17 @@ fn query_weights(#[case] weights: &str, #[case] theme: &str, #[case] expected: O
         profile.set_weight(Theme::from_str(&k).expect("valid theme key"), v);
     }
     let theme = Theme::from_str(theme).expect("valid theme under test");
-    assert_eq!(profile.weight(&theme), expected);
+    match (profile.weight(&theme), expected) {
+        (Some(actual), Some(expected)) => {
+            let eps = 1e-6_f32;
+            assert!(
+                (actual - expected).abs() <= eps,
+                "weight {actual} is not within {eps} of expected {expected}"
+            );
+        }
+        (None, None) => {}
+        (got, want) => panic!("weight mismatch: got {got:?}, want {want:?}"),
+    }
 }
 
 #[rstest]
@@ -34,10 +44,12 @@ fn try_set_weight_rejects_out_of_range(#[case] weights: &str, #[case] theme: &st
         serde_json::from_str(weights).expect("failed to parse test JSON weights");
     let mut profile = InterestProfile::new();
     for (k, v) in map {
+        let err = profile
+            .try_set_weight(Theme::from_str(&k).expect("valid theme key"), v)
+            .expect_err("expected out-of-range weight to error");
         assert!(
-            profile
-                .try_set_weight(Theme::from_str(&k).expect("valid theme key"), v)
-                .is_err()
+            matches!(err, WeightError::OutOfRange),
+            "expected OutOfRange, got {err:?}"
         );
     }
     let theme = Theme::from_str(theme).expect("valid theme under test");
