@@ -10,6 +10,7 @@
 //! assert_eq!(Theme::Art.to_string(), "art");
 //! ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Theme {
     /// Historical attractions.
     History,
@@ -62,16 +63,24 @@ impl std::str::FromStr for Theme {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "history" => Ok(Self::History),
-            "art" => Ok(Self::Art),
-            "nature" => Ok(Self::Nature),
-            "food" => Ok(Self::Food),
-            "architecture" => Ok(Self::Architecture),
-            "shopping" => Ok(Self::Shopping),
-            "entertainment" => Ok(Self::Entertainment),
-            "culture" => Ok(Self::Culture),
-            _ => Err(format!("unknown theme '{s}'")),
+        if s.eq_ignore_ascii_case("history") {
+            Ok(Self::History)
+        } else if s.eq_ignore_ascii_case("art") {
+            Ok(Self::Art)
+        } else if s.eq_ignore_ascii_case("nature") {
+            Ok(Self::Nature)
+        } else if s.eq_ignore_ascii_case("food") {
+            Ok(Self::Food)
+        } else if s.eq_ignore_ascii_case("architecture") {
+            Ok(Self::Architecture)
+        } else if s.eq_ignore_ascii_case("shopping") {
+            Ok(Self::Shopping)
+        } else if s.eq_ignore_ascii_case("entertainment") {
+            Ok(Self::Entertainment)
+        } else if s.eq_ignore_ascii_case("culture") {
+            Ok(Self::Culture)
+        } else {
+            Err(format!("unknown theme '{s}'"))
         }
     }
 }

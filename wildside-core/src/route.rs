@@ -62,7 +62,7 @@ impl Route {
     /// assert_eq!(route.total_duration().as_secs(), 0);
     /// ```
     pub fn empty() -> Self {
-        Self::new(Vec::new(), Duration::ZERO)
+        Self::default()
     }
 
     /// Points of interest in order.
