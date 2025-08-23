@@ -71,7 +71,7 @@ impl std::str::FromStr for Theme {
             "shopping" => Ok(Self::Shopping),
             "entertainment" => Ok(Self::Entertainment),
             "culture" => Ok(Self::Culture),
-            other => Err(format!("unknown theme '{other}'")),
+            _ => Err(format!("unknown theme '{s}'")),
         }
     }
 }

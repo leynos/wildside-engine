@@ -61,5 +61,33 @@ fn try_set_weight_rejects_out_of_range(#[case] weights: &str, #[case] theme: &st
 #[case("")]
 #[case("HISTORY!")]
 fn invalid_theme_name(#[case] s: &str) {
-    assert!(Theme::from_str(s).is_err());
+    let err = Theme::from_str(s).expect_err("expected invalid theme");
+    assert!(
+        err.contains(s),
+        "error should reference invalid input '{s}', got '{err}'",
+    );
+}
+
+#[test]
+fn try_set_weight_does_not_mutate_on_error() {
+    let mut profile = InterestProfile::new();
+    profile.set_weight(Theme::History, 0.5);
+    let err = profile
+        .try_set_weight(Theme::History, 1.5)
+        .expect_err("expected out-of-range weight to error");
+    assert!(matches!(err, WeightError::OutOfRange));
+    let actual = profile
+        .weight(&Theme::History)
+        .expect("history weight present");
+    assert!(
+        (actual - 0.5).abs() <= 1e-6,
+        "weight mutated on error: {actual}",
+    );
+}
+
+#[test]
+#[should_panic]
+fn set_weight_panics_out_of_range() {
+    let mut profile = InterestProfile::new();
+    profile.set_weight(Theme::History, 1.01);
 }
