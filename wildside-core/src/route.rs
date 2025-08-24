@@ -61,9 +61,8 @@ impl Route {
     /// assert!(route.pois().is_empty());
     /// assert_eq!(route.total_duration().as_secs(), 0);
     /// ```
-    pub fn empty() -> Self {
-        Self::default()
-    }
+    #[rustfmt::skip]
+    pub fn empty() -> Self { Self::default() }
 
     /// Points of interest in order.
     pub fn pois(&self) -> &[PointOfInterest] {

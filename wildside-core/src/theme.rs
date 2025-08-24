@@ -100,4 +100,10 @@ mod tests {
         let err = Theme::from_str("unknown").unwrap_err();
         assert!(err.contains("unknown theme"));
     }
+
+    #[test]
+    fn parses_case_insensitively() {
+        assert_eq!(Theme::from_str("HiStOrY").expect("parse"), Theme::History);
+        assert_eq!(Theme::from_str("ART").expect("parse"), Theme::Art);
+    }
 }

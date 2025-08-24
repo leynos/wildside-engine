@@ -8,18 +8,20 @@ use std::collections::HashMap;
 
 use geo::Coord;
 
+/// Map of tag key/value pairs (typically OSM-like).
+pub type Tags = HashMap<String, String>;
+
 /// A location worth visiting.
 ///
 /// # Examples
 /// ```
-/// use std::collections::HashMap;
 /// use geo::Coord;
-/// use wildside_core::PointOfInterest;
+/// use wildside_core::{PointOfInterest, Tags};
 ///
 /// let poi = PointOfInterest::new(
 ///     1,
 ///     Coord { x: 1.0, y: 2.0 },
-///     HashMap::from([("name".into(), "Museum".into())]),
+///     Tags::from([("name".into(), "Museum".into())]),
 /// );
 ///
 /// assert_eq!(poi.id, 1);
@@ -32,7 +34,7 @@ pub struct PointOfInterest {
     /// Geographic location (WGS84; `x = longitude`, `y = latitude`).
     pub location: Coord<f64>,
     /// Free-form tags, e.g., from OpenStreetMap.
-    pub tags: HashMap<String, String>,
+    pub tags: Tags,
 }
 
 impl PointOfInterest {
@@ -40,14 +42,13 @@ impl PointOfInterest {
     ///
     /// # Examples
     /// ```
-    /// use std::collections::HashMap;
     /// use geo::Coord;
-    /// use wildside_core::PointOfInterest;
+    /// use wildside_core::{PointOfInterest, Tags};
     ///
-    /// let poi = PointOfInterest::new(1, Coord { x: 0.0, y: 0.0 }, HashMap::new());
+    /// let poi = PointOfInterest::new(1, Coord { x: 0.0, y: 0.0 }, Tags::new());
     /// assert_eq!(poi.id, 1);
     /// ```
-    pub fn new(id: u64, location: Coord<f64>, tags: HashMap<String, String>) -> Self {
+    pub fn new(id: u64, location: Coord<f64>, tags: Tags) -> Self {
         Self { id, location, tags }
     }
 
@@ -62,7 +63,7 @@ impl PointOfInterest {
     /// assert!(poi.tags.is_empty());
     /// ```
     pub fn with_empty_tags(id: u64, location: Coord<f64>) -> Self {
-        Self::new(id, location, HashMap::new())
+        Self::new(id, location, Tags::new())
     }
 }
 
@@ -75,7 +76,7 @@ mod tests {
         let poi = PointOfInterest::new(
             1,
             Coord { x: 0.0, y: 0.0 },
-            HashMap::from([("key".into(), "value".into())]),
+            Tags::from([("key".into(), "value".into())]),
         );
         assert_eq!(poi.tags.get("key"), Some(&"value".to_string()));
     }
