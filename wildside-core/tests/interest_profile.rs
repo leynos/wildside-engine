@@ -1,76 +1,95 @@
-//! Behaviour-driven tests verifying interest weight lookups for InterestProfile.
+//! Unit tests verifying interest profile weight lookups and validation.
 
-use std::cell::RefCell;
+use std::collections::HashMap;
+use std::str::FromStr;
 
-use rstest::fixture;
-use rstest_bdd_macros::{given, scenario, then, when};
+use rstest::rstest;
+use wildside_core::{InterestProfile, Theme, profile::WeightError};
 
-use wildside_core::{InterestProfile, Theme};
-
-#[derive(Default)]
-struct World {
-    profile: Option<InterestProfile>,
-    result: Option<f32>,
+fn parse_weights(weights: &str) -> HashMap<String, f32> {
+    serde_json::from_str(weights).expect("failed to parse test JSON weights")
 }
 
-#[fixture]
-fn world() -> RefCell<World> {
-    RefCell::new(World::default())
-}
-
-#[test]
-fn query_theme_in_empty_interest_profile() {
-    let profile = InterestProfile::new();
-    assert!(profile.weight(&Theme::Nature).is_none());
-}
-
-#[given("an interest profile with {theme} weight {weight:f32}")]
-fn given_profile(#[from(world)] world: &RefCell<World>, theme: Theme, weight: f32) {
-    let mut world = world.borrow_mut();
-    if let Some(profile) = world.profile.as_mut() {
-        profile.set_weight(theme, weight);
-    } else {
-        world.profile = Some(InterestProfile::new().with_weight(theme, weight));
+#[rstest]
+#[case(r#"{"history":0.8}"#, "history", Some(0.8))]
+#[case(r#"{"HiStOrY":0.8}"#, "HISTORY", Some(0.8))]
+#[case(r#"{"history":0.0}"#, "history", Some(0.0))]
+#[case(r#"{"history":1.0}"#, "history", Some(1.0))]
+#[case(r#"{"history":0.8}"#, "art", None)]
+#[case(r#"{}"#, "history", None)]
+#[case(r#"{"history":0.8,"art":0.3}"#, "history", Some(0.8))]
+#[case(r#"{"history":0.8,"art":0.3}"#, "art", Some(0.3))]
+fn query_weights(#[case] weights: &str, #[case] theme: &str, #[case] expected: Option<f32>) {
+    let map = parse_weights(weights);
+    let mut profile = InterestProfile::new();
+    for (k, v) in map {
+        profile.set_weight(Theme::from_str(&k).expect("valid theme key"), v);
+    }
+    let theme = Theme::from_str(theme).expect("valid theme under test");
+    match (profile.weight(&theme), expected) {
+        (Some(actual), Some(expected)) => {
+            let eps = 1e-6_f32;
+            assert!(
+                (actual - expected).abs() <= eps,
+                "weight {actual} is not within {eps} of expected {expected}"
+            );
+        }
+        (None, None) => {}
+        (got, want) => panic!("weight mismatch: got {got:?}, want {want:?}"),
     }
 }
 
-#[given("an empty interest profile")]
-fn given_empty_profile(#[from(world)] world: &RefCell<World>) {
-    world.borrow_mut().profile = Some(InterestProfile::new());
+#[rstest]
+#[case(r#"{"history":1.5}"#, "history")]
+#[case(r#"{"history":-0.2}"#, "history")]
+fn try_set_weight_rejects_out_of_range(#[case] weights: &str, #[case] theme: &str) {
+    let map = parse_weights(weights);
+    let mut profile = InterestProfile::new();
+    for (k, v) in map {
+        let err = profile
+            .try_set_weight(Theme::from_str(&k).expect("valid theme key"), v)
+            .expect_err("expected out-of-range weight to error");
+        assert!(
+            matches!(err, WeightError::OutOfRange),
+            "expected OutOfRange, got {err:?}"
+        );
+    }
+    let theme = Theme::from_str(theme).expect("valid theme under test");
+    assert!(profile.weight(&theme).is_none());
 }
 
-#[when("I query the weight for {theme}")]
-fn when_query(#[from(world)] world: &RefCell<World>, theme: Theme) {
-    let weight = world
-        .borrow()
-        .profile
-        .as_ref()
-        .and_then(|p| p.weight(&theme));
-    world.borrow_mut().result = weight;
-}
-
-#[then("I get approximately {weight:f32}")]
-fn then_result(#[from(world)] world: &RefCell<World>, weight: f32) {
-    let actual = world.borrow().result.expect("expected weight");
+#[rstest]
+#[case("sci-fi")]
+#[case("")]
+#[case("HISTORY!")]
+fn invalid_theme_name(#[case] s: &str) {
+    let err = Theme::from_str(s).expect_err("expected invalid theme");
     assert!(
-        (actual - weight).abs() < 1.0e-6,
-        "actual={actual}, expected={weight}"
+        err.contains(s),
+        "error should reference invalid input '{s}', got '{err}'",
     );
 }
 
-#[then("no weight is returned")]
-fn then_none(#[from(world)] world: &RefCell<World>) {
-    assert!(world.borrow().result.is_none());
+#[test]
+fn try_set_weight_does_not_mutate_on_error() {
+    let mut profile = InterestProfile::new();
+    profile.set_weight(Theme::History, 0.5);
+    let err = profile
+        .try_set_weight(Theme::History, 1.5)
+        .expect_err("expected out-of-range weight to error");
+    assert!(matches!(err, WeightError::OutOfRange));
+    let actual = profile
+        .weight(&Theme::History)
+        .expect("history weight present");
+    assert!(
+        (actual - 0.5).abs() <= 1e-6,
+        "weight mutated on error: {actual}",
+    );
 }
 
-#[scenario(path = "tests/features/interest_profile.feature", index = 0)]
-fn known_theme(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 1)]
-fn unknown_theme(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 2)]
-fn empty_profile(world: RefCell<World>) {}
-
-#[scenario(path = "tests/features/interest_profile.feature", index = 3)]
-fn multiple_themes(world: RefCell<World>) {}
+#[test]
+#[should_panic]
+fn set_weight_panics_out_of_range() {
+    let mut profile = InterestProfile::new();
+    profile.set_weight(Theme::History, 1.01);
+}
