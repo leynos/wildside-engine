@@ -25,7 +25,7 @@ pub struct InterestProfile {
 }
 
 /// Errors from [`InterestProfile::try_set_weight`].
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum WeightError {
     /// Weight is not within the `0.0..=1.0` range.
     #[error("weight must be within 0.0..=1.0")]
@@ -102,6 +102,9 @@ impl InterestProfile {
 
     /// Add a theme weight while returning `self` for chaining.
     ///
+    /// # Panics
+    /// Panics if `weight` is outside `0.0..=1.0` or not finite (NaN/∞).
+    ///
     /// # Examples
     /// ```
     /// use wildside_core::{InterestProfile, Theme};
@@ -109,6 +112,7 @@ impl InterestProfile {
     /// let profile = InterestProfile::new().with_weight(Theme::History, 0.8);
     /// assert_eq!(profile.weight(&Theme::History), Some(0.8));
     /// ```
+    #[must_use]
     pub fn with_weight(mut self, theme: Theme, weight: f32) -> Self {
         self.set_weight(theme, weight);
         self

@@ -65,14 +65,12 @@ impl Route {
     pub fn empty() -> Self { Self::default() }
 
     /// Points of interest in order.
-    pub fn pois(&self) -> &[PointOfInterest] {
-        &self.pois
-    }
+    #[rustfmt::skip]
+    pub fn pois(&self) -> &[PointOfInterest] { &self.pois }
 
     /// Total duration of the route.
-    pub fn total_duration(&self) -> Duration {
-        self.total_duration
-    }
+    #[rustfmt::skip]
+    pub fn total_duration(&self) -> Duration { self.total_duration }
 }
 
 #[cfg(test)]
