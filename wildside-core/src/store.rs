@@ -25,12 +25,16 @@ use crate::PointOfInterest;
 /// }
 ///
 /// impl PoiStore for MemoryStore {
-///     fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Vec<PointOfInterest> {
-///         self.pois
-///             .iter()
-///             .filter(|p| bbox.contains(&p.location))
-///             .cloned()
-///             .collect()
+///     fn get_pois_in_bbox(
+///         &self,
+///         bbox: &Rect<f64>,
+///     ) -> Box<dyn Iterator<Item = PointOfInterest> + '_> {
+///         Box::new(
+///             self.pois
+///                 .iter()
+///                 .filter(move |p| bbox.contains(&p.location))
+///                 .cloned(),
+///         )
 ///     }
 /// }
 ///
@@ -38,7 +42,8 @@ use crate::PointOfInterest;
 /// let store = MemoryStore { pois: vec![poi.clone()] };
 /// let bbox = Rect::new(Coord { x: -1.0, y: -1.0 }, Coord { x: 1.0, y: 1.0 });
 ///
-/// assert_eq!(store.get_pois_in_bbox(&bbox), vec![poi]);
+/// let found: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
+/// assert_eq!(found, vec![poi]);
 /// ```
 pub trait PoiStore {
     /// Return all POIs that fall within the provided bounding box.
@@ -69,43 +74,29 @@ pub trait PoiStore {
     /// - `Region::polar_cap(min_lat: f64)`
     ///
     /// All POI filters MUST respect these semantics.
-    fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Vec<PointOfInterest>;
+    fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + '_>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use geo::{Contains, Coord};
+    use crate::test_support::MemoryStore;
+    use geo::Coord;
     use rstest::rstest;
-
-    struct MemoryStore {
-        pois: Vec<PointOfInterest>,
-    }
-
-    impl PoiStore for MemoryStore {
-        fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Vec<PointOfInterest> {
-            self.pois
-                .iter()
-                .filter(|p| bbox.contains(&p.location))
-                .cloned()
-                .collect()
-        }
-    }
 
     #[rstest]
     fn returns_pois_inside_bbox() {
         let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
-        let store = MemoryStore {
-            pois: vec![poi.clone()],
-        };
+        let store = MemoryStore::with_poi(poi.clone());
         let bbox = Rect::new(Coord { x: -1.0, y: -1.0 }, Coord { x: 1.0, y: 1.0 });
-        assert_eq!(store.get_pois_in_bbox(&bbox), vec![poi]);
+        let found: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
+        assert_eq!(found, vec![poi]);
     }
 
     #[rstest]
     fn returns_empty_when_no_pois() {
-        let store = MemoryStore { pois: vec![] };
+        let store = MemoryStore::default();
         let bbox = Rect::new(Coord { x: -1.0, y: -1.0 }, Coord { x: 1.0, y: 1.0 });
-        assert!(store.get_pois_in_bbox(&bbox).is_empty());
+        assert_eq!(store.get_pois_in_bbox(&bbox).count(), 0);
     }
 }

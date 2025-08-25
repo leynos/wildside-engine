@@ -11,3 +11,6 @@ pub use profile::InterestProfile;
 pub use route::Route;
 pub use store::PoiStore;
 pub use theme::Theme;
+
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_support;

@@ -48,9 +48,9 @@ providing a stable vocabulary across crates.
   tour and the overall `Duration` required to visit them. `Route::new` and
   `Route::empty` offer clear constructors.
 - `PoiStore` abstracts read-only POI access. The
-  `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Vec<PointOfInterest>`
-  method returns all POIs inside a bounding box, leaving indexing strategies to
-  implementors.
+  `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest>>>`
+  method yields POIs lazily inside a bounding box, leaving indexing strategies
+  to implementors and avoiding unnecessary allocation.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
