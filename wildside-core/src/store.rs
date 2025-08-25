@@ -42,6 +42,33 @@ use crate::PointOfInterest;
 /// ```
 pub trait PoiStore {
     /// Return all POIs that fall within the provided bounding box.
+    ///
+    /// Coordinates use WGS84 on the sphere with axis order (lon, lat) in
+    /// degrees. Longitudes are normalised to [-180.0, 180.0). Latitude is
+    /// [-90.0, 90.0].
+    ///
+    /// Dateline semantics:
+    /// - If `min_lon <= max_lon`, the bbox is a single interval [min_lon,
+    ///   max_lon].
+    /// - If `min_lon > max_lon`, the bbox crosses the antimeridian and
+    ///   represents [min_lon, 180.0) ∪ [-180.0, max_lon].
+    ///
+    /// Polar semantics:
+    /// - Boxes that approach ±90° latitude should be treated as geodesic
+    ///   regions, not planar rectangles. Implementations MUST use great-circle
+    ///   predicates for containment/intersection.
+    ///
+    /// Implementors MAY internally:
+    /// - Split dateline-crossing boxes into two ranges, OR
+    /// - Use a spherical index (e.g., S2/H3) to compute a covering, then
+    ///   refine.
+    ///
+    /// Helper functions are provided:
+    /// - `Bbox::normalized()`
+    /// - `Bbox::split_at_dateline() -> SmallVec<[Bbox; 2]>`
+    /// - `Region::polar_cap(min_lat: f64)`
+    ///
+    /// All POI filters MUST respect these semantics.
     fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Vec<PointOfInterest>;
 }
 
