@@ -34,8 +34,8 @@ core data structures of the engine.
 - [x] Define the `PoiStore` trait with methods like:
   <!-- markdownlint-disable-next-line MD013 -->
   `get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item =
-  PointOfInterest>>>`
-- [ ] Define the `TravelTimeProvider` trait with an `async` method
+  PointOfInterest> + Send>`
+- [ ] Define the `TravelTimeProvider` trait with a method
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
   Result<Vec<Vec<Duration>>, Error>`

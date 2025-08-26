@@ -10,7 +10,7 @@ use crate::PointOfInterest;
 
 /// Read-only access to persisted points of interest.
 ///
-/// Implementors are expected to store POIs in a spatial index such as an
+/// Implementers are expected to store POIs in a spatial index such as an
 /// R\*-tree. The bounding box uses WGS84 coordinates (`x = longitude`,
 /// `y = latitude`).
 ///
@@ -28,7 +28,7 @@ use crate::PointOfInterest;
 ///     fn get_pois_in_bbox(
 ///         &self,
 ///         bbox: &Rect<f64>,
-///     ) -> Box<dyn Iterator<Item = PointOfInterest> + '_> {
+///     ) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_> {
 ///         Box::new(
 ///             self.pois
 ///                 .iter()
@@ -63,7 +63,7 @@ pub trait PoiStore {
     ///   regions, not planar rectangles. Implementations MUST use great-circle
     ///   predicates for containment/intersection.
     ///
-    /// Implementors MAY internally:
+    /// Implementers MAY internally:
     /// - Split dateline-crossing boxes into two ranges, OR
     /// - Use a spherical index (e.g., S2/H3) to compute a covering, then
     ///   refine.
@@ -74,7 +74,10 @@ pub trait PoiStore {
     /// - `Region::polar_cap(min_lat: f64)`
     ///
     /// All POI filters MUST respect these semantics.
-    fn get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + '_>;
+    fn get_pois_in_bbox(
+        &self,
+        bbox: &Rect<f64>,
+    ) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>;
 }
 
 #[cfg(test)]

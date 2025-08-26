@@ -48,9 +48,10 @@ providing a stable vocabulary across crates.
   tour and the overall `Duration` required to visit them. `Route::new` and
   `Route::empty` offer clear constructors.
 - `PoiStore` abstracts read-only POI access. The
-  `get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest>>>`
-  method returns all POIs inside an axis-aligned bounding box (WGS84;
-  `x = longitude`, `y = latitude`). The full semantics are documented in
+  `get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item =`
+  `PointOfInterest> + Send>` method returns all POIs inside an axis-aligned
+  bounding box (WGS84; `x = longitude`, `y = latitude`). The full semantics are
+  documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
 
