@@ -33,8 +33,8 @@ core data structures of the engine.
   and a `total_duration: std::time::Duration`.
 - [x] Define the `PoiStore` trait with methods like:
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item =
-  PointOfInterest> + Send>`
+  `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item =
+  PointOfInterest> + Send + '_>`
 - [ ] Define the `TravelTimeProvider` trait with a method
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->

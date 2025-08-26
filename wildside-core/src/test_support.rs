@@ -1,7 +1,7 @@
 //! Test-only, in-memory PoiStore implementation used by unit and behaviour
 //! tests.
 
-use geo::Rect;
+use geo::{Intersects, Rect};
 
 use crate::{PoiStore, PointOfInterest};
 
@@ -34,15 +34,8 @@ impl PoiStore for MemoryStore {
         Box::new(
             self.pois
                 .iter()
-                // geo::Rect::contains excludes boundary points; use explicit
-                // comparisons to retain inclusive semantics.
-                .filter(move |p| {
-                    let c = p.location;
-                    c.x >= bbox.min().x
-                        && c.x <= bbox.max().x
-                        && c.y >= bbox.min().y
-                        && c.y <= bbox.max().y
-                })
+                // `Intersects` treats boundary points as inside the rectangle.
+                .filter(move |p| bbox.intersects(&p.location))
                 .cloned(),
         )
     }

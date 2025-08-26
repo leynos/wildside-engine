@@ -1,3 +1,5 @@
+//! Behavioural tests for `PoiStore` bounding-box queries.
+
 use geo::{Coord, Rect};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
