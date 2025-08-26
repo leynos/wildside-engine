@@ -503,7 +503,7 @@ dependencies = [
 [[package]]
 name = "rstest-bdd"
 version = "0.1.0"
-source = "git+https://github.com/leynos/rstest-bdd?tag=v0.1.0-alpha1#2cc6150aa8c3c17175154b98f88bea2b054af4ce"
+source = "git+https://github.com/leynos/rstest-bdd?rev=2cc6150aa8c3c17175154b98f88bea2b054af4ce#2cc6150aa8c3c17175154b98f88bea2b054af4ce"
 dependencies = [
  "gherkin",
  "hashbrown",
@@ -515,7 +515,7 @@ dependencies = [
 [[package]]
 name = "rstest-bdd-macros"
 version = "0.1.0"
-source = "git+https://github.com/leynos/rstest-bdd?tag=v0.1.0-alpha1#2cc6150aa8c3c17175154b98f88bea2b054af4ce"
+source = "git+https://github.com/leynos/rstest-bdd?rev=2cc6150aa8c3c17175154b98f88bea2b054af4ce#2cc6150aa8c3c17175154b98f88bea2b054af4ce"
 dependencies = [
  "gherkin",
  "proc-macro2",

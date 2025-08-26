@@ -9,3 +9,8 @@ Feature: PoiStore bounding box queries
     Given a store containing a single POI at the origin
     When I query the bbox that excludes the origin
     Then no POIs are returned
+
+  Scenario: Boundary inclusive
+    Given a store containing a single POI at the origin
+    When I query the bbox whose edge passes through the origin
+    Then one POI is returned

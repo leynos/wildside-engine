@@ -32,7 +32,7 @@ core data structures of the engine.
 - [x] Define the `Route` struct, containing an ordered `Vec<PointOfInterest>`
   and a `total_duration: std::time::Duration`.
 - [x] Define the `PoiStore` trait with methods like
-  `get_pois_in_bbox(&self, bbox: &geo::Rect) -> Box<dyn Iterator<Item = PointOfInterest>>>`.
+  `get_pois_in_bbox(&self, bbox: &Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest>>>`.
 - [ ] Define the `TravelTimeProvider` trait with an `async` method
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, Error>`

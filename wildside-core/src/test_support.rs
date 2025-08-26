@@ -1,4 +1,4 @@
-use geo::{Contains, Rect};
+use geo::Rect;
 
 use crate::{PoiStore, PointOfInterest};
 
@@ -23,7 +23,13 @@ impl PoiStore for MemoryStore {
         Box::new(
             self.pois
                 .iter()
-                .filter(move |p| bbox.contains(&p.location))
+                .filter(move |p| {
+                    let c = p.location;
+                    c.x >= bbox.min().x
+                        && c.x <= bbox.max().x
+                        && c.y >= bbox.min().y
+                        && c.y <= bbox.max().y
+                })
                 .cloned(),
         )
     }
