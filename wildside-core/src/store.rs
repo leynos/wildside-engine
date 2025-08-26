@@ -17,7 +17,7 @@ use crate::PointOfInterest;
 /// # Examples
 ///
 /// ```
-/// use geo::{Coord, Rect, Contains};
+/// use geo::{Coord, Rect, Intersects};
 /// use wildside_core::{PointOfInterest, PoiStore};
 ///
 /// struct MemoryStore {
@@ -32,7 +32,8 @@ use crate::PointOfInterest;
 ///         Box::new(
 ///             self.pois
 ///                 .iter()
-///                 .filter(move |p| bbox.contains(&p.location))
+///                 // `Intersects` treats boundary points as inside the rectangle.
+///                 .filter(move |p| bbox.intersects(&p.location))
 ///                 .cloned(),
 ///         )
 ///     }
@@ -93,11 +94,23 @@ mod tests {
     #[case(Coord { x: 0.0, y: 1.0 })] // top edge
     #[case(Coord { x: -1.0, y: -1.0 })] // bottom-left corner
     #[case(Coord { x: 1.0, y: 1.0 })] // top-right corner
-    fn includes_poi_on_bbox_boundary(#[case] location: Coord) {
+    fn includes_poi_on_bbox_boundary(#[case] location: Coord<f64>) {
         let poi = PointOfInterest::with_empty_tags(42, location);
         let store = MemoryStore::with_poi(poi.clone());
         let bbox = Rect::new(Coord { x: -1.0, y: -1.0 }, Coord { x: 1.0, y: 1.0 });
         let found: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
         assert_eq!(found, vec![poi]);
+    }
+
+    #[rstest]
+    #[case(Coord { x: -1.0000001, y: 0.0 })]
+    #[case(Coord { x: 1.0000001, y: 0.0 })]
+    #[case(Coord { x: 0.0, y: -1.0000001 })]
+    #[case(Coord { x: 0.0, y: 1.0000001 })]
+    fn excludes_poi_just_outside_bbox(#[case] location: Coord<f64>) {
+        let poi = PointOfInterest::with_empty_tags(7, location);
+        let store = MemoryStore::with_poi(poi);
+        let bbox = Rect::new(Coord { x: -1.0, y: -1.0 }, Coord { x: 1.0, y: 1.0 });
+        assert_eq!(store.get_pois_in_bbox(&bbox).count(), 0);
     }
 }

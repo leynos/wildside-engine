@@ -16,12 +16,17 @@ pub struct MemoryStore {
 impl MemoryStore {
     /// Create a store containing a single point of interest.
     pub fn with_poi(poi: PointOfInterest) -> Self {
-        Self { pois: vec![poi] }
+        Self::with_pois(std::iter::once(poi))
     }
 
     /// Create a store from a collection of points of interest.
-    pub fn with_pois(pois: Vec<PointOfInterest>) -> Self {
-        Self { pois }
+    pub fn with_pois<I>(pois: I) -> Self
+    where
+        I: IntoIterator<Item = PointOfInterest>,
+    {
+        Self {
+            pois: pois.into_iter().collect(),
+        }
     }
 }
 

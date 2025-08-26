@@ -19,3 +19,8 @@ Feature: PoiStore bounding box queries
     Given a store containing a single POI at the origin
     When I query the bbox whose edge passes through the origin
     Then one POI is returned
+
+  Scenario: POI returned with reversed bbox corners
+    Given a store containing a single POI at the origin
+    When I query the bbox defined with reversed corners but covering the origin
+    Then one POI is returned

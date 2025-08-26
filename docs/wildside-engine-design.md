@@ -47,13 +47,14 @@ providing a stable vocabulary across crates.
 - `Route` contains the ordered list of `PointOfInterest` values selected for a
   tour and the overall `Duration` required to visit them. `Route::new` and
   `Route::empty` offer clear constructors.
-  - `PoiStore` abstracts read-only POI access. The
-    `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item =`
-    `PointOfInterest> + Send + '_>` method returns all POIs inside an
-    axis-aligned bounding box (WGS84; `x = longitude`, `y = latitude`). The
-    full semantics are documented in
-    [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
-    strategy is left to implementers.
+<!-- markdownlint-disable line-length -->
+- `PoiStore` abstracts read-only POI access. The
+  `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>`
+   method returns all POIs inside an axis-aligned bounding box (WGS84;
+  `x = longitude`, `y = latitude`). The full semantics are documented in
+  [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
+  strategy is left to implementers.
+<!-- markdownlint-enable line-length -->
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
