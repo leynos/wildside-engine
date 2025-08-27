@@ -35,7 +35,7 @@ core data structures of the engine.
   <!-- markdownlint-disable-next-line MD013 -->
   `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item =
   PointOfInterest> + Send + '_>`
-- [ ] Define the `TravelTimeProvider` trait with a method
+  - [x] Define the `TravelTimeProvider` trait with a method
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
   Result<Vec<Vec<Duration>>, Error>`

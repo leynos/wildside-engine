@@ -50,10 +50,15 @@ providing a stable vocabulary across crates.
 <!-- markdownlint-disable line-length -->
 - `PoiStore` abstracts read-only POI access. The
   `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>`
-   method returns all POIs inside an axis-aligned bounding box (WGS84;
+  method returns all POIs inside an axis-aligned bounding box (WGS84;
   `x = longitude`, `y = latitude`). The full semantics are documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
+- `TravelTimeProvider` produces an `n x n` matrix of `Duration` values for a
+  slice of POIs via
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<Vec<Vec<Duration>>, TravelTimeError>`.
+   The method returns an error if called with an empty slice, ensuring callers
+  validate inputs before requesting travel times.
 <!-- markdownlint-enable line-length -->
 
 These definitions form the backbone of the recommendation engine; higher level
