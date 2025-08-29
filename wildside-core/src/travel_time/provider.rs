@@ -1,3 +1,5 @@
+//! Travel-time provider trait and adjacency-matrix alias for POI pairs.
+
 use std::time::Duration;
 
 use crate::PointOfInterest;
@@ -9,7 +11,7 @@ pub type TravelTimeMatrix = Vec<Vec<Duration>>;
 
 /// Fetch pairwise travel times for a set of POIs.
 ///
-/// Implementers must return a square `n\u00d7n` matrix where `n == pois.len()`.
+/// Implementers must return a square `n×n` matrix where `n == pois.len()`.
 /// `matrix[i][j]` is the travel time from `pois[i]` to `pois[j]`.
 ///
 /// # Examples
@@ -47,6 +49,9 @@ pub type TravelTimeMatrix = Vec<Vec<Duration>>;
 /// ```
 pub trait TravelTimeProvider {
     /// Return a matrix of travel times for `pois`.
+    ///
+    /// Implementations must return `Err(TravelTimeError::EmptyInput)` when
+    /// `pois` is empty.
     fn get_travel_time_matrix(
         &self,
         pois: &[PointOfInterest],

@@ -1,4 +1,4 @@
-//! Test-only, in-memory PoiStore implementation used by unit and behaviour
+//! Test-only, in-memory `PoiStore` implementation used by unit and behaviour
 //! tests.
 
 use geo::{Intersects, Rect};

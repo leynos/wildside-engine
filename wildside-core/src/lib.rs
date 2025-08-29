@@ -14,5 +14,5 @@ pub use store::PoiStore;
 pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(feature = "test-support")]
 pub mod test_support;

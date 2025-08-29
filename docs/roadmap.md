@@ -38,7 +38,7 @@ core data structures of the engine.
   - [x] Define the `TravelTimeProvider` trait with a method
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
-  Result<Vec<Vec<Duration>>, TravelTimeError>`
+  Result<TravelTimeMatrix, TravelTimeError>`
 - [ ] Define the `Scorer` trait with a
   `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
   method.

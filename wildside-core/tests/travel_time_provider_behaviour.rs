@@ -20,12 +20,9 @@ fn result() -> RefCell<Result<TravelTimeMatrix, TravelTimeError>> {
     RefCell::new(Ok(Vec::new()))
 }
 
-#[given("a provider returning unit distances")]
-fn given_provider(
-    #[from(provider)] _provider: &UnitTravelTimeProvider,
-    #[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelTimeError>>,
-) {
-    *result.borrow_mut() = Ok(Vec::new());
+#[given("a provider returning unit travel times")]
+fn given_provider(#[from(provider)] _provider: &UnitTravelTimeProvider) {
+    // No state to initialise
 }
 
 #[when("I request travel times for two POIs")]
@@ -36,6 +33,19 @@ fn request_two(
     let pois = vec![
         PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 }),
         PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 1.0 }),
+    ];
+    *result.borrow_mut() = provider.get_travel_time_matrix(&pois);
+}
+
+#[when("I request travel times for three POIs")]
+fn request_three(
+    #[from(provider)] provider: &UnitTravelTimeProvider,
+    #[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelTimeError>>,
+) {
+    let pois = vec![
+        PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 }),
+        PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 1.0 }),
+        PointOfInterest::with_empty_tags(3, Coord { x: 2.0, y: 2.0 }),
     ];
     *result.borrow_mut() = provider.get_travel_time_matrix(&pois);
 }
@@ -65,21 +75,7 @@ fn request_none(
 fn then_matrix(#[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelTimeError>>) {
     let borrow = result.borrow();
     let matrix = borrow.as_ref().expect("expected Ok result");
-    assert_eq!(matrix.len(), 2);
-    assert!(matrix.iter().all(|row| row.len() == 2));
-    for (i, row) in matrix.iter().enumerate() {
-        for (j, &cell) in row.iter().enumerate() {
-            if i == j {
-                assert_eq!(cell, Duration::ZERO, "expected diagonal to be zero");
-            } else {
-                assert_eq!(
-                    cell,
-                    Duration::from_secs(1),
-                    "expected off-diagonal to be one second",
-                );
-            }
-        }
-    }
+    assert_unit_matrix(matrix, 2);
 }
 
 #[then("a 1x1 zero matrix is returned")]
@@ -100,6 +96,37 @@ fn then_error(#[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelTi
     );
 }
 
+#[then("a 3x3 symmetric unit matrix is returned")]
+fn then_three(#[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelTimeError>>) {
+    let borrow = result.borrow();
+    let matrix = borrow.as_ref().expect("expected Ok result");
+    assert_unit_matrix(matrix, 3);
+}
+
+fn assert_unit_matrix(matrix: &TravelTimeMatrix, expected: usize) {
+    assert_eq!(matrix.len(), expected);
+    assert!(matrix.iter().all(|row| row.len() == expected));
+    for (i, row) in matrix.iter().enumerate() {
+        for (j, &cell) in row.iter().enumerate() {
+            if i == j {
+                assert_eq!(cell, Duration::ZERO, "expected diagonal to be zero");
+            } else {
+                assert_eq!(
+                    cell,
+                    Duration::from_secs(1),
+                    "expected off-diagonal to be one second",
+                );
+                if j > i {
+                    assert_eq!(
+                        cell, matrix[j][i],
+                        "expected symmetry at ({i},{j}) and ({j},{i})",
+                    );
+                }
+            }
+        }
+    }
+}
+
 #[scenario(path = "tests/features/travel_time_provider.feature", index = 0)]
 fn matrix_returned(
     provider: UnitTravelTimeProvider,
@@ -118,6 +145,14 @@ fn error_on_empty(
 
 #[scenario(path = "tests/features/travel_time_provider.feature", index = 2)]
 fn single_poi_returns_zero(
+    provider: UnitTravelTimeProvider,
+    result: RefCell<Result<TravelTimeMatrix, TravelTimeError>>,
+) {
+    let _ = (provider, result);
+}
+
+#[scenario(path = "tests/features/travel_time_provider.feature", index = 3)]
+fn three_pois_return_symmetric(
     provider: UnitTravelTimeProvider,
     result: RefCell<Result<TravelTimeMatrix, TravelTimeError>>,
 ) {

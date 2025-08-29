@@ -464,7 +464,7 @@ solver itself is an abstract mathematical engine; it requires an external
 component to provide the walking time between every pair of candidate POIs.
 
 This is handled by the synchronous `TravelTimeProvider` trait defined in
-`wildside-core`. The trait has the signature
+`wildside-core`. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
 `fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
  Keeping the solver synchronous preserves object safety and makes the core
