@@ -4,7 +4,7 @@
 use geo::{Intersects, Rect};
 use std::time::Duration;
 
-use crate::{PoiStore, PointOfInterest, TravelTimeError, TravelTimeProvider};
+use crate::{PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -48,25 +48,21 @@ impl PoiStore for MemoryStore {
 }
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct UnitTravelTimeProvider;
 
 impl TravelTimeProvider for UnitTravelTimeProvider {
     fn get_travel_time_matrix(
         &self,
         pois: &[PointOfInterest],
-    ) -> Result<Vec<Vec<Duration>>, TravelTimeError> {
+    ) -> Result<TravelTimeMatrix, TravelTimeError> {
         if pois.is_empty() {
             return Err(TravelTimeError::EmptyInput);
         }
         let n = pois.len();
-        let mut matrix = vec![vec![Duration::ZERO; n]; n];
+        let mut matrix = vec![vec![Duration::from_secs(1); n]; n];
         for (i, row) in matrix.iter_mut().enumerate() {
-            for (j, cell) in row.iter_mut().enumerate() {
-                if i != j {
-                    *cell = Duration::from_secs(1);
-                }
-            }
+            row[i] = Duration::ZERO;
         }
         Ok(matrix)
     }

@@ -1,40 +1,23 @@
-//! Compute travel times between points of interest.
-//!
-//! The `TravelTimeProvider` trait abstracts the retrieval of pairwise travel
-//! times between [`PointOfInterest`] instances. Callers supply a slice of POIs
-//! and receive an adjacency matrix of [`Duration`] values.
-//!
-//! Errors are returned when inputs are invalid, e.g. an empty slice.
-
 use std::time::Duration;
-use thiserror::Error;
 
 use crate::PointOfInterest;
 
-/// Errors from [`TravelTimeProvider::get_travel_time_matrix`].
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum TravelTimeError {
-    /// No points of interest were provided.
-    ///
-    /// The provider requires at least one POI to compute a matrix. Callers
-    /// should pre-filter input to avoid this condition.
-    #[error("at least one point of interest is required")]
-    EmptyInput,
-}
+use super::error::TravelTimeError;
+
+/// Adjacency matrix of travel times.
+pub type TravelTimeMatrix = Vec<Vec<Duration>>;
 
 /// Fetch pairwise travel times for a set of POIs.
 ///
-/// Implementers are expected to return a square `n x n` matrix where `n` equals
-/// the number of input POIs. `matrix[i][j]` represents the travel time from
-/// `pois[i]` to `pois[j]`.
+/// Implementers must return a square `n\u00d7n` matrix where `n == pois.len()`.
+/// `matrix[i][j]` is the travel time from `pois[i]` to `pois[j]`.
 ///
 /// # Examples
 ///
 /// ```
 /// use std::time::Duration;
 /// use geo::Coord;
-/// use wildside_core::{PointOfInterest, TravelTimeProvider};
-/// use wildside_core::travel_time::{TravelTimeError, TravelTimeProvider as _};
+/// use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 ///
 /// struct UnitProvider;
 ///
@@ -42,7 +25,7 @@ pub enum TravelTimeError {
 ///     fn get_travel_time_matrix(
 ///         &self,
 ///         pois: &[PointOfInterest],
-///     ) -> Result<Vec<Vec<Duration>>, TravelTimeError> {
+///     ) -> Result<TravelTimeMatrix, TravelTimeError> {
 ///         if pois.is_empty() {
 ///             return Err(TravelTimeError::EmptyInput);
 ///         }
@@ -53,7 +36,7 @@ pub enum TravelTimeError {
 ///                     .map(|j| if i == j { Duration::ZERO } else { Duration::from_secs(1) })
 ///                     .collect::<Vec<_>>()
 ///             })
-///             .collect::<Vec<_>>())
+///             .collect())
 ///     }
 /// }
 ///
@@ -67,7 +50,7 @@ pub trait TravelTimeProvider {
     fn get_travel_time_matrix(
         &self,
         pois: &[PointOfInterest],
-    ) -> Result<Vec<Vec<Duration>>, TravelTimeError>;
+    ) -> Result<TravelTimeMatrix, TravelTimeError>;
 }
 
 #[cfg(test)]
@@ -89,7 +72,9 @@ mod tests {
     fn returns_square_matrix() {
         let provider = UnitTravelTimeProvider;
         let pois = sample_pois();
-        let matrix = provider.get_travel_time_matrix(&pois).unwrap();
+        let matrix = provider
+            .get_travel_time_matrix(&pois)
+            .expect("expected square matrix from UnitTravelTimeProvider");
         assert_eq!(matrix.len(), pois.len());
         assert!(matrix.iter().all(|row| row.len() == pois.len()));
         assert_eq!(matrix[0][0], Duration::ZERO);
@@ -99,7 +84,9 @@ mod tests {
     #[rstest]
     fn errors_on_empty_input() {
         let provider = UnitTravelTimeProvider;
-        let err = provider.get_travel_time_matrix(&[]).unwrap_err();
+        let err = provider
+            .get_travel_time_matrix(&[])
+            .expect_err("expected EmptyInput for empty slice");
         assert_eq!(err, TravelTimeError::EmptyInput);
     }
 }

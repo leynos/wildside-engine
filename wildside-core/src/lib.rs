@@ -12,7 +12,7 @@ pub use profile::InterestProfile;
 pub use route::Route;
 pub use store::PoiStore;
 pub use theme::Theme;
-pub use travel_time::{TravelTimeError, TravelTimeProvider};
+pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_support;
