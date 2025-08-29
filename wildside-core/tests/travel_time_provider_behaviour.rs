@@ -67,10 +67,19 @@ fn then_matrix(#[from(result)] result: &RefCell<Result<TravelTimeMatrix, TravelT
     let matrix = borrow.as_ref().expect("expected Ok result");
     assert_eq!(matrix.len(), 2);
     assert!(matrix.iter().all(|row| row.len() == 2));
-    assert_eq!(matrix[0][0], Duration::ZERO);
-    assert_eq!(matrix[1][1], Duration::ZERO);
-    assert_eq!(matrix[0][1], Duration::from_secs(1));
-    assert_eq!(matrix[1][0], Duration::from_secs(1));
+    for (i, row) in matrix.iter().enumerate() {
+        for (j, &cell) in row.iter().enumerate() {
+            if i == j {
+                assert_eq!(cell, Duration::ZERO, "expected diagonal to be zero");
+            } else {
+                assert_eq!(
+                    cell,
+                    Duration::from_secs(1),
+                    "expected off-diagonal to be one second",
+                );
+            }
+        }
+    }
 }
 
 #[then("a 1x1 zero matrix is returned")]
