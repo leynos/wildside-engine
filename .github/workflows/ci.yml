@@ -40,6 +40,10 @@ jobs:
           cache-dependency-glob: |
             **/pyproject.toml
             **/uv.lock
+      - name: Install bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      - name: Install Mermaid CLI
+        run: bun install --global @mermaid-js/mermaid-cli
       - name: Install Nixie
         run: uv tool install --from git+https://github.com/leynos/nixie nixie
       - name: Validate diagrams
