@@ -1,3 +1,5 @@
+#![feature(doc_cfg)]
+
 //! Core domain types for the Wildside engine.
 
 pub mod poi;
@@ -14,7 +16,10 @@ pub use store::PoiStore;
 pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
-#[cfg(feature = "test-support")]
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
 pub mod test_support;
-#[cfg(feature = "test-support")]
+
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
 pub use crate::test_support::*;

@@ -63,9 +63,9 @@ providing a stable vocabulary across crates.
    The method returns an error if called with an empty slice, ensuring callers
   validate inputs before requesting travel times.
 
-- Test utilities such as an in-memory `PoiStore` and a unit travel time
-  provider are gated behind a `test-support` feature so production consumers do
-  not inadvertently depend on them.
+- Test utilities such as an in-memory `PoiStore` and a unit travel-time
+  provider compile automatically in tests and are gated behind a `test-support`
+  feature for consumers, preventing accidental production dependencies.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
