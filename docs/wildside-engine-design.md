@@ -47,14 +47,25 @@ providing a stable vocabulary across crates.
 - `Route` contains the ordered list of `PointOfInterest` values selected for a
   tour and the overall `Duration` required to visit them. `Route::new` and
   `Route::empty` offer clear constructors.
-<!-- markdownlint-disable line-length -->
+<!-- markdownlint-disable-next-line MD013 -->
 - `PoiStore` abstracts read-only POI access. The
+  <!-- markdownlint-disable-next-line MD013 -->
   `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>`
-   method returns all POIs inside an axis-aligned bounding box (WGS84;
+  method returns all POIs inside an axis-aligned bounding box (WGS84;
   `x = longitude`, `y = latitude`). The full semantics are documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
-<!-- markdownlint-enable line-length -->
+<!-- markdownlint-disable-next-line MD013 -->
+- `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
+  slice of POIs via
+  <!-- markdownlint-disable-next-line MD013 -->
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
+   The method returns an error if called with an empty slice, ensuring callers
+  validate inputs before requesting travel times.
+
+- Test utilities such as an in-memory `PoiStore` and a unit travel-time
+  provider compile automatically in tests and are gated behind a `test-support`
+  feature for consumers, preventing accidental production dependencies.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
@@ -450,16 +461,18 @@ implementation behind a feature flag, consumers of the Wildside engine can
 choose to opt into this complexity only if they absolutely need it, without
 burdening the default setup.
 
-### 4.4. The Asynchronous Boundary: The `TravelTimeProvider`
+### 4.4. The `TravelTimeProvider` boundary
 
 A critical prerequisite for any VRP solver is the travel time matrix. The
 solver itself is an abstract mathematical engine; it requires an external
 component to provide the walking time between every pair of candidate POIs.
 
-This is handled by the `TravelTimeProvider` trait defined in `wildside-core`.
-This trait forms the asynchronous boundary for the library with the signature
-`async fn get_travel_time_matrix(...) -> Result<..., core::Error>`. Keeping the
-solver synchronous preserves object safety and makes the core embeddable.
+This is handled by the synchronous `TravelTimeProvider` trait defined in
+`wildside-core`. The trait has the signature:
+<!-- markdownlint-disable-next-line MD013 -->
+`fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
+ Keeping the solver synchronous preserves object safety and makes the core
+embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an
 external, open-source routing engine like OSRM or Valhalla, running as a

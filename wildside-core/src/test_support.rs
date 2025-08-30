@@ -1,9 +1,10 @@
-//! Test-only, in-memory PoiStore implementation used by unit and behaviour
+//! Test-only, in-memory `PoiStore` implementation used by unit and behaviour
 //! tests.
 
 use geo::{Intersects, Rect};
+use std::time::Duration;
 
-use crate::{PoiStore, PointOfInterest};
+use crate::{PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -43,5 +44,30 @@ impl PoiStore for MemoryStore {
                 .filter(move |p| bbox.intersects(&p.location))
                 .cloned(),
         )
+    }
+}
+
+/// Deterministic `TravelTimeProvider` returning one-second edges.
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[derive(Default, Debug, Copy, Clone)]
+pub struct UnitTravelTimeProvider;
+
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+impl TravelTimeProvider for UnitTravelTimeProvider {
+    fn get_travel_time_matrix(
+        &self,
+        pois: &[PointOfInterest],
+    ) -> Result<TravelTimeMatrix, TravelTimeError> {
+        if pois.is_empty() {
+            return Err(TravelTimeError::EmptyInput);
+        }
+        let n = pois.len();
+        let mut matrix = vec![vec![Duration::from_secs(1); n]; n];
+        for (i, row) in matrix.iter_mut().enumerate() {
+            row[i] = Duration::ZERO;
+        }
+        Ok(matrix)
     }
 }
