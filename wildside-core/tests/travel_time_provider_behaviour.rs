@@ -6,8 +6,7 @@ use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
 use std::time::Duration;
 use wildside_core::{
-    PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider,
-    test_support::UnitTravelTimeProvider,
+    PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider, UnitTravelTimeProvider,
 };
 
 #[fixture]

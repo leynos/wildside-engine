@@ -16,3 +16,5 @@ pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 #[cfg(feature = "test-support")]
 pub mod test_support;
+#[cfg(feature = "test-support")]
+pub use crate::test_support::*;

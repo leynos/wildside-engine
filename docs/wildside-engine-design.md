@@ -59,9 +59,13 @@ providing a stable vocabulary across crates.
 - `TravelTimeProvider` produces an `n x n` matrix of `Duration` values for a
   slice of POIs via
   <!-- markdownlint-disable-next-line MD013 -->
-  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
-   The method returns an error if called with an empty slice, ensuring callers
+  `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`
+  . The method returns an error if called with an empty slice, ensuring callers
   validate inputs before requesting travel times.
+
+- Test utilities such as an in-memory `PoiStore` and a unit travel time
+  provider are gated behind a `test-support` feature so production consumers do
+  not inadvertently depend on them.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
@@ -466,8 +470,8 @@ component to provide the walking time between every pair of candidate POIs.
 This is handled by the synchronous `TravelTimeProvider` trait defined in
 `wildside-core`. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
-`fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
- Keeping the solver synchronous preserves object safety and makes the core
+`fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`
+. Keeping the solver synchronous preserves object safety and makes the core
 embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an
