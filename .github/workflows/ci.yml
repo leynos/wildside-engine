@@ -45,7 +45,9 @@ jobs:
         with:
           bun-version: "1.2.21"
       - name: Install Mermaid CLI
-        run: bun install --global @mermaid-js/mermaid-cli@11.9.0
+        run: |
+          bun install --global @mermaid-js/mermaid-cli@11.9.0
+          bun x puppeteer browsers install chrome-headless-shell
       - name: Verify Mermaid CLI
         run: mmdc --version
       - name: Install Nixie
