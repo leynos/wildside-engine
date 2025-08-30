@@ -56,7 +56,7 @@ providing a stable vocabulary across crates.
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
 <!-- markdownlint-disable-next-line MD013 -->
-- `TravelTimeProvider` produces an `n x n` matrix of `Duration` values for a
+- `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`

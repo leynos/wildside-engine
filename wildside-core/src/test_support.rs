@@ -48,9 +48,11 @@ impl PoiStore for MemoryStore {
 }
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.
+#[cfg(feature = "test-support")]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct UnitTravelTimeProvider;
 
+#[cfg(feature = "test-support")]
 impl TravelTimeProvider for UnitTravelTimeProvider {
     fn get_travel_time_matrix(
         &self,

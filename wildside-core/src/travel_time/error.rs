@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// Errors from [`crate::travel_time::TravelTimeProvider::get_travel_time_matrix`].
 #[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum TravelTimeError {
     /// No points of interest were provided.
