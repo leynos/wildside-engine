@@ -9,13 +9,13 @@ core data structures of the engine.
 
   - [x] Create the repository root directory `wildside-engine` and initialize a
         virtual workspace:
-      
+
         ```bash
         mkdir wildside-engine && cd wildside-engine
         git init
         cargo init --vcs git
         ```
-  
+
   - [x] Replace the root `Cargo.toml` with a virtual workspace manifest (no
         `[package]`), defining members: `cargo new --lib wildside-core`,
         `cargo new --lib wildside-data`, and `cargo new --bin wildside-cli`.
@@ -33,24 +33,27 @@ core data structures of the engine.
         and a `total_duration: std::time::Duration`.
   - [x] Define the `PoiStore` trait with methods like:
         <!-- markdownlint-disable-next-line MD013 -->
-        `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>`
+        `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn
+        Iterator<Item = PointOfInterest> + Send + '_>`
   - [x] Define the `TravelTimeProvider` trait with a method
         <!-- markdownlint-disable-next-line MD013 -->
-        `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`
-  - [ ] Define the `Scorer` trait with a
+        `get_travel_time_matrix(&self, pois: &[PointOfInterest]) ->
+        Result<TravelTimeMatrix, TravelTimeError>`
+  - [x] Define the `Scorer` trait with a
         `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
         method.
   - [ ] Define the `Solver` trait with a
-        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>` method.
+        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>`
+        method.
 
 - **Implement OSM PBF Ingestion**
-  
+
   - [ ] In `wildside-data`, add `osmpbf` and `geo` as dependencies.
   - [ ] Create a public function `ingest_osm_pbf(path: &Path)` that uses
         `osmpbf::par_map_reduce` to process a PBF file in parallel.
   - [ ] Implement the logic to filter for relevant OSM elements (e.g., nodes and
-        ways with specific tags like `historic`, `tourism`) and convert them into
-        `PointOfInterest` instances.
+        ways with specific tags like `historic`, `tourism`) and convert them
+        into `PointOfInterest` instances.
 
 - **Adopt GeoRust Primitives**
 
@@ -79,7 +82,8 @@ core data structures of the engine.
         command with arguments for the OSM PBF and Wikidata dump file paths.
   - [ ] Implement the command's handler to orchestrate the full pipeline: call
         `ingest_osm_pbf`, then the Wikidata ETL process, and finally
-        `build_spatial_index`, saving the resulting `pois.db` and `pois.rstar` files.
+        `build_spatial_index`, saving the resulting `pois.db` and `pois.rstar`
+        files.
 
 ## Phase 2: Scoring and personalization
 
@@ -89,8 +93,8 @@ This phase implements the core logic that gives the engine its intelligence.
 
   - [ ] Create the `wildside-scorer` crate.
   - [ ] Implement an offline process that iterates through `pois.db`, calculates
-        a popularity score for each POI based on its sitelink count and heritage
-        status, and normalizes the scores.
+        a popularity score for each POI based on its sitelink count and
+        heritage status, and normalizes the scores.
   - [ ] Serialize the resulting `HashMap<PoiId, f32>` of scores to a compact
         binary file (`popularity.bin`) using a library like `bincode`.
 
@@ -107,10 +111,11 @@ This phase implements the core logic that gives the engine its intelligence.
 
   - [ ] In `wildside-core`, define the `SolveRequest` struct with public
         fields for `start: geo::Coord`, `duration_minutes: u16`,
-        `interests: InterestProfile`, and a `seed: u64` for reproducible results.
-  - [ ] Define the `SolveResponse` struct to include the final `Route`, the total
-      `score`, and a `Diagnostics` struct for metrics like solve time and number
-      of candidates.
+        `interests: InterestProfile`, and a `seed: u64` for reproducible
+        results.
+  - [ ] Define the `SolveResponse` struct to include the final `Route`, the
+    total `score`, and a `Diagnostics` struct for metrics like solve time and
+    number of candidates.
 
 ## Phase 3: The orienteering problem solver
 
@@ -143,8 +148,8 @@ This phase tackles the complex route-finding algorithm.
   - [ ] Add a `solve` command to `wildside-cli` that accepts a path to a
         JSON file.
   - [ ] The command will deserialize the JSON into a `SolveRequest`, instantiate
-        the necessary components (store, scorer, solver), call the solver, and print
-        the resulting `SolveResponse` as formatted JSON.
+        the necessary components (store, scorer, solver), call the solver, and
+        print the resulting `SolveResponse` as formatted JSON.
 
 ## Phase 4: Testing, deployment, and polish
 
@@ -152,14 +157,15 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 
 - **Establish Testing Discipline**
 
-  - [ ] Create a `tests/golden_routes` directory with small, well-defined problem
-        instances and their known optimal solutions in JSON format to act as
-        regression tests.
+  - [ ] Create a `tests/golden_routes` directory with small, well-defined
+    problem instances and their known optimal solutions in JSON format to act
+    as regression tests.
   - [ ] Use `proptest` to write property-based tests for the solver, asserting
-        invariants like "total route duration must not exceed Tmax" and "route must
-        start and end at the same point".
-  - [ ] Use `criterion` to create a benchmark suite that measures the P95 and P99
-        solve times for various problem sizes (e.g., 50, 100, 200 candidate POIs).
+        invariants like "total route duration must not exceed Tmax" and "route
+        must start and end at the same point".
+  - [ ] Use `criterion` to create a benchmark suite that measures the P95 and
+    P99 solve times for various problem sizes (e.g., 50, 100, 200 candidate
+    POIs).
 
 - **Implement Feature Flags**
 
@@ -167,7 +173,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
         `solver-ortools`, and `store-sqlite`.
   - [ ] Forward feature flags from member crates using `[features]` and
         `dep:`-scoped entries to ensure a single source of truth.
-  
+
         ```toml
         # In the root Cargo.toml
         [dependencies]
@@ -181,7 +187,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
         # Enable the optional dependency and forward its `sqlite` feature
         store-sqlite = ["dep:wildside-data", "wildside-data/sqlite"]
         ```
-  
+
   - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
         different solver and store implementations.
 
@@ -193,7 +199,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
         `0.1.0` feature set.
 
 - **(Optional) Implement OR-Tools Solver**
-  
+
   - [ ] Create a `wildside-solver-ortools` crate, conditionally compiled
         via the `ortools` feature flag.
   - [ ] Add a dependency on a suitable OR-Tools wrapper crate.
