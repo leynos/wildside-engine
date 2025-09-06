@@ -2,9 +2,13 @@
 //! tests.
 
 use geo::{Intersects, Rect};
+use std::str::FromStr;
 use std::time::Duration;
 
-use crate::{PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
+use crate::{
+    InterestProfile, PoiStore, PointOfInterest, Scorer, Theme, TravelTimeError, TravelTimeMatrix,
+    TravelTimeProvider,
+};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -69,5 +73,19 @@ impl TravelTimeProvider for UnitTravelTimeProvider {
             row[i] = Duration::ZERO;
         }
         Ok(matrix)
+    }
+}
+
+/// Test `Scorer` that sums profile weights for matching tags.
+#[derive(Debug, Copy, Clone, Default)]
+pub struct TagScorer;
+
+impl Scorer for TagScorer {
+    fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32 {
+        poi.tags
+            .keys()
+            .filter_map(|k| Theme::from_str(k).ok())
+            .filter_map(|t| profile.weight(&t))
+            .sum()
     }
 }

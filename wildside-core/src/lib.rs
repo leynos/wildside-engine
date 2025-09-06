@@ -5,6 +5,7 @@
 pub mod poi;
 pub mod profile;
 pub mod route;
+pub mod scorer;
 pub mod store;
 pub mod theme;
 pub mod travel_time;
@@ -12,6 +13,7 @@ pub mod travel_time;
 pub use poi::PointOfInterest;
 pub use profile::InterestProfile;
 pub use route::Route;
+pub use scorer::Scorer;
 pub use store::PoiStore;
 pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
