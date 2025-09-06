@@ -64,7 +64,8 @@ providing a stable vocabulary across crates.
   validate inputs before requesting travel times.
 
 - `Scorer` converts a `PointOfInterest` and an `InterestProfile` into a `f32`
-  relevance score. The method is deterministic and infallible; implementers
+  relevance score. Implementations must be `Send + Sync` so scoring can occur
+  across threads. The method is deterministic and infallible; implementers
   return `0.0` when no signals are present. This keeps scoring simple and
   composable for different weighting strategies.
 
