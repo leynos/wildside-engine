@@ -69,9 +69,10 @@ providing a stable vocabulary across crates.
   return `0.0` when no signals are present. This keeps scoring simple and
   composable for different weighting strategies.
 
-- Test utilities such as an in-memory `PoiStore` and a unit travel-time
-  provider compile automatically in tests and are gated behind a `test-support`
-  feature for consumers, preventing accidental production dependencies.
+- Test utilities such as an in-memory `PoiStore`, a unit travel-time provider,
+  and a `TagScorer` compile automatically in tests and are gated behind a
+  `test-support` feature for consumers, preventing accidental production
+  dependencies.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.

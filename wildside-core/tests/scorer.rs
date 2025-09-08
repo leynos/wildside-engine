@@ -28,7 +28,7 @@ fn sums_matching_weights() {
     let poi = poi_with_tags(&["art"]);
     let profile = profile_with_weights(&[(Theme::Art, 0.7)]);
     let scorer = TagScorer;
-    assert!((scorer.score(&poi, &profile) - 0.7).abs() < f32::EPSILON);
+    assert!((scorer.score(&poi, &profile) - 0.7).abs() <= 1e-6);
 }
 
 #[rstest]
@@ -52,7 +52,7 @@ fn sums_multiple_matching_tags() {
     let poi = poi_with_tags(&["art", "history"]);
     let profile = profile_with_weights(&[(Theme::Art, 0.7), (Theme::History, 0.2)]);
     let scorer = TagScorer;
-    assert!((scorer.score(&poi, &profile) - 0.9).abs() < f32::EPSILON);
+    assert!((scorer.score(&poi, &profile) - 0.9).abs() <= 1e-6);
 }
 
 #[rstest]

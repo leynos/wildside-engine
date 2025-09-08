@@ -1,5 +1,7 @@
-//! Test-only, in-memory `PoiStore` implementation used by unit and behaviour
-//! tests.
+//! Test-only utilities used by unit and behaviour tests:
+//! - In-memory PoiStore (MemoryStore)
+//! - Deterministic UnitTravelTimeProvider
+//! - TagScorer for tag-based relevance scoring
 
 use geo::{Intersects, Rect};
 use std::str::FromStr;
@@ -77,9 +79,12 @@ impl TravelTimeProvider for UnitTravelTimeProvider {
 }
 
 /// Test `Scorer` that sums profile weights for matching tags.
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
 #[derive(Debug, Copy, Clone, Default)]
 pub struct TagScorer;
 
+#[cfg(any(test, feature = "test-support"))]
 impl Scorer for TagScorer {
     fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32 {
         poi.tags
