@@ -3,7 +3,7 @@
 //! The enum offers compile-time safety for interest lookups.
 //!
 //! # Examples
-//! ```
+//! ```rust
 //! use wildside_core::Theme;
 //!
 //! assert_eq!(Theme::History.as_str(), "history");
@@ -34,7 +34,7 @@ impl Theme {
     /// Return the theme as a lowercase `&str`.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::Theme;
     ///
     /// assert_eq!(Theme::Nature.as_str(), "nature");

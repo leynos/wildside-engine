@@ -11,7 +11,7 @@ use crate::Theme;
 /// User interest weighting across themes.
 ///
 /// # Examples
-/// ```
+/// ```rust
 /// use wildside_core::{InterestProfile, Theme};
 ///
 /// let profile = InterestProfile::new()
@@ -39,7 +39,7 @@ impl InterestProfile {
     /// Construct an empty profile.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::InterestProfile;
     ///
     /// let profile = InterestProfile::new();
@@ -52,7 +52,7 @@ impl InterestProfile {
     /// Return the weight for a theme, if present.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::{InterestProfile, Theme};
     ///
     /// let profile = InterestProfile::new().with_weight(Theme::Art, 0.5);
@@ -71,7 +71,7 @@ impl InterestProfile {
     /// Panics if `weight` is outside `0.0..=1.0` or not finite (NaN/∞).
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::{InterestProfile, Theme};
     ///
     /// let mut profile = InterestProfile::new();
@@ -106,7 +106,7 @@ impl InterestProfile {
     /// Panics if `weight` is outside `0.0..=1.0` or not finite (NaN/∞).
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::{InterestProfile, Theme};
     ///
     /// let profile = InterestProfile::new().with_weight(Theme::History, 0.8);

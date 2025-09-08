@@ -16,7 +16,7 @@ use crate::PointOfInterest;
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use geo::{Coord, Rect, Intersects};
 /// use wildside_core::{PointOfInterest, PoiStore};
 ///

@@ -69,11 +69,11 @@ providing a stable vocabulary across crates.
   return `0.0` when no signals are present. This keeps scoring simple and
   composable for different weighting strategies.
 
-  The scoring contract requires outputs to be finite and non-negative. Scores
-  ought to be normalised to the `[0.0, 1.0]` range unless explicitly documented
-  otherwise, allowing callers to combine signals with predictable bounds.
-  Implementations must produce identical scores for identical inputs,
-  guaranteeing deterministic behaviour.
+  Implementations MUST return finite, non-negative values. Scores SHOULD be
+  normalised to the `[0.0, 1.0]` range unless explicitly documented otherwise,
+  allowing callers to combine signals with predictable bounds. Implementations
+  MUST produce identical scores for identical inputs, guaranteeing
+  deterministic behaviour.
 
 - Test utilities such as an in-memory `PoiStore`, a unit travel-time provider,
   and a `TagScorer` compile automatically in tests and are gated behind a

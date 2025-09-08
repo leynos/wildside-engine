@@ -9,12 +9,13 @@ use crate::{InterestProfile, PointOfInterest};
 /// Calculate a relevance score for a point of interest.
 ///
 /// Higher scores indicate a better match between the POI and the
-/// caller's interests. Implementations must be thread-safe (`Send` + `Sync`) so scorers can run across threads. The method is infallible; implementers must return
-/// `0.0` when no information is available.
+/// caller's interests. Implementations must be thread-safe (`Send` + `Sync`)
+/// so scorers can run across threads. The method is infallible; implementers
+/// must return `0.0` when no information is available.
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use geo::Coord;
 /// use wildside_core::{InterestProfile, PointOfInterest, Scorer};
 ///

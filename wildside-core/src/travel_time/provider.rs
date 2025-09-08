@@ -16,7 +16,7 @@ pub type TravelTimeMatrix = Vec<Vec<Duration>>;
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use std::time::Duration;
 /// use geo::Coord;
 /// use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
