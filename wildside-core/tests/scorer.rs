@@ -8,7 +8,10 @@ fn poi_without_tags() -> PointOfInterest {
 }
 
 fn poi_with_tags(tags: &[&str]) -> PointOfInterest {
-    let tags = tags.iter().map(|t| ((*t).to_string(), String::new())).collect::<Tags>();
+    let tags = tags
+        .iter()
+        .map(|t| ((*t).to_string(), String::new()))
+        .collect::<Tags>();
     PointOfInterest::new(1, Coord { x: 0.0, y: 0.0 }, tags)
 }
 
