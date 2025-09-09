@@ -4,7 +4,6 @@
 //! - TagScorer for tag-based relevance scoring
 
 use geo::{Intersects, Rect};
-// test-support only
 #[cfg(any(test, feature = "test-support"))]
 use std::str::FromStr;
 use std::time::Duration;
@@ -13,7 +12,6 @@ use crate::{
     InterestProfile, PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix,
     TravelTimeProvider,
 };
-// test-support only
 #[cfg(any(test, feature = "test-support"))]
 use crate::{Scorer, Theme};
 
