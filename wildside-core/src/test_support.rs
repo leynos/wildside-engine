@@ -6,6 +6,7 @@
 use geo::{Intersects, Rect};
 #[cfg(any(test, feature = "test-support"))]
 use std::str::FromStr;
+#[cfg(any(test, feature = "test-support"))]
 use std::time::Duration;
 
 use crate::{
