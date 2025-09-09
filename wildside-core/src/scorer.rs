@@ -10,8 +10,9 @@ use crate::{InterestProfile, PointOfInterest};
 ///
 /// Higher scores indicate a better match between the POI and the
 /// caller's interests. Implementations must be thread-safe (`Send` + `Sync`)
-/// so scorers can run across threads. The method is infallible; implementers
-/// must return `0.0` when no information is available.
+/// so scorers can run across threads.
+/// The method is infallible; implementers must return `0.0` when no
+/// information is available.
 ///
 /// # Examples
 ///
