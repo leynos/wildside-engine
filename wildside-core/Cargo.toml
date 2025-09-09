@@ -19,3 +19,7 @@ rstest-bdd-macros = { git = "https://github.com/leynos/rstest-bdd", tag = "v0.1.
 default = []
 serde = ["dep:serde"]
 test-support = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

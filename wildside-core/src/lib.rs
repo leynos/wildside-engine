@@ -1,4 +1,4 @@
-#![feature(doc_cfg)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Core domain types for the Wildside engine.
 
@@ -19,9 +19,9 @@ pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 pub mod test_support;
 
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
-pub use crate::test_support::*;
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
+pub use crate::test_support::TagScorer;

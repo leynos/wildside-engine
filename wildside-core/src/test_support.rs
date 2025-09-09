@@ -59,12 +59,12 @@ impl PoiStore for MemoryStore {
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct UnitTravelTimeProvider;
 
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 impl TravelTimeProvider for UnitTravelTimeProvider {
     fn get_travel_time_matrix(
         &self,
@@ -84,7 +84,7 @@ impl TravelTimeProvider for UnitTravelTimeProvider {
 
 /// Test `Scorer` that sums profile weights for matching tags.
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 #[derive(Debug, Copy, Clone, Default)]
 pub struct TagScorer;
 
