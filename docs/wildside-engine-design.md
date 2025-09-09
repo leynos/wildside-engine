@@ -60,12 +60,25 @@ providing a stable vocabulary across crates.
   slice of POIs via
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
-   The method returns an error if called with an empty slice, ensuring callers
+  The method returns an error if called with an empty slice, ensuring callers
   validate inputs before requesting travel times.
 
-- Test utilities such as an in-memory `PoiStore` and a unit travel-time
-  provider compile automatically in tests and are gated behind a `test-support`
-  feature for consumers, preventing accidental production dependencies.
+- `Scorer` converts a `PointOfInterest` and an `InterestProfile` into a `f32`
+  relevance score. Implementations must be `Send + Sync` so scoring can occur
+  across threads. The method is deterministic and infallible; implementers
+  return `0.0` when no signals are present. This keeps scoring simple and
+  composable for different weighting strategies.
+
+  Implementations MUST return finite, non-negative values. Scores SHOULD be
+  normalised to the `[0.0, 1.0]` range unless explicitly documented otherwise,
+  allowing callers to combine signals with predictable bounds. Implementations
+  MUST produce identical scores for identical inputs, guaranteeing
+  deterministic behaviour.
+
+- Test utilities such as an in-memory `PoiStore`, a unit travel-time provider,
+  and a `TagScorer` compile automatically in tests and are gated behind a
+  `test-support` feature for consumers, preventing accidental production
+  dependencies.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
@@ -471,7 +484,7 @@ This is handled by the synchronous `TravelTimeProvider` trait defined in
 `wildside-core`. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
 `fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
- Keeping the solver synchronous preserves object safety and makes the core
+Keeping the solver synchronous preserves object safety and makes the core
 embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an

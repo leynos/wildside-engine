@@ -11,7 +11,7 @@ use crate::PointOfInterest;
 /// An ordered path through points of interest with an overall duration.
 ///
 /// # Examples
-/// ```
+/// ```rust
 /// use geo::Coord;
 /// use std::time::Duration;
 /// use wildside_core::{PointOfInterest, Route};
@@ -35,7 +35,7 @@ impl Route {
     /// Construct a route from points and total duration.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use geo::Coord;
     /// use std::time::Duration;
     /// use wildside_core::{PointOfInterest, Route};
@@ -54,7 +54,7 @@ impl Route {
     /// Construct an empty route.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use wildside_core::Route;
     ///
     /// let route = Route::empty();

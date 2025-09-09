@@ -1,10 +1,20 @@
-//! Test-only, in-memory `PoiStore` implementation used by unit and behaviour
-//! tests.
+//! Test-only utilities used by unit and behaviour tests:
+//! - In-memory PoiStore (MemoryStore)
+//! - Deterministic UnitTravelTimeProvider
+//! - TagScorer for tag-based relevance scoring
 
 use geo::{Intersects, Rect};
+#[cfg(any(test, feature = "test-support"))]
+use std::str::FromStr;
+#[cfg(any(test, feature = "test-support"))]
 use std::time::Duration;
 
-use crate::{PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
+use crate::{
+    InterestProfile, PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix,
+    TravelTimeProvider,
+};
+#[cfg(any(test, feature = "test-support"))]
+use crate::{Scorer, Theme};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -49,12 +59,12 @@ impl PoiStore for MemoryStore {
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct UnitTravelTimeProvider;
 
 #[cfg(any(test, feature = "test-support"))]
-#[cfg_attr(not(test), doc(cfg(feature = "test-support")))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
 impl TravelTimeProvider for UnitTravelTimeProvider {
     fn get_travel_time_matrix(
         &self,
@@ -69,5 +79,22 @@ impl TravelTimeProvider for UnitTravelTimeProvider {
             row[i] = Duration::ZERO;
         }
         Ok(matrix)
+    }
+}
+
+/// Test `Scorer` that sums profile weights for matching tags.
+#[cfg(any(test, feature = "test-support"))]
+#[cfg_attr(all(not(test), docsrs), doc(cfg(feature = "test-support")))]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct TagScorer;
+
+#[cfg(any(test, feature = "test-support"))]
+impl Scorer for TagScorer {
+    fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32 {
+        poi.tags
+            .keys()
+            .filter_map(|k| Theme::from_str(k).ok())
+            .filter_map(|t| profile.weight(&t))
+            .sum()
     }
 }

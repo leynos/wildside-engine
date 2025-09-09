@@ -14,7 +14,7 @@ pub type Tags = HashMap<String, String>;
 /// A location worth visiting.
 ///
 /// # Examples
-/// ```
+/// ```rust
 /// use geo::Coord;
 /// use wildside_core::{PointOfInterest, Tags};
 ///
@@ -41,7 +41,7 @@ impl PointOfInterest {
     /// Construct a `PointOfInterest` with the provided tags.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use geo::Coord;
     /// use wildside_core::{PointOfInterest, Tags};
     ///
@@ -55,7 +55,7 @@ impl PointOfInterest {
     /// Construct a `PointOfInterest` without tags.
     ///
     /// # Examples
-    /// ```
+    /// ```rust
     /// use geo::Coord;
     /// use wildside_core::PointOfInterest;
     ///
