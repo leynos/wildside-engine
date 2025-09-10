@@ -10,6 +10,7 @@ const TOLERANCE: f32 = 1e-6;
 #[case(&["art", "history"], &[(Theme::Art, 0.7), (Theme::History, 0.2)], 0.9)]
 #[case(&["unknown_tag"], &[(Theme::Art, 0.7)], 0.0)]
 #[case(&[] as &[&str], &[(Theme::Art, 0.7)], 0.0)]
+#[case(&["art"], &[], 0.0)]
 fn score_tag_scenarios(
     #[case] tags: &[&str],
     #[case] weights: &[(Theme, f32)],
