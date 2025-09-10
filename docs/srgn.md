@@ -242,10 +242,8 @@ The execution pipeline for this command is as follows:
 1. **Initial Scope**: `srgn` first parses all files in `my_project/` and
    identifies the textual regions of all `class` definitions. All other code is
    discarded from consideration.
-
 2. **Intersection**: *Within the text of the class definitions only*, it then
    identifies all regions corresponding to `doc-strings`.
-
 3. **Final Match**: Finally, *within the text of those docstrings only*, it
    applies the regex `'github\.com'` to find the ultimate matches.
 
@@ -289,7 +287,6 @@ scopes:
    `--python 'class'`, `--rust 'unsafe'`). They leverage `tree-sitter` to
    provide the foundational context awareness that sets `srgn` apart.[^1] A
    reference list of known scopes is provided in the Appendix.
-
 2. **Regular Expression Scope**: This is the mandatory, positional argument
    that provides the final, fine-grained pattern matching. It is always the
    last filter applied in the pipeline, operating only on the text selected by
@@ -446,10 +443,9 @@ challenges by combining `srgn`'s scoping and action capabilities.
   example from the documentation 2, demonstrates the powerful synergy between
   grammar scopes and advanced regex.
 
-  1. `--py 'function'`: The search is first narrowed to the complete text of
+1. `--py 'function'`: The search is first narrowed to the complete text of
      all function definitions.
-
-  2. `'def\s+\w+\(.*\):\n\s+[^"''#\s]'`: This multi-line regex is then applied.
+2. `'def\s+\w+\(.*\):\n\s+[^"''#\s]'`: This multi-line regex is then applied.
      It looks for a `def` signature followed by a newline and indentation
      (`\n\s+`). The crucial part is the negative character class `[^"''#\s]`,
      which matches any character that is *not* a double quote, a single quote,
@@ -608,8 +604,6 @@ By understanding its unique position and capabilities, developers can wield
 `srgn` as a surgical tool, performing precise, safe, and repeatable
 modifications that would otherwise be tedious and error-prone.
 
-______________________________________________________________________
-
 ## Appendix: Grammar Scope Reference
 
 ### A.[^1] A Note on This List
@@ -656,57 +650,42 @@ invalid one, as `srgn` will helpfully list the valid options.[^9]
 
 ## Works Cited
 
- 1. alexpovel/srgn: A grep-like tool which understands source code syntax and
+1. alexpovel/srgn: A grep-like tool which understands source code syntax and
     allows for manipulation in addition to search - GitHub, accessed on July
     11, 2025, <https://github.com/alexpovel/srgn>
-
- 2. srgn/[README.md](http://README.md) at main · alexpovel/srgn · GitHub,
+2. srgn/[README.md](http://README.md) at main · alexpovel/srgn · GitHub,
     accessed on July 11, 2025,
     <https://github.com/alexpovel/srgn/blob/main/README.md>
-
- 3. Lornatang/SRGAN-PyTorch: A simple and complete implementation of
+3. Lornatang/SRGAN-PyTorch: A simple and complete implementation of
     super-resolution paper. - GitHub, accessed on July 11, 2025,
     <https://github.com/Lornatang/SRGAN-PyTorch>
-
- 4. hep-lbdl/SRGN - GitHub, accessed on July 11, 2025,
+4. hep-lbdl/SRGN - GitHub, accessed on July 11, 2025,
     <https://github.com/hep-lbdl/SRGN>
-
- 5. Security - hep-lbdl/SRGN - GitHub, accessed on July 11, 2025,
+5. Security - hep-lbdl/SRGN - GitHub, accessed on July 11, 2025,
     <https://github.com/hep-lbdl/SRGN/security>
-
- 6. How to Open and Manage Leveraged $SRGN (SolRagon) Trades on Hyperliquid: A
+6. How to Open and Manage Leveraged $SRGN (SolRagon) Trades on Hyperliquid: A
     Beginner's Tutorial · Issue #5 · synthesizearrayHSy/generatemonitorGhZ -
     GitHub, accessed on July 11, 2025,
     <https://github.com/synthesizearrayHSy/generatemonitorGhZ/issues/5>
-
- 7. srgn - Rust - [Docs.rs](http://Docs.rs), accessed on July 11, 2025,
+7. srgn - Rust - [Docs.rs](http://Docs.rs), accessed on July 11, 2025,
     <https://docs.rs/srgn>
-
- 8. Pattern syntax - Semgrep, accessed on July 11, 2025,
+8. Pattern syntax - Semgrep, accessed on July 11, 2025,
     <https://semgrep.dev/docs/writing-rules/pattern-syntax>
-
- 9. Releases · alexpovel/srgn - GitHub, accessed on July 11, 2025,
+9. Releases · alexpovel/srgn - GitHub, accessed on July 11, 2025,
     <https://github.com/alexpovel/srgn/releases>
-
- 10. Python Scope & the LEGB Rule: Resolving Names in Your Code, accessed on
+10. Python Scope & the LEGB Rule: Resolving Names in Your Code, accessed on
     July 11, 2025, <https://realpython.com/python-scope-legb-rule/>
-
- 11. Scopes - The Rust Reference, accessed on July 11, 2025,
+11. Scopes - The Rust Reference, accessed on July 11, 2025,
     <https://doc.rust-lang.org/reference/names/scopes.html>
-
- 12. I can't understand the Rust "scope" definition (Rust Programming Language,
+12. I can't understand the Rust "scope" definition (Rust Programming Language,
     2nd Ed. Klabnik & Nichols) - Stack Overflow, accessed on July 11, 2025,
     <https://stackoverflow.com/questions/77423163/i-cant-understand-the-rust-scope-definition-rust-programming-language-2nd-e>
-
- 13. betterletter/[README.md](http://README.md) at main · alexpovel/betterletter
+13. betterletter/[README.md](http://README.md) at main · alexpovel/betterletter
     · GitHub, accessed on July 11, 2025,
     <https://github.com/alexpovel/betterletter/blob/main/README.md>
-
- 14. srgn - Rust Package Registry - [Crates.io](http://Crates.io), accessed on
+14. srgn - Rust Package Registry - [Crates.io](http://Crates.io), accessed on
     July 11, 2025, <https://crates.io/crates/srgn/>
-
- 15. accessed on January 1, 1970,
+15. accessed on January 1, 1970,
     <https://github.com/alexpovel/srgn/tree/main/src/scoping/langs>
-
- 16. accessed on January 1, 1970,
+16. accessed on January 1, 1970,
     <https://github.com/alexpovel/srgn/blob/main/src/scoping/langs/rust.rs>

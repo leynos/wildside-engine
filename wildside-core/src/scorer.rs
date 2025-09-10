@@ -14,6 +14,11 @@ use crate::{InterestProfile, PointOfInterest};
 /// The method is infallible; implementers must return `0.0` when no
 /// information is available.
 ///
+/// Implementations must:
+/// - Produce finite (`f32::is_finite`) scores.
+/// - Return non-negative values.
+/// - Normalise results to the range `0.0..=1.0`.
+///
 /// # Examples
 ///
 /// ```rust
