@@ -19,6 +19,8 @@ use crate::{InterestProfile, PointOfInterest};
 /// - Return non-negative values.
 /// - Normalise results to the range `0.0..=1.0`.
 ///
+/// Use [`Scorer::sanitise`] to apply these guards.
+///
 /// # Examples
 ///
 /// ```rust
@@ -41,4 +43,14 @@ use crate::{InterestProfile, PointOfInterest};
 pub trait Scorer: Send + Sync {
     /// Return a score for `poi` according to `profile`.
     fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32;
+
+    /// Clamp and validate a raw score.
+    ///
+    /// Returns `0.0` for non-finite values and clamps to `0.0..=1.0`.
+    fn sanitise(score: f32) -> f32 {
+        if !score.is_finite() {
+            return 0.0;
+        }
+        score.clamp(0.0, 1.0)
+    }
 }
