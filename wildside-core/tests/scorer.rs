@@ -1,6 +1,5 @@
 use geo::Coord;
 use rstest::rstest;
-use std::collections::HashMap;
 use wildside_core::{InterestProfile, PointOfInterest, Scorer, TagScorer, Theme, poi::Tags};
 
 const TOLERANCE: f32 = 1e-6;
@@ -16,6 +15,9 @@ const TOLERANCE: f32 = 1e-6;
 #[case(&["art", "history"], &[(Theme::Art, 0.8), (Theme::History, 0.5)], 1.0)]
 // Negative weights should not produce negative scores
 #[case(&["art"], &[(Theme::Art, -0.2)], 0.0)]
+// Non-finite weights should yield 0.0
+#[case(&["art"], &[(Theme::Art, f32::INFINITY)], 0.0)]
+#[case(&["art"], &[(Theme::Art, f32::NAN)], 0.0)]
 fn score_tag_scenarios(
     #[case] tags: &[&str],
     #[case] weights: &[(Theme, f32)],
@@ -26,25 +28,17 @@ fn score_tag_scenarios(
         .iter()
         .map(|&t| (t.into(), String::new()))
         .collect::<Tags>();
+
     let mut profile = InterestProfile::new();
     for (theme, w) in weights.iter().cloned() {
-        if w < 0.0 {
-            // SAFETY: InterestProfile stores weights in a single HashMap field.
-            // Casting to the field lets us insert an invalid weight for testing.
-            unsafe {
-                let map = &mut *(&mut profile as *mut _ as *mut HashMap<Theme, f32>);
-                map.insert(theme, w);
-            }
-        } else {
-            profile.set_weight(theme, w);
-        }
+        profile.insert_raw_weight(theme, w);
     }
 
     let score = TagScorer.score(&poi, &profile);
-    assert!((score - expected).abs() <= TOLERANCE);
     assert!(score.is_finite(), "score must be finite");
     assert!(
         (-TOLERANCE..=1.0 + TOLERANCE).contains(&score),
         "score must be within [0, 1]"
     );
+    assert!((score - expected).abs() <= TOLERANCE);
 }
