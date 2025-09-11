@@ -18,6 +18,7 @@ use crate::{InterestProfile, PointOfInterest};
 /// - Produce finite (`f32::is_finite`) scores.
 /// - Return non-negative values.
 /// - Normalise results to the range `0.0..=1.0`.
+/// - Return `0.0` when no information is available.
 ///
 /// Use [`Scorer::sanitise`] to apply these guards.
 ///
@@ -47,10 +48,13 @@ pub trait Scorer: Send + Sync {
     /// Clamp and validate a raw score.
     ///
     /// Returns `0.0` for non-finite values and clamps to `0.0..=1.0`.
+    #[must_use]
+    #[inline]
     fn sanitise(score: f32) -> f32 {
         if !score.is_finite() {
-            return 0.0;
+            0.0
+        } else {
+            score.clamp(0.0, 1.0)
         }
-        score.clamp(0.0, 1.0)
     }
 }
