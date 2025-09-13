@@ -97,6 +97,6 @@ impl Scorer for TagScorer {
             .filter_map(|k| Theme::from_str(k).ok())
             .filter_map(|t| profile.weight(&t))
             .sum();
-        TagScorer::sanitise(sum)
+        <Self as Scorer>::sanitise(sum)
     }
 }
