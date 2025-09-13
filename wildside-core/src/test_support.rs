@@ -91,10 +91,12 @@ pub struct TagScorer;
 #[cfg(any(test, feature = "test-support"))]
 impl Scorer for TagScorer {
     fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32 {
-        poi.tags
+        let sum: f32 = poi
+            .tags
             .keys()
             .filter_map(|k| Theme::from_str(k).ok())
             .filter_map(|t| profile.weight(&t))
-            .sum()
+            .sum();
+        <Self as Scorer>::sanitise(sum)
     }
 }

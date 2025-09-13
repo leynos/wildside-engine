@@ -119,6 +119,25 @@ impl InterestProfile {
     }
 }
 
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support {
+    use super::*;
+
+    /// Test-only helpers for `InterestProfile`.
+    pub trait InterestProfileTestExt {
+        /// Insert a theme weight without validation.
+        ///
+        /// This helper lets tests exercise invalid weights.
+        fn insert_raw_weight(&mut self, theme: Theme, weight: f32);
+    }
+
+    impl InterestProfileTestExt for InterestProfile {
+        fn insert_raw_weight(&mut self, theme: Theme, weight: f32) {
+            self.weights.insert(theme, weight);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

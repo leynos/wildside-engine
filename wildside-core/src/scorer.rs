@@ -14,6 +14,14 @@ use crate::{InterestProfile, PointOfInterest};
 /// The method is infallible; implementers must return `0.0` when no
 /// information is available.
 ///
+/// Implementations must:
+/// - Produce finite (`f32::is_finite`) scores.
+/// - Return non-negative values.
+/// - Normalise results to the range `0.0..=1.0`.
+/// - Return `0.0` when no information is available.
+///
+/// Use [`Scorer::sanitise`] to apply these guards.
+///
 /// # Examples
 ///
 /// ```rust
@@ -36,4 +44,17 @@ use crate::{InterestProfile, PointOfInterest};
 pub trait Scorer: Send + Sync {
     /// Return a score for `poi` according to `profile`.
     fn score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32;
+
+    /// Clamp and validate a raw score.
+    ///
+    /// Returns `0.0` for non-finite values and clamps to `0.0..=1.0`.
+    #[must_use]
+    #[inline]
+    fn sanitise(score: f32) -> f32 {
+        if !score.is_finite() {
+            0.0
+        } else {
+            score.clamp(0.0, 1.0)
+        }
+    }
 }
