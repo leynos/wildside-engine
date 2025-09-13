@@ -9,11 +9,15 @@ const TOLERANCE: f32 = 1e-6;
 #[case(&["art"], &[(Theme::Art, 0.7)], 0.7)]
 #[case(&["history"], &[(Theme::Art, 0.7)], 0.0)]
 #[case(&["art", "history"], &[(Theme::Art, 0.7), (Theme::History, 0.2)], 0.9)]
+// Duplicate tags should not count weights multiple times
+#[case(&["art", "art"], &[(Theme::Art, 0.7)], 0.7)]
 #[case(&["unknown_tag"], &[(Theme::Art, 0.7)], 0.0)]
 #[case(&[] as &[&str], &[(Theme::Art, 0.7)], 0.0)]
 #[case(&["art"], &[], 0.0)]
 // Sum > 1.0 should clamp to 1.0
 #[case(&["art", "history"], &[(Theme::Art, 0.8), (Theme::History, 0.5)], 1.0)]
+// Extremely large weights should clamp to 1.0
+#[case(&["art"], &[(Theme::Art, f32::MAX)], 1.0)]
 // Negative weights should not produce negative scores
 #[case(&["art"], &[(Theme::Art, -0.2)], 0.0)]
 // Non-finite weights should yield 0.0
