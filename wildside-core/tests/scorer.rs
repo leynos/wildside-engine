@@ -1,5 +1,6 @@
 use geo::Coord;
 use rstest::rstest;
+use wildside_core::profile::test_support::InterestProfileTestExt;
 use wildside_core::{InterestProfile, PointOfInterest, Scorer, TagScorer, Theme, poi::Tags};
 
 const TOLERANCE: f32 = 1e-6;
@@ -41,4 +42,21 @@ fn score_tag_scenarios(
         "score must be within [0, 1]"
     );
     assert!((score - expected).abs() <= TOLERANCE);
+}
+
+#[rstest]
+#[case(f32::NAN, 0.0)]
+#[case(f32::INFINITY, 0.0)]
+#[case(f32::NEG_INFINITY, 0.0)]
+#[case(-0.1, 0.0)]
+#[case(1.2, 1.0)]
+#[case(0.4, 0.4)]
+fn sanitise_clamps_and_filters(#[case] input: f32, #[case] expected: f32) {
+    let result = TagScorer::sanitise(input);
+    assert!(result.is_finite(), "result must be finite");
+    assert!(
+        (0.0..=1.0).contains(&result),
+        "result must be within [0, 1]"
+    );
+    assert!((result - expected).abs() <= TOLERANCE);
 }
