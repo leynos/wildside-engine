@@ -439,8 +439,10 @@ The `wildside-core` crate will define a `Solver` trait. This trait will have a
 single primary method,
 `solve(request: &SolveRequest) -> Result<SolveResponse, core::Error>`, which
 encapsulates the entire process of finding an optimal route. The trait is
-object-safe and keeps the solver synchronous for embeddability. This
-abstraction is the key to making the engine flexible and future-proof.
+object-safe and keeps the solver synchronous for embeddability. Implementations
+must be `Send + Sync` so solvers can run on threaded callers and return a typed
+`SolveError::InvalidRequest` when inputs are invalid. This abstraction is the
+key to making the engine flexible and future-proof.
 
 ### 4.2. Recommended Native Rust Solution with `vrp-core`
 

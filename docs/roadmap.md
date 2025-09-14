@@ -42,7 +42,7 @@ core data structures of the engine.
   - [x] Define the `Scorer` trait with a
         `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
         method.
-  - [ ] Define the `Solver` trait with a
+  - [x] Define the `Solver` trait with a
         `solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>`
         method.
 
