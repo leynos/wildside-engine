@@ -59,7 +59,10 @@ pub type Error = SolveError;
 ///
 /// Implementations should return [`Error::InvalidRequest`] for invalid
 /// parameters rather than panicking.
-/// Solvers must be `Send + Sync` to operate safely across threads.
+///
+/// # Thread Safety
+/// Implementations must avoid shared mutable state or use proper synchronisation
+/// to ensure thread safety. Solvers must be `Send + Sync` to operate safely across threads.
 pub trait Solver: Send + Sync {
     /// Solve a request, producing a route or an error.
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>;
@@ -76,6 +79,8 @@ mod tests {
 
     impl Solver for DummySolver {
         fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error> {
+            // interests and seed are ignored by this stub.
+            let _ = (&request.interests, request.seed);
             if request.duration_minutes == 0 {
                 Err(Error::InvalidRequest)
             } else {
