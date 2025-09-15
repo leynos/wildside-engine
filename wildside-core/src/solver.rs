@@ -38,9 +38,13 @@ pub struct SolveRequest {
 impl SolveRequest {
     /// Validates invariants required by solvers.
     ///
-    /// Returns [`SolveError::InvalidRequest`] when `duration_minutes` is zero.
+    /// Returns [`SolveError::InvalidRequest`] when the time budget is zero or the
+    /// start coordinates are non-finite.
     pub fn validate(&self) -> Result<(), SolveError> {
         if self.duration_minutes == 0 {
+            return Err(SolveError::InvalidRequest);
+        }
+        if !(self.start.x.is_finite() && self.start.y.is_finite()) {
             return Err(SolveError::InvalidRequest);
         }
         Ok(())
@@ -61,7 +65,7 @@ pub struct SolveResponse {
 /// Errors returned by [`Solver::solve`].
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SolveError {
-    /// Request parameters were invalid, e.g. zero duration.
+    /// Request parameters were invalid, e.g. zero duration or non-finite coordinates.
     #[error("invalid request")]
     InvalidRequest,
 }

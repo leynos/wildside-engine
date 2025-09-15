@@ -443,11 +443,11 @@ single primary method,
 which encapsulates the entire process of finding an optimal route. The trait is
 object-safe and keeps the solver synchronous for embeddability. Implementations
 must be `Send + Sync` so solvers can run on threaded callers. They should call
-`request.validate()` (or enforce the same invariants) so that
-`duration_minutes == 0` yields `SolveError::InvalidRequest`. Implementations
-must avoid shared mutable state or use proper synchronisation to maintain
-thread safety. This abstraction is the key to making the engine flexible and
-future-proof.
+`request.validate()` (or enforce the same invariants) so that zero-duration
+requests and non-finite start coordinates yield `SolveError::InvalidRequest`.
+Implementations must avoid shared mutable state or use proper synchronisation
+to maintain thread safety. This abstraction is the key to making the engine
+flexible and future-proof.
 
 ### 4.2. Recommended Native Rust Solution with `vrp-core`
 

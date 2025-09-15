@@ -11,14 +11,11 @@ impl Solver for DummySolver {
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError> {
         // `interests` and `seed` are ignored by this stub.
         let _ = (&request.interests, request.seed);
-        if request.duration_minutes == 0 {
-            Err(SolveError::InvalidRequest)
-        } else {
-            Ok(SolveResponse {
-                route: Route::new(Vec::new(), Duration::from_secs(0)),
-                score: 0.0,
-            })
-        }
+        request.validate()?;
+        Ok(SolveResponse {
+            route: Route::new(Vec::new(), Duration::from_secs(0)),
+            score: 0.0,
+        })
     }
 }
 
@@ -55,6 +52,27 @@ fn zero_duration_returns_invalid_request() {
     let req = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
         duration_minutes: 0,
+        interests: InterestProfile::new(),
+        seed: 1,
+    };
+
+    let err = req.validate().expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
+
+    let err = solver.solve(&req).expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
+}
+
+#[rstest]
+#[case(Coord { x: f64::NAN, y: 0.0 })]
+#[case(Coord { x: f64::INFINITY, y: 0.0 })]
+#[case(Coord { x: 0.0, y: f64::NAN })]
+#[case(Coord { x: 0.0, y: f64::NEG_INFINITY })]
+fn non_finite_start_is_invalid(#[case] start: Coord<f64>) {
+    let solver = DummySolver;
+    let req = SolveRequest {
+        start,
+        duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
     };
