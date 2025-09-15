@@ -23,6 +23,7 @@ use crate::{InterestProfile, Route};
 /// };
 /// assert_eq!(request.duration_minutes, 30);
 /// ```
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SolveRequest {
     /// Start location for the tour.
@@ -54,6 +55,7 @@ impl SolveRequest {
 /// Response from a successful solve.
 ///
 /// Contains the chosen [`Route`] and its aggregate score.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SolveResponse {
     /// The ordered route for the visitor.
@@ -63,7 +65,7 @@ pub struct SolveResponse {
 }
 
 /// Errors returned by [`Solver::solve`].
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
 pub enum SolveError {
     /// Request parameters were invalid, e.g. zero duration or non-finite coordinates.
     #[error("invalid request")]

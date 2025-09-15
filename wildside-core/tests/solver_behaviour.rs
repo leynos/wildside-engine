@@ -37,6 +37,7 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
         validation.expect("expected valid request");
         let response = result.expect("expected solve success");
         assert!(response.route.pois().is_empty());
+        assert_eq!(response.score, 0.0);
     } else {
         let err = validation.expect_err("expected InvalidRequest");
         assert!(matches!(err, SolveError::InvalidRequest));

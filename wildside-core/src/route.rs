@@ -22,6 +22,7 @@ use crate::PointOfInterest;
 /// assert_eq!(route.pois().len(), 1);
 /// assert_eq!(route.total_duration().as_secs(), 60);
 /// ```
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Default)]
 #[must_use]
 pub struct Route {
