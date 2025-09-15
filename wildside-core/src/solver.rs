@@ -38,10 +38,10 @@ pub struct SolveRequest {
 impl SolveRequest {
     /// Validates invariants required by solvers.
     ///
-    /// Returns [`Error::InvalidRequest`] when `duration_minutes` is zero.
-    pub fn validate(&self) -> Result<(), Error> {
+    /// Returns [`SolveError::InvalidRequest`] when `duration_minutes` is zero.
+    pub fn validate(&self) -> Result<(), SolveError> {
         if self.duration_minutes == 0 {
-            return Err(Error::InvalidRequest);
+            return Err(SolveError::InvalidRequest);
         }
         Ok(())
     }
@@ -66,12 +66,9 @@ pub enum SolveError {
     InvalidRequest,
 }
 
-/// Alias for the solver error type.
-pub type Error = SolveError;
-
 /// Find a route satisfying the caller's preferences and constraints.
 ///
-/// Implementations should return [`Error::InvalidRequest`] for invalid
+/// Implementations should return [`SolveError::InvalidRequest`] for invalid
 /// parameters rather than panicking.
 ///
 /// # Thread Safety
@@ -79,5 +76,5 @@ pub type Error = SolveError;
 /// to ensure thread safety. Solvers must be `Send + Sync` to operate safely across threads.
 pub trait Solver: Send + Sync {
     /// Solve a request, producing a route or an error.
-    fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>;
+    fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError>;
 }

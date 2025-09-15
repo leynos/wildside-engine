@@ -43,7 +43,7 @@ core data structures of the engine.
         `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
         method.
   - [x] Define the `Solver` trait with a
-        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>`
+        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError>`
         method.
 
 - **Implement OSM PBF Ingestion**

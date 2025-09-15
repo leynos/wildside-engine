@@ -439,8 +439,8 @@ specific implementation a configurable choice.
 
 The `wildside-core` crate will define a `Solver` trait. This trait will have a
 single primary method,
-`solve(request: &SolveRequest) -> Result<SolveResponse, core::Error>`, which
-encapsulates the entire process of finding an optimal route. The trait is
+`solve(request: &SolveRequest) -> Result<SolveResponse, core::SolveError>`,
+which encapsulates the entire process of finding an optimal route. The trait is
 object-safe and keeps the solver synchronous for embeddability. Implementations
 must be `Send + Sync` so solvers can run on threaded callers. They should call
 `request.validate()` (or enforce the same invariants) so that
