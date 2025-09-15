@@ -33,6 +33,35 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
         interests: InterestProfile::new(),
         seed: 1,
     };
-    let result = solver.solve(&req).is_ok();
-    assert_eq!(result, should_succeed);
+    let validation = req.validate();
+    let result = solver.solve(&req);
+
+    if should_succeed {
+        validation.expect("expected valid request");
+        let response = result.expect("expected solve success");
+        assert!(response.route.pois().is_empty());
+    } else {
+        let err = validation.expect_err("expected InvalidRequest");
+        assert!(matches!(err, SolveError::InvalidRequest));
+
+        let err = result.expect_err("expected InvalidRequest");
+        assert!(matches!(err, SolveError::InvalidRequest));
+    }
+}
+
+#[rstest]
+fn zero_duration_returns_invalid_request() {
+    let solver = DummySolver;
+    let req = SolveRequest {
+        start: Coord { x: 0.0, y: 0.0 },
+        duration_minutes: 0,
+        interests: InterestProfile::new(),
+        seed: 1,
+    };
+
+    let err = req.validate().expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
+
+    let err = solver.solve(&req).expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
 }

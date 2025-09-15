@@ -370,7 +370,6 @@ pub struct SolveRequest {
     pub start: geo::Coord,      // f64 lat/lon
     pub duration_minutes: u16,  // Tmax
     pub interests: InterestProfile,
-    pub max_nodes: u16,         // Pruning cap for candidate selection
     pub seed: u64,              // For deterministic, reproducible heuristic runs
 }
 ```
@@ -381,13 +380,16 @@ pub struct SolveRequest {
 pub struct SolveResponse {
     pub route: Route,           // Ordered list of coords + POI IDs
     pub score: f32,             // Total collected score for the route
-    pub diagnostics: Diagnostics, // e.g., candidate_count, time_ms, iterations
 }
 ```
 
 The inclusion of a `seed` in the request is critical for reliability. It makes
 the heuristic solver's output reproducible, which is invaluable for testing,
-benchmarking, and diagnosing production incidents.
+benchmarking, and diagnosing production incidents. A lightweight
+`SolveRequest::validate` helper enforces the core invariant: a duration of zero
+minutes is rejected with `SolveError::InvalidRequest`. Future revisions will
+reintroduce the `max_nodes` pruning hint and the `Diagnostics` payload once the
+surrounding heuristics are designed.
 
 ### 3.4. Data and Computation Boundaries: Offline vs. Online
 
@@ -440,10 +442,11 @@ single primary method,
 `solve(request: &SolveRequest) -> Result<SolveResponse, core::Error>`, which
 encapsulates the entire process of finding an optimal route. The trait is
 object-safe and keeps the solver synchronous for embeddability. Implementations
-must be `Send + Sync` so solvers can run on threaded callers and return a typed
-`SolveError::InvalidRequest` when inputs are invalid. Implementations must
-avoid shared mutable state or use proper synchronisation to maintain thread
-safety. This abstraction is the key to making the engine flexible and
+must be `Send + Sync` so solvers can run on threaded callers. They should call
+`request.validate()` (or enforce the same invariants) so that
+`duration_minutes == 0` yields `SolveError::InvalidRequest`. Implementations
+must avoid shared mutable state or use proper synchronisation to maintain
+thread safety. This abstraction is the key to making the engine flexible and
 future-proof.
 
 ### 4.2. Recommended Native Rust Solution with `vrp-core`

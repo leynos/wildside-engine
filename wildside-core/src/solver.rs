@@ -1,4 +1,6 @@
-use geo::Coord;
+//! Solver API: request/response types, error, and trait.
+//! Implementations MUST be Send + Sync and return InvalidRequest for bad inputs.
+//! Use [`SolveRequest::validate`] to enforce basic invariants.
 use thiserror::Error;
 
 use crate::{InterestProfile, Route};
@@ -24,13 +26,25 @@ use crate::{InterestProfile, Route};
 #[derive(Debug, Clone, PartialEq)]
 pub struct SolveRequest {
     /// Start location for the tour.
-    pub start: Coord<f64>,
+    pub start: geo::Coord<f64>,
     /// Time budget in minutes.
     pub duration_minutes: u16,
     /// Visitor interest profile guiding POI selection.
     pub interests: InterestProfile,
     /// Seed for reproducible stochastic components.
     pub seed: u64,
+}
+
+impl SolveRequest {
+    /// Validates invariants required by solvers.
+    ///
+    /// Returns [`Error::InvalidRequest`] when `duration_minutes` is zero.
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.duration_minutes == 0 {
+            return Err(Error::InvalidRequest);
+        }
+        Ok(())
+    }
 }
 
 /// Response from a successful solve.
@@ -66,55 +80,4 @@ pub type Error = SolveError;
 pub trait Solver: Send + Sync {
     /// Solve a request, producing a route or an error.
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use geo::Coord;
-    use rstest::rstest;
-    use std::time::Duration;
-
-    struct DummySolver;
-
-    impl Solver for DummySolver {
-        fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error> {
-            // interests and seed are ignored by this stub.
-            let _ = (&request.interests, request.seed);
-            if request.duration_minutes == 0 {
-                Err(Error::InvalidRequest)
-            } else {
-                Ok(SolveResponse {
-                    route: Route::new(Vec::new(), Duration::from_secs(0)),
-                    score: 0.0,
-                })
-            }
-        }
-    }
-
-    #[rstest]
-    fn returns_response_on_valid_request() {
-        let solver = DummySolver;
-        let request = SolveRequest {
-            start: Coord { x: 0.0, y: 0.0 },
-            duration_minutes: 1,
-            interests: InterestProfile::new(),
-            seed: 0,
-        };
-        let response = solver.solve(&request).expect("valid request");
-        assert!(response.route.pois().is_empty());
-    }
-
-    #[rstest]
-    fn returns_error_on_zero_duration() {
-        let solver = DummySolver;
-        let request = SolveRequest {
-            start: Coord { x: 0.0, y: 0.0 },
-            duration_minutes: 0,
-            interests: InterestProfile::new(),
-            seed: 0,
-        };
-        let err = solver.solve(&request).expect_err("zero duration");
-        assert_eq!(err, Error::InvalidRequest);
-    }
 }

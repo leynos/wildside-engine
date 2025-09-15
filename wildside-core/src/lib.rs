@@ -15,7 +15,7 @@ pub use poi::PointOfInterest;
 pub use profile::InterestProfile;
 pub use route::Route;
 pub use scorer::Scorer;
-pub use solver::{Error as SolveError, SolveRequest, SolveResponse, Solver};
+pub use solver::{SolveError, SolveRequest, SolveResponse, Solver};
 pub use store::PoiStore;
 pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
