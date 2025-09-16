@@ -19,6 +19,7 @@ use crate::Theme;
 ///     .with_weight(Theme::Art, 0.6);
 /// assert_eq!(profile.weight(&Theme::History), Some(0.8));
 /// ```
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct InterestProfile {
     weights: HashMap<Theme, f32>,

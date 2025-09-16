@@ -27,6 +27,7 @@ pub type Tags = HashMap<String, String>;
 /// assert_eq!(poi.id, 1);
 /// assert_eq!(poi.tags.get("name"), Some(&"Museum".to_string()));
 /// ```
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PointOfInterest {
     /// Unique identifier for the POI.

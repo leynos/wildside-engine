@@ -42,8 +42,8 @@ core data structures of the engine.
   - [x] Define the `Scorer` trait with a
         `score(&self, poi: &PointOfInterest, profile: &InterestProfile) -> f32`
         method.
-  - [ ] Define the `Solver` trait with a
-        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, Error>`
+  - [x] Define the `Solver` trait with a
+        `solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError>`
         method.
 
 - **Implement OSM PBF Ingestion**
@@ -112,10 +112,12 @@ This phase implements the core logic that gives the engine its intelligence.
   - [ ] In `wildside-core`, define the `SolveRequest` struct with public
         fields for `start: geo::Coord`, `duration_minutes: u16`,
         `interests: InterestProfile`, and a `seed: u64` for reproducible
-        results.
+        results. Status: implemented without the planned `max_nodes` pruning
+        hint; add this once candidate selection controls are specified.
   - [ ] Define the `SolveResponse` struct to include the final `Route`, the
     total `score`, and a `Diagnostics` struct for metrics like solve time and
-    number of candidates.
+    number of candidates. Status: `Route` and `score` are in place; add
+    `Diagnostics` when the telemetry schema is agreed.
 
 ## Phase 3: The orienteering problem solver
 
