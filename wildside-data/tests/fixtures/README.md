@@ -1,9 +1,9 @@
-# OSM PBF Test Fixtures
+# OSM PBF test fixtures
 
 The sample OSM extracts used by the unit and behavioural tests are stored as
 Base64-encoded blobs to avoid committing binary files.
 
-Decode them before running tests with:
+Decode them when running ingestion manually (outside the test suite):
 
 ```bash
 base64 --decode wildside-data/tests/fixtures/triangle.osm.pbf.b64 \

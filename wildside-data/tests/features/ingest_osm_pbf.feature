@@ -1,3 +1,4 @@
+# Scenario order is validated by scenario_indices_follow_feature_order in osm_ingest_behaviour.rs
 Feature: ingesting OSM PBF data
 
   Scenario: summarising a known dataset

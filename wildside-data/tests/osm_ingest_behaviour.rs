@@ -1,47 +1,22 @@
 //! Behavioural tests for the `ingest_osm_pbf` entry point.
 
-use base64::{Engine as _, engine::general_purpose};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{
     cell::RefCell,
     fs,
-    io::Write,
     path::{Path, PathBuf},
 };
-use tempfile::{Builder, TempPath};
+use tempfile::TempPath;
 use wildside_data::{OsmIngestError, OsmIngestSummary, ingest_osm_pbf};
+
+mod support;
+
+use support::{assert_close, decode_fixture};
 
 #[fixture]
 fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-}
-
-fn decode_fixture(dir: &Path, stem: &str) -> TempPath {
-    let encoded_path = dir.join(format!("{stem}.osm.pbf.b64"));
-    let encoded = fs::read_to_string(&encoded_path).unwrap_or_else(|err| {
-        panic!("failed to read base64 fixture {encoded_path:?}: {err}");
-    });
-    let cleaned: String = encoded
-        .chars()
-        .filter(|ch| !ch.is_ascii_whitespace())
-        .collect();
-    let decoded = general_purpose::STANDARD
-        .decode(cleaned.as_bytes())
-        .unwrap_or_else(|err| {
-            panic!("failed to decode base64 fixture {encoded_path:?}: {err}");
-        });
-    let mut tempfile = Builder::new()
-        .prefix(stem)
-        .suffix(".osm.pbf")
-        .tempfile()
-        .unwrap_or_else(|err| {
-            panic!("failed to create temporary fixture for {stem}: {err}");
-        });
-    tempfile.write_all(&decoded).unwrap_or_else(|err| {
-        panic!("failed to write decoded fixture for {stem}: {err}");
-    });
-    tempfile.into_temp_path()
+    support::fixtures_dir()
 }
 
 enum FixtureTarget {
@@ -78,14 +53,6 @@ fn expect_summary(
         .as_ref()
         .expect("expected successful ingestion")
         .clone()
-}
-
-fn assert_close(actual: f64, expected: f64) {
-    let delta = (actual - expected).abs();
-    assert!(
-        delta <= 1.0e-7,
-        "expected {expected}, got {actual} (|Δ| = {delta})"
-    );
 }
 
 #[given("a valid PBF file containing 3 nodes, 1 way and 1 relation")]
@@ -155,6 +122,8 @@ fn summary_bounds(
         .expect("sample data should produce a bounding box");
     let min = bounds.min();
     let max = bounds.max();
+    assert!(min.x <= max.x, "min.x must not exceed max.x");
+    assert!(min.y <= max.y, "min.y must not exceed max.y");
     assert_close(min.x, 11.62564468943);
     assert_close(max.x, 11.63101926915);
     assert_close(min.y, 52.11989910567);
@@ -169,7 +138,12 @@ fn open_error(
     let outcome = borrowed.as_ref().expect("ingestion was attempted");
     match outcome {
         Ok(_) => panic!("expected an error for the missing file"),
-        Err(OsmIngestError::Open { .. }) => {}
+        Err(OsmIngestError::Open { path, .. }) => {
+            assert!(
+                path.ends_with("missing.osm.pbf"),
+                "unexpected path in error: {path:?}"
+            );
+        }
         Err(other) => panic!("expected an open error, got {other:?}"),
     }
 }
@@ -182,8 +156,47 @@ fn decode_error(
     let outcome = borrowed.as_ref().expect("ingestion was attempted");
     match outcome {
         Ok(_) => panic!("expected an error for the invalid data"),
-        Err(OsmIngestError::Decode { .. }) => {}
+        Err(OsmIngestError::Decode { source, path }) => {
+            let extension = path.extension().and_then(|ext| ext.to_str());
+            assert_eq!(extension, Some("pbf"), "unexpected path in error: {path:?}");
+            assert!(
+                !source.to_string().is_empty(),
+                "decode error should preserve the source message"
+            );
+        }
         Err(other) => panic!("expected a decode error, got {other:?}"),
+    }
+}
+
+#[test]
+fn scenario_indices_follow_feature_order() {
+    let feature =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/features/ingest_osm_pbf.feature");
+    let contents = fs::read_to_string(&feature).unwrap_or_else(|err| {
+        panic!("failed to read feature file {feature:?}: {err}");
+    });
+    let titles: Vec<String> = contents
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("Scenario: "))
+        .map(|title| title.to_owned())
+        .collect();
+    let expected = [
+        "summarising a known dataset",
+        "reporting a missing file",
+        "rejecting a corrupted dataset",
+    ];
+    assert_eq!(
+        titles.len(),
+        expected.len(),
+        "scenario count changed in feature file: {titles:?}"
+    );
+    for (index, expected_title) in expected.iter().enumerate() {
+        let actual = titles.get(index).map(String::as_str);
+        assert_eq!(
+            actual,
+            Some(*expected_title),
+            "scenario at index {index} does not match feature order"
+        );
     }
 }
 

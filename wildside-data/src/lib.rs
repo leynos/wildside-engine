@@ -29,6 +29,7 @@ pub struct OsmIngestSummary {
     /// Number of relations discovered.
     pub relations: u64,
     /// Bounding box covering all node coordinates, if any nodes were present.
+    /// Coordinates are WGS84 with `x = longitude`, `y = latitude`.
     pub bounds: Option<Rect<f64>>,
 }
 
@@ -42,14 +43,15 @@ impl OsmIngestSummary {
     }
 
     fn merge_bounds(lhs: Option<Rect<f64>>, rhs: Option<Rect<f64>>) -> Option<Rect<f64>> {
-        match (lhs, rhs) {
-            (Some(left), Some(right)) => {
+        lhs.as_ref()
+            .zip(rhs.as_ref())
+            .map(|(left, right)| {
                 let left_min = left.min();
                 let left_max = left.max();
                 let right_min = right.min();
                 let right_max = right.max();
 
-                Some(Rect::new(
+                Rect::new(
                     Coord {
                         x: left_min.x.min(right_min.x),
                         y: left_min.y.min(right_min.y),
@@ -58,11 +60,10 @@ impl OsmIngestSummary {
                         x: left_max.x.max(right_max.x),
                         y: left_max.y.max(right_max.y),
                     },
-                ))
-            }
-            (Some(bounds), None) | (None, Some(bounds)) => Some(bounds),
-            (None, None) => None,
-        }
+                )
+            })
+            .or(lhs)
+            .or(rhs)
     }
 
     fn from_element(element: Element<'_>) -> Self {
@@ -70,22 +71,19 @@ impl OsmIngestSummary {
             Element::Node(node) => Self::from_coordinate(node.lon(), node.lat()),
             Element::DenseNode(node) => Self::from_coordinate(node.lon(), node.lat()),
             Element::Way(_) => Self {
-                nodes: 0,
                 ways: 1,
-                relations: 0,
-                bounds: None,
+                ..Self::default()
             },
             Element::Relation(_) => Self {
-                nodes: 0,
-                ways: 0,
                 relations: 1,
-                bounds: None,
+                ..Self::default()
             },
         }
     }
 
     fn from_coordinate(lon: f64, lat: f64) -> Self {
-        let bounds = if lon.is_finite() && lat.is_finite() {
+        let in_range = (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat);
+        let bounds = if lon.is_finite() && lat.is_finite() && in_range {
             let coord = Coord { x: lon, y: lat };
             Some(Rect::new(coord, coord))
         } else {
@@ -94,9 +92,8 @@ impl OsmIngestSummary {
 
         Self {
             nodes: 1,
-            ways: 0,
-            relations: 0,
             bounds,
+            ..Self::default()
         }
     }
 }
@@ -110,10 +107,11 @@ pub enum OsmIngestError {
         source: osmpbf::Error,
         path: PathBuf,
     },
-    #[error("failed to decode OSM PBF data")]
+    #[error("failed to decode OSM PBF data at {path:?}")]
     Decode {
         #[source]
         source: osmpbf::Error,
+        path: PathBuf,
     },
 }
 
@@ -142,59 +140,28 @@ pub fn ingest_osm_pbf(path: &Path) -> Result<OsmIngestSummary, OsmIngestError> {
             OsmIngestSummary::default,
             OsmIngestSummary::combine,
         )
-        .map_err(|source| OsmIngestError::Decode { source })
+        .map_err(|source| OsmIngestError::Decode {
+            source,
+            path: path.to_path_buf(),
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::{Engine as _, engine::general_purpose};
     use rstest::{fixture, rstest};
-    use std::{
-        fs,
-        io::Write,
-        path::{Path, PathBuf},
-    };
-    use tempfile::{Builder, TempPath};
+    use std::path::PathBuf;
+    use tempfile::TempPath;
 
-    fn assert_close(actual: f64, expected: f64) {
-        let delta = (actual - expected).abs();
-        assert!(
-            delta <= 1.0e-7,
-            "expected {expected}, got {actual} (|Δ| = {delta})"
-        );
+    mod support {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support.rs"));
     }
+
+    use support::{assert_close, decode_fixture};
 
     #[fixture]
     fn fixtures_dir() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-    }
-
-    fn decode_fixture(dir: &Path, stem: &str) -> TempPath {
-        let encoded_path = dir.join(format!("{stem}.osm.pbf.b64"));
-        let encoded = fs::read_to_string(&encoded_path).unwrap_or_else(|err| {
-            panic!("failed to read base64 fixture {encoded_path:?}: {err}");
-        });
-        let cleaned: String = encoded
-            .chars()
-            .filter(|ch| !ch.is_ascii_whitespace())
-            .collect();
-        let decoded = general_purpose::STANDARD
-            .decode(cleaned.as_bytes())
-            .unwrap_or_else(|err| {
-                panic!("failed to decode base64 fixture {encoded_path:?}: {err}");
-            });
-        let mut tempfile = Builder::new()
-            .prefix(stem)
-            .suffix(".osm.pbf")
-            .tempfile()
-            .unwrap_or_else(|err| {
-                panic!("failed to create temporary fixture for {stem}: {err}");
-            });
-        tempfile.write_all(&decoded).unwrap_or_else(|err| {
-            panic!("failed to write decoded fixture for {stem}: {err}");
-        });
-        tempfile.into_temp_path()
+        support::fixtures_dir()
     }
 
     #[fixture]
@@ -239,7 +206,14 @@ mod tests {
         let err = ingest_osm_pbf(invalid_pbf.as_ref())
             .expect_err("expected failure when decoding invalid data");
         match err {
-            OsmIngestError::Decode { .. } => {}
+            OsmIngestError::Decode { source, path } => {
+                let extension = path.extension().and_then(|ext| ext.to_str());
+                assert_eq!(extension, Some("pbf"), "unexpected path in error: {path:?}");
+                assert!(
+                    !source.to_string().is_empty(),
+                    "decode error should preserve the source message"
+                );
+            }
             other => panic!("expected decode error, got {other:?}"),
         }
     }

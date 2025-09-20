@@ -46,7 +46,7 @@ core data structures of the engine.
         `solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError>`
         method.
 
-- **Implement OSM PBF Ingestion**
+- **Implement OSM PBF ingestion**
 
   - [x] In `wildside-data`, add `osmpbf` and `geo` as dependencies.
   - [x] Create a public function `ingest_osm_pbf(path: &Path)` that uses
