@@ -1,6 +1,6 @@
 # Scenario order is validated by scenario_indices_follow_feature_order in
-# osm_ingest_behaviour.rs.
-# Keep this ordering in sync with the scenario indices consumed by rstest-bdd.
+# osm_ingest_behaviour.rs. rstest-bdd v0.1.0-alpha1 only exposes index-based
+# bindings, so keep this order stable when editing scenarios.
 Feature: ingesting OSM PBF data
 
   Scenario: summarising a known dataset
