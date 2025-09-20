@@ -3,7 +3,7 @@
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{
-    cell::RefCell,
+    cell::{Ref, RefCell},
     fs,
     path::{Path, PathBuf},
 };
@@ -45,14 +45,14 @@ fn ingestion_result() -> RefCell<Option<Result<OsmIngestSummary, OsmIngestError>
 
 fn expect_summary(
     result: &RefCell<Option<Result<OsmIngestSummary, OsmIngestError>>>,
-) -> OsmIngestSummary {
-    result
-        .borrow()
-        .as_ref()
-        .expect("ingestion was attempted")
-        .as_ref()
-        .expect("expected successful ingestion")
-        .clone()
+) -> Ref<'_, OsmIngestSummary> {
+    Ref::map(result.borrow(), |option| {
+        option
+            .as_ref()
+            .expect("ingestion was attempted")
+            .as_ref()
+            .expect("expected successful ingestion")
+    })
 }
 
 #[given("a valid PBF file containing 3 nodes, 1 way and 1 relation")]

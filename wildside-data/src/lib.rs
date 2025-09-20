@@ -43,27 +43,24 @@ impl OsmIngestSummary {
     }
 
     fn merge_bounds(lhs: Option<Rect<f64>>, rhs: Option<Rect<f64>>) -> Option<Rect<f64>> {
-        lhs.as_ref()
-            .zip(rhs.as_ref())
-            .map(|(left, right)| {
-                let left_min = left.min();
-                let left_max = left.max();
-                let right_min = right.min();
-                let right_max = right.max();
+        let merged = lhs.as_ref().zip(rhs.as_ref()).map(|(left, right)| {
+            let left_min = left.min();
+            let left_max = left.max();
+            let right_min = right.min();
+            let right_max = right.max();
 
-                Rect::new(
-                    Coord {
-                        x: left_min.x.min(right_min.x),
-                        y: left_min.y.min(right_min.y),
-                    },
-                    Coord {
-                        x: left_max.x.max(right_max.x),
-                        y: left_max.y.max(right_max.y),
-                    },
-                )
-            })
-            .or(lhs)
-            .or(rhs)
+            Rect::new(
+                Coord {
+                    x: left_min.x.min(right_min.x),
+                    y: left_min.y.min(right_min.y),
+                },
+                Coord {
+                    x: left_max.x.max(right_max.x),
+                    y: left_max.y.max(right_max.y),
+                },
+            )
+        });
+        merged.or(lhs).or(rhs)
     }
 
     fn from_element(element: Element<'_>) -> Self {
@@ -82,19 +79,22 @@ impl OsmIngestSummary {
     }
 
     fn from_coordinate(lon: f64, lat: f64) -> Self {
-        let in_range = (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat);
-        let bounds = if lon.is_finite() && lat.is_finite() && in_range {
-            let coord = Coord { x: lon, y: lat };
-            Some(Rect::new(coord, coord))
-        } else {
-            None
-        };
-
         Self {
             nodes: 1,
-            bounds,
+            bounds: Self::coordinate_bounds(lon, lat),
             ..Self::default()
         }
+    }
+
+    fn coordinate_bounds(lon: f64, lat: f64) -> Option<Rect<f64>> {
+        (lon.is_finite()
+            && lat.is_finite()
+            && (-180.0..=180.0).contains(&lon)
+            && (-90.0..=90.0).contains(&lat))
+        .then(|| {
+            let coordinate = Coord { x: lon, y: lat };
+            Rect::new(coordinate, coordinate)
+        })
     }
 }
 
