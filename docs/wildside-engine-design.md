@@ -150,6 +150,17 @@ library. Its combination of industry-standard permissive licensing and
 high-performance parallel processing features makes it the ideal and most
 responsible foundation for the Wildside OSM data ingestion pipeline.
 
+#### Implemented ingestion summary API
+
+The initial ingestion surface now lives in the `wildside-data` crate. The
+`ingest_osm_pbf` function wraps `osmpbf::ElementReader::par_map_reduce` to
+count nodes, ways and relations while computing a `geo::Rect` bounding box for
+all node coordinates. The summary aggregates results from each blob in
+parallel, providing deterministic totals that are safe to merge across threads.
+This baseline deliberately stops short of domain filtering: mapping elements to
+`PointOfInterest` instances remains an open item on the roadmap, enabling the
+team to layer business rules once the statistics and test fixtures are stable.
+
 ### 1.2. Semantic Enrichment: Strategies for Interfacing with Wikidata
 
 The `wikidata=*` tag is the "critical conduit" that transforms raw OSM data
