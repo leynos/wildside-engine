@@ -51,7 +51,7 @@ core data structures of the engine.
   - [x] In `wildside-data`, add `osmpbf` and `geo` as dependencies.
   - [x] Create a public function `ingest_osm_pbf(path: &Path)` that uses
         `osmpbf::par_map_reduce` to process a PBF file in parallel.
-  - [ ] Implement the logic to filter for relevant OSM elements (e.g., nodes and
+  - [x] Implement the logic to filter for relevant OSM elements (e.g., nodes and
         ways with specific tags like `historic`, `tourism`) and convert them
         into `PointOfInterest` instances.
 

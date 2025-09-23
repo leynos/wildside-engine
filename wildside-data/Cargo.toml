@@ -8,6 +8,7 @@ publish = false
 geo = "0.30.0"
 osmpbf = "0.3.6"
 thiserror = "1"
+wildside-core = { path = "../wildside-core" }
 
 [dev-dependencies]
 base64 = "0.22"

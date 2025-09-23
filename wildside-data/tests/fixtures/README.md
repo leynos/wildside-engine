@@ -16,3 +16,6 @@ Both the unit and integration tests decode the fixtures into temporary files at
 runtime, so running the suite will not leave `.osm.pbf` artefacts in the
 repository. The commands above are only required when running the ingestion
 code outside the test suite.
+
+- `poi_tags.osm.pbf.b64`: Synthetic Berlin sample combining historic and
+  tourism tags for POI extraction tests.

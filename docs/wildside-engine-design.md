@@ -157,9 +157,15 @@ The initial ingestion surface now lives in the `wildside-data` crate. The
 count nodes, ways and relations while computing a `geo::Rect` bounding box for
 all node coordinates. The summary aggregates results from each blob in
 parallel, providing deterministic totals that are safe to merge across threads.
-This baseline deliberately stops short of domain filtering: mapping elements to
-`PointOfInterest` instances remains an open item on the roadmap, enabling the
-team to layer business rules once the statistics and test fixtures are stable.
+The ingestion surface now exposes an `OsmIngestReport` that builds on the
+summary by emitting `PointOfInterest` records. Nodes tagged with `historic` or
+`tourism` become POIs immediately; tagged ways defer until node geometry is
+available. The ingest pass keeps a lightweight coordinate index for referenced
+nodes and encodes OSM element identifiers into the `PointOfInterest::id`
+namespace by reserving the top two bits for the element type. For now the way
+geometry is anchored to the first resolved node, trading perfect accuracy for
+deterministic behaviour until richer geometric primitives arrive. Ways whose
+referenced nodes are missing or invalid are skipped to prevent ghost POIs.
 
 ### 1.2. Semantic Enrichment: Strategies for Interfacing with Wikidata
 

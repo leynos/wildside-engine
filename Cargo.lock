@@ -1046,6 +1046,7 @@ dependencies = [
  "rstest-bdd-macros",
  "tempfile",
  "thiserror",
+ "wildside-core",
 ]
 
 [[package]]
