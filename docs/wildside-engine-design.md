@@ -165,7 +165,11 @@ nodes and encodes OSM element identifiers into the `PointOfInterest::id`
 namespace by reserving the top two bits for the element type. For now the way
 geometry is anchored to the first resolved node, trading perfect accuracy for
 deterministic behaviour until richer geometric primitives arrive. Ways whose
-referenced nodes are missing or invalid are skipped to prevent ghost POIs.
+referenced nodes are missing or invalid are skipped to prevent ghost POIs. The
+parallel pass records unresolved way nodes and triggers a second sequential
+scan to hydrate only the coordinates still missing, keeping the in-memory state
+bounded by relevant geometry. Any identifiers that remain unresolved after both
+passes emit warnings so operators can investigate fixture gaps early.
 
 ### 1.2. Semantic Enrichment: Strategies for Interfacing with Wikidata
 

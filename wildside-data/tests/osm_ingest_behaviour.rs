@@ -1,7 +1,7 @@
 //! Behavioural tests for the `ingest_osm_pbf` entry point.
 
 use rstest::fixture;
-use rstest_bdd_macros::{given, then, when};
+use rstest_bdd_macros::{given, scenario, then, when};
 use std::{
     cell::{Ref, RefCell},
     fs,
@@ -98,6 +98,16 @@ fn tagged_dataset(
     *result.borrow_mut() = None;
 }
 
+#[given("a PBF file containing only irrelevant tags")]
+fn irrelevant_dataset(
+    #[from(fixtures_dir)] dir: PathBuf,
+    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
+    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let fixture = decode_fixture(&dir, "triangle");
+    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
+    *result.borrow_mut() = None;
+}
 #[when("I ingest the PBF file")]
 fn ingest_selected(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
@@ -156,9 +166,24 @@ fn poi_count(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
     let report = expect_report(result);
-    assert_eq!(report.pois.len(), 3, "expected two nodes and one way");
+    assert_eq!(
+        report.pois.len(),
+        3,
+        "expected three POIs (two nodes, one way)"
+    );
 }
 
+#[then("no points of interest are reported")]
+fn no_points_reported(
+    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let report = expect_report(result);
+    assert!(
+        report.pois.is_empty(),
+        "expected no points of interest for irrelevant tags, found {}",
+        report.pois.len()
+    );
+}
 #[then("the POI named \"Museum Island Walk\" uses the first node location")]
 fn walkway_location(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
@@ -167,7 +192,7 @@ fn walkway_location(
     let walk = report
         .pois
         .iter()
-        .find(|poi| poi.tags.get("name") == Some(&"Museum Island Walk".to_string()))
+        .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Museum Island Walk"))
         .expect("expected way POI");
     assert_close(walk.location.x, 13.404954);
     assert_close(walk.location.y, 52.520008);
@@ -243,6 +268,7 @@ fn scenario_indices_follow_feature_order() {
         "reporting a missing file",
         "rejecting a corrupted dataset",
         "extracting points of interest from tagged data",
+        "ignoring irrelevant tags",
     ];
     assert_eq!(
         titles.len(),
@@ -257,4 +283,49 @@ fn scenario_indices_follow_feature_order() {
             "scenario at index {index} does not match feature order"
         );
     }
+}
+
+#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 0)]
+fn summarising_known_dataset(
+    fixtures_dir: PathBuf,
+    target_fixture: RefCell<Option<FixtureTarget>>,
+    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let _ = (fixtures_dir, target_fixture, ingestion_result);
+}
+
+#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 1)]
+fn reporting_missing_files(
+    fixtures_dir: PathBuf,
+    target_fixture: RefCell<Option<FixtureTarget>>,
+    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let _ = (fixtures_dir, target_fixture, ingestion_result);
+}
+
+#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 2)]
+fn rejecting_invalid_payloads(
+    fixtures_dir: PathBuf,
+    target_fixture: RefCell<Option<FixtureTarget>>,
+    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let _ = (fixtures_dir, target_fixture, ingestion_result);
+}
+
+#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 3)]
+fn extracting_points_of_interest(
+    fixtures_dir: PathBuf,
+    target_fixture: RefCell<Option<FixtureTarget>>,
+    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let _ = (fixtures_dir, target_fixture, ingestion_result);
+}
+
+#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 4)]
+fn ignoring_irrelevant_tags(
+    fixtures_dir: PathBuf,
+    target_fixture: RefCell<Option<FixtureTarget>>,
+    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let _ = (fixtures_dir, target_fixture, ingestion_result);
 }

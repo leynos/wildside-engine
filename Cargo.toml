@@ -9,6 +9,10 @@ resolver = "2"
 [workspace.package]
 edition = "2024"
 
+[workspace.dependencies]
+wildside-core = { path = "wildside-core" }
+log = "0.4.22"
+
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 
