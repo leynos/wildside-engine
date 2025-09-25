@@ -42,11 +42,18 @@ pub fn decode_fixture(dir: &Path, stem: &str) -> TempPath {
     tempfile.into_temp_path()
 }
 
+/// Epsilon for floating-point coordinate comparisons in tests
+const COORDINATE_EPSILON: f64 = 1.0e-7;
+
 /// Compare floating-point coordinates within a small epsilon.
+#[expect(
+    clippy::float_arithmetic,
+    reason = "test delta computation requires float maths"
+)]
 pub fn assert_close(actual: f64, expected: f64) {
     let delta = (actual - expected).abs();
     assert!(
-        delta <= 1.0e-7,
+        delta <= COORDINATE_EPSILON,
         "expected {expected}, got {actual} (|Δ| = {delta})"
     );
 }
