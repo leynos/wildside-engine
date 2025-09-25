@@ -1,3 +1,8 @@
+//! Tag utilities for POI extraction.
+//!
+//! Provides helpers to:
+//! - detect whether an element carries POI-marker tags (historic, tourism); and
+//! - collect key/value tags into the POI tag map.
 use wildside_core::poi::Tags as PoiTags;
 
 pub(super) fn has_relevant_key<'a, T>(tags: T) -> bool

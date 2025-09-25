@@ -1,3 +1,13 @@
+//! OpenStreetMap (OSM) PBF ingestion.
+//!
+//! Provides parallel ingestion that summarises raw element counts and derives
+//! Points of Interest (POIs) from tagged nodes and ways. Way POIs are anchored
+//! to the first resolved node reference. The main entry points are:
+//! - [`ingest_osm_pbf`] for a summary only
+//! - [`ingest_osm_pbf_report`] for a summary plus derived POIs
+//!
+//! This module is thread-safe and performs a second pass to hydrate coordinates
+//! for node references required by relevant ways.
 use std::path::{Path, PathBuf};
 
 use geo::{Coord, Rect};
@@ -70,14 +80,7 @@ impl OsmIngestSummary {
     }
 
     fn coordinate_bounds(lon: f64, lat: f64) -> Option<Rect<f64>> {
-        (lon.is_finite()
-            && lat.is_finite()
-            && (-180.0..=180.0).contains(&lon)
-            && (-90.0..=90.0).contains(&lat))
-        .then(|| {
-            let coordinate = Coord { x: lon, y: lat };
-            Rect::new(coordinate, coordinate)
-        })
+        accumulator::validated_coord(lon, lat).map(|coordinate| Rect::new(coordinate, coordinate))
     }
 }
 

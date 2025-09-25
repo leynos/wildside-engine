@@ -1,3 +1,13 @@
+//! OSM element ID encoding utilities.
+//!
+//! Encodes signed OSM element identifiers into a single `u64` namespace by
+//! reserving the top two bits for the element kind:
+//! - `00` = node
+//! - `01` = way
+//! - `10` = relation
+//!
+//! The remaining 62 bits store the raw non-negative identifier. Out-of-range
+//! or negative inputs yield `None` and emit a warning.
 use log::warn;
 
 /// Top two bits encode element type: 00=node, 01=way, 10=relation. Remaining 62 bits carry the raw ID.
@@ -12,6 +22,11 @@ pub(super) enum OsmElementKind {
     Relation,
 }
 
+/// Encode an OSM element ID into the unified `u64` POI ID space.
+///
+/// Returns `None` and logs a warning when `raw_id` is negative or exceeds the
+/// supported 62-bit range.
+#[must_use]
 pub(super) fn encode_element_id(kind: OsmElementKind, raw_id: i64) -> Option<u64> {
     match u64::try_from(raw_id) {
         Ok(base) => {

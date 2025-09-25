@@ -10,6 +10,10 @@ base64 --decode wildside-data/tests/fixtures/triangle.osm.pbf.b64 \
   > wildside-data/tests/fixtures/triangle.osm.pbf
 base64 --decode wildside-data/tests/fixtures/invalid.osm.pbf.b64 \
   > wildside-data/tests/fixtures/invalid.osm.pbf
+base64 --decode wildside-data/tests/fixtures/poi_tags.osm.pbf.b64 \
+  > wildside-data/tests/fixtures/poi_tags.osm.pbf
+base64 --decode wildside-data/tests/fixtures/irrelevant_tags.osm.pbf.b64 \
+  > wildside-data/tests/fixtures/irrelevant_tags.osm.pbf
 ```
 
 Both the unit and integration tests decode the fixtures into temporary files at
@@ -19,3 +23,5 @@ code outside the test suite.
 
 - `poi_tags.osm.pbf.b64`: Synthetic Berlin sample combining historic and
   tourism tags for POI extraction tests.
+- `irrelevant_tags.osm.pbf.b64`: Dataset with only non-POI tags used to confirm
+  filtering skips irrelevant features.

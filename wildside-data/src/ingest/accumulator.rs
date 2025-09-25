@@ -29,6 +29,7 @@ impl OsmPoiAccumulator {
             Element::Way(way) => self.process_way(way),
             Element::Relation(relation) => {
                 self.summary.record_relation();
+                // Encode to validate ID range and emit logs for unsupported values.
                 let _ = encode_element_id(OsmElementKind::Relation, relation.id());
             }
         }
@@ -136,6 +137,7 @@ impl OsmPoiAccumulator {
 
     pub(super) fn into_report(self) -> OsmIngestReport {
         let mut pois = self.node_pois;
+        // Anchor way POIs to the first resolved node reference.
         for candidate in self.way_candidates {
             if let Some(location) = candidate
                 .node_refs
@@ -161,7 +163,7 @@ struct WayCandidate {
     tags: PoiTags,
 }
 
-fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
+pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
     (lon.is_finite()
         && lat.is_finite()
         && (-180.0..=180.0).contains(&lon)

@@ -104,11 +104,13 @@ fn irrelevant_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "triangle");
+    let fixture = decode_fixture(&dir, "irrelevant_tags");
     *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
     *result.borrow_mut() = None;
 }
+
 #[when("I ingest the PBF file")]
+
 fn ingest_selected(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
