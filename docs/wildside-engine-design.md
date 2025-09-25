@@ -159,7 +159,7 @@ all node coordinates. The summary aggregates results from each blob in
 parallel, providing deterministic totals that are safe to merge across threads.
 The ingestion surface now exposes an `OsmIngestReport` that builds on the
 summary by emitting `PointOfInterest` records. Nodes tagged with `historic` or
-`tourism` become POIs immediately; tagged ways defer until node geometry is
+`tourism` become POIs immediately. Tagged ways defer until node geometry is
 available. The ingest pass keeps a lightweight coordinate index for referenced
 nodes and encodes OSM element identifiers into the `PointOfInterest::id`
 namespace by reserving the top two bits for the element type. For now the way
