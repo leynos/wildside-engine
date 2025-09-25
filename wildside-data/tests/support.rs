@@ -6,6 +6,9 @@ use std::{
 };
 use tempfile::{Builder, TempPath};
 
+/// Epsilon for floating-point coordinate comparisons in tests
+const COORDINATE_EPSILON: f64 = 1.0e-7;
+
 /// Directory containing the encoded fixture blobs.
 pub fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
@@ -41,9 +44,6 @@ pub fn decode_fixture(dir: &Path, stem: &str) -> TempPath {
     });
     tempfile.into_temp_path()
 }
-
-/// Epsilon for floating-point coordinate comparisons in tests
-const COORDINATE_EPSILON: f64 = 1.0e-7;
 
 /// Compare floating-point coordinates within a small epsilon.
 #[expect(
