@@ -1,7 +1,13 @@
-//! Internal accumulator for OpenStreetMap (OSM) PBF ingestion.
+//! OpenStreetMap (OSM) PBF ingestion.
 //!
-//! Collects relevant nodes, pending way references, and derived POIs
-//! while building summaries for the public ingest entry points.
+//! Provides parallel ingestion that summarises raw element counts and derives
+//! Points of Interest (POIs) from tagged nodes and ways. Way POIs are anchored
+//! to the first resolved node reference. The main entry points are:
+//! - [`ingest_osm_pbf`] for a summary only
+//! - [`ingest_osm_pbf_report`] for a summary plus derived POIs
+//!
+//! This module is thread-safe and performs a second pass to hydrate coordinates
+//! for node references required by relevant ways.
 use std::collections::{HashMap, HashSet};
 
 use geo::Coord;
