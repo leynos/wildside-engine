@@ -18,3 +18,17 @@ Feature: ingesting OSM PBF data
     Given a path to a file containing invalid PBF data
     When I ingest the PBF file
     Then a decode error is returned
+
+  Scenario: extracting points of interest from tagged data
+    Given a PBF file containing tourism and historic features
+    When I ingest the PBF file
+    Then the summary includes 3 nodes, 3 ways and 1 relation
+    And the report lists 3 points of interest
+    And the POI named "Museum Island Walk" uses the first node location
+    And POIs referencing missing nodes are skipped
+
+  Scenario: ignoring irrelevant tags
+    Given a PBF file containing only irrelevant tags
+    When I ingest the PBF file
+    Then no points of interest are reported
+

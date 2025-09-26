@@ -6,8 +6,10 @@ publish = false
 
 [dependencies]
 geo = "0.30.0"
+log = { workspace = true }
 osmpbf = "0.3.6"
 thiserror = "1"
+wildside-core = { workspace = true }
 
 [dev-dependencies]
 base64 = "0.22"
