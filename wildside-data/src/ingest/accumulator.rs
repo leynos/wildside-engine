@@ -1,3 +1,7 @@
+//! Internal accumulator for OpenStreetMap (OSM) PBF ingestion.
+//!
+//! Collects relevant nodes, pending way references, and derived POIs
+//! while building summaries for the public ingest entry points.
 use std::collections::{HashMap, HashSet};
 
 use geo::Coord;
