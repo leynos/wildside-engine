@@ -287,47 +287,24 @@ fn scenario_indices_follow_feature_order() {
     }
 }
 
-#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 0)]
-fn summarising_known_dataset(
-    fixtures_dir: PathBuf,
-    target_fixture: RefCell<Option<FixtureTarget>>,
-    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let _ = (fixtures_dir, target_fixture, ingestion_result);
+macro_rules! register_ingest_scenario {
+    ($name:ident, $index:literal) => {
+        #[scenario(path = "tests/features/ingest_osm_pbf.feature", index = $index)]
+        fn $name(
+            fixtures_dir: PathBuf,
+            target_fixture: RefCell<Option<FixtureTarget>>,
+            ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+        ) {
+            // The scenario macro wires the fixtures to the Given/When/Then steps.
+            // Bind the parameters to suppress unused warnings; rstest-bdd drives the
+            // step execution.
+            let _ = (fixtures_dir, target_fixture, ingestion_result);
+        }
+    };
 }
 
-#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 1)]
-fn reporting_missing_files(
-    fixtures_dir: PathBuf,
-    target_fixture: RefCell<Option<FixtureTarget>>,
-    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let _ = (fixtures_dir, target_fixture, ingestion_result);
-}
-
-#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 2)]
-fn rejecting_invalid_payloads(
-    fixtures_dir: PathBuf,
-    target_fixture: RefCell<Option<FixtureTarget>>,
-    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let _ = (fixtures_dir, target_fixture, ingestion_result);
-}
-
-#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 3)]
-fn extracting_points_of_interest(
-    fixtures_dir: PathBuf,
-    target_fixture: RefCell<Option<FixtureTarget>>,
-    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let _ = (fixtures_dir, target_fixture, ingestion_result);
-}
-
-#[scenario(path = "tests/features/ingest_osm_pbf.feature", index = 4)]
-fn ignoring_irrelevant_tags(
-    fixtures_dir: PathBuf,
-    target_fixture: RefCell<Option<FixtureTarget>>,
-    ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let _ = (fixtures_dir, target_fixture, ingestion_result);
-}
+register_ingest_scenario!(summarising_known_dataset, 0);
+register_ingest_scenario!(reporting_missing_files, 1);
+register_ingest_scenario!(rejecting_invalid_payloads, 2);
+register_ingest_scenario!(extracting_points_of_interest, 3);
+register_ingest_scenario!(ignoring_irrelevant_tags, 4);
