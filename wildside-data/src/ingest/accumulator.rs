@@ -53,11 +53,8 @@ impl OsmPoiAccumulator {
         let Some(encoded_id) = encode_element_id(OsmElementKind::Node, raw_id) else {
             return;
         };
-        let tags = collect_tags(tags_iter);
-        let is_relevant = has_relevant_key(
-            tags.iter()
-                .map(|(key, value)| (key.as_str(), value.as_str())),
-        );
+        let borrowed: Vec<(&'a str, &'a str)> = tags_iter.into_iter().collect();
+        let is_relevant = has_relevant_key(borrowed.iter().copied());
         let was_pending = self.pending_way_nodes.remove(&encoded_id);
         let Some(location) = validated_coord(lon, lat) else {
             // Coordinates outside the valid range cannot resolve pending ways;
@@ -69,6 +66,7 @@ impl OsmPoiAccumulator {
         }
         self.nodes.insert(encoded_id, location);
         if is_relevant {
+            let tags = collect_tags(borrowed);
             self.node_pois
                 .push(PointOfInterest::new(encoded_id, location, tags));
         }
