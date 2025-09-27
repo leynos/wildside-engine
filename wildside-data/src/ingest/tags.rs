@@ -30,3 +30,31 @@ where
 fn is_relevant_key(key: &str) -> bool {
     matches!(key, "historic" | "tourism")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_relevant_keys() {
+        assert!(has_relevant_key([("historic", "memorial")]));
+        assert!(has_relevant_key([("tourism", "museum")]));
+        assert!(has_relevant_key([
+            ("name", "Victory Column"),
+            ("tourism", "attraction"),
+        ]));
+    }
+
+    #[test]
+    fn ignores_irrelevant_keys() {
+        assert!(!has_relevant_key([("amenity", "cafe")]));
+        assert!(!has_relevant_key([("name", "Pergamon Museum")]));
+    }
+
+    #[test]
+    fn collects_tags_into_owned_map() {
+        let tags = collect_tags([("historic", "monument"), ("name", "Victory Column")]);
+        assert_eq!(tags.get("historic"), Some(&"monument".to_string()));
+        assert_eq!(tags.get("name"), Some(&"Victory Column".to_string()));
+    }
+}

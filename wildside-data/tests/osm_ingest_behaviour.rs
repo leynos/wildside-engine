@@ -98,6 +98,17 @@ fn tagged_dataset(
     *result.borrow_mut() = None;
 }
 
+#[given("a PBF file combining relevant and irrelevant tags")]
+fn mixed_tag_dataset(
+    #[from(fixtures_dir)] dir: PathBuf,
+    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
+    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let fixture = decode_fixture(&dir, "poi_tags");
+    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
+    *result.borrow_mut() = None;
+}
+
 #[given("a PBF file containing only irrelevant tags")]
 fn irrelevant_dataset(
     #[from(fixtures_dir)] dir: PathBuf,
@@ -153,25 +164,39 @@ fn summary_bounds(
     assert_close(max.y, 52.12240315616);
 }
 
-#[then("the summary includes 3 nodes, 3 ways and 1 relation")]
+#[then("the summary includes 4 nodes, 3 ways and 1 relation")]
 fn tagged_summary_counts(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
     let summary = &expect_report(result).summary;
-    assert_eq!(summary.nodes, 3, "expected three nodes");
+    assert_eq!(summary.nodes, 4, "expected four nodes");
     assert_eq!(summary.ways, 3, "expected three ways");
     assert_eq!(summary.relations, 1, "expected one relation");
 }
 
-#[then("the report lists 3 points of interest")]
+#[then("the report lists 4 points of interest")]
 fn poi_count(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
     let report = expect_report(result);
     assert_eq!(
         report.pois.len(),
-        3,
-        "expected three POIs (two nodes, one way)"
+        4,
+        "expected four POIs (three nodes, one way)",
+    );
+}
+
+#[then("irrelevant features within the dataset are ignored")]
+fn ignores_irrelevant_features_in_mixed_dataset(
+    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+) {
+    let report = expect_report(result);
+    assert!(
+        report
+            .pois
+            .iter()
+            .all(|poi| !poi.tags.contains_key("highway")),
+        "expected highway-tagged features to be omitted from POIs",
     );
 }
 
@@ -270,6 +295,7 @@ fn scenario_indices_follow_feature_order() {
         "reporting a missing file",
         "rejecting a corrupted dataset",
         "extracting points of interest from tagged data",
+        "filtering irrelevant features from a mixed dataset",
         "ignoring irrelevant tags",
     ];
     assert_eq!(
@@ -307,4 +333,5 @@ register_ingest_scenario!(summarising_known_dataset, 0);
 register_ingest_scenario!(reporting_missing_files, 1);
 register_ingest_scenario!(rejecting_invalid_payloads, 2);
 register_ingest_scenario!(extracting_points_of_interest, 3);
-register_ingest_scenario!(ignoring_irrelevant_tags, 4);
+register_ingest_scenario!(filtering_irrelevant_features_from_mixed_dataset, 4);
+register_ingest_scenario!(ignoring_irrelevant_tags, 5);
