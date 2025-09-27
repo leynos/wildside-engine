@@ -175,13 +175,23 @@ pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::{fixture, rstest};
 
-    #[test]
-    fn process_node_emits_poi_for_relevant_tags() {
-        let mut accumulator = OsmPoiAccumulator::default();
-        accumulator.process_node(1, 13.4, 52.5, [("historic", "memorial")]);
+    #[fixture]
+    fn accumulator() -> OsmPoiAccumulator {
+        OsmPoiAccumulator::default()
+    }
 
-        assert_eq!(accumulator.node_pois.len(), 1);
+    #[rstest]
+    #[case::historic(vec![("historic", "memorial")])]
+    #[case::tourism(vec![("tourism", "attraction")])]
+    #[case::mixed(vec![("name", "Victory Column"), ("historic", "monument")])]
+    fn process_node_emits_poi_for_relevant_tags(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] tags: Vec<(&'static str, &'static str)>,
+    ) {
+        accumulator.process_node(1, 13.4, 52.5, tags.iter().copied());
+
         let poi = accumulator
             .node_pois
             .first()
@@ -189,28 +199,38 @@ mod tests {
         assert_eq!(poi.location.x, 13.4);
         assert_eq!(poi.location.y, 52.5);
         assert!(accumulator.nodes.contains_key(&poi.id));
+        assert_eq!(accumulator.node_pois.len(), 1);
     }
 
-    #[test]
-    fn process_node_retains_pending_coordinates_for_irrelevant_tags() {
-        let mut accumulator = OsmPoiAccumulator::default();
+    #[rstest]
+    #[case::highway(vec![("highway", "service")])]
+    #[case::name_only(vec![("name", "Unnamed")])]
+    fn process_node_retains_pending_coordinates_for_irrelevant_tags(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] tags: Vec<(&'static str, &'static str)>,
+    ) {
         let encoded = encode_element_id(OsmElementKind::Node, 2).expect("id should encode");
         accumulator.pending_way_nodes.insert(encoded);
 
-        accumulator.process_node(2, 0.5, -0.5, [("highway", "service")]);
+        accumulator.process_node(2, 0.5, -0.5, tags.iter().copied());
 
         assert!(accumulator.nodes.contains_key(&encoded));
         assert!(accumulator.node_pois.is_empty());
         assert!(!accumulator.pending_way_nodes.contains(&encoded));
     }
 
-    #[test]
-    fn process_node_clears_pending_for_invalid_coordinates() {
-        let mut accumulator = OsmPoiAccumulator::default();
+    #[rstest]
+    #[case::longitude(200.0, 45.0)]
+    #[case::latitude(13.4, 95.0)]
+    fn process_node_clears_pending_for_invalid_coordinates(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] lon: f64,
+        #[case] lat: f64,
+    ) {
         let encoded = encode_element_id(OsmElementKind::Node, 3).expect("id should encode");
         accumulator.pending_way_nodes.insert(encoded);
 
-        accumulator.process_node(3, 200.0, 95.0, [("tourism", "attraction")]);
+        accumulator.process_node(3, lon, lat, [("tourism", "attraction")]);
 
         assert!(!accumulator.nodes.contains_key(&encoded));
         assert!(accumulator.node_pois.is_empty());

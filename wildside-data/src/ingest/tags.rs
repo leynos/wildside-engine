@@ -34,27 +34,37 @@ fn is_relevant_key(key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::{fixture, rstest};
 
-    #[test]
-    fn detects_relevant_keys() {
-        assert!(has_relevant_key([("historic", "memorial")]));
-        assert!(has_relevant_key([("tourism", "museum")]));
-        assert!(has_relevant_key([
-            ("name", "Victory Column"),
-            ("tourism", "attraction"),
-        ]));
+    #[fixture]
+    fn monument_tags() -> Vec<(&'static str, &'static str)> {
+        make_monument_tags()
     }
 
-    #[test]
-    fn ignores_irrelevant_keys() {
-        assert!(!has_relevant_key([("amenity", "cafe")]));
-        assert!(!has_relevant_key([("name", "Pergamon Museum")]));
+    #[rstest]
+    #[case::historic(vec![("historic", "memorial")])]
+    #[case::tourism(vec![("tourism", "museum")])]
+    #[case::mixed(make_monument_tags())]
+    fn detects_relevant_keys(#[case] tags: Vec<(&'static str, &'static str)>) {
+        assert!(has_relevant_key(tags.iter().copied()));
     }
 
-    #[test]
-    fn collects_tags_into_owned_map() {
-        let tags = collect_tags([("historic", "monument"), ("name", "Victory Column")]);
-        assert_eq!(tags.get("historic"), Some(&"monument".to_string()));
-        assert_eq!(tags.get("name"), Some(&"Victory Column".to_string()));
+    #[rstest]
+    #[case::amenity(vec![("amenity", "cafe")])]
+    #[case::name(vec![("name", "Pergamon Museum")])]
+    fn ignores_irrelevant_keys(#[case] tags: Vec<(&'static str, &'static str)>) {
+        assert!(!has_relevant_key(tags.iter().copied()));
+    }
+
+    #[rstest]
+    fn collects_tags_into_owned_map(monument_tags: Vec<(&'static str, &'static str)>) {
+        let collected = collect_tags(monument_tags.iter().copied());
+
+        assert_eq!(collected.get("historic"), Some(&"monument".to_string()));
+        assert_eq!(collected.get("name"), Some(&"Victory Column".to_string()));
+    }
+
+    fn make_monument_tags() -> Vec<(&'static str, &'static str)> {
+        vec![("historic", "monument"), ("name", "Victory Column")]
     }
 }

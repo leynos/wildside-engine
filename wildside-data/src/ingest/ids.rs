@@ -57,28 +57,44 @@ pub(super) fn encode_element_id(kind: OsmElementKind, raw_id: i64) -> Option<u64
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::{fixture, rstest};
 
-    #[test]
-    fn encodes_nodes_ways_and_relations() {
-        assert_eq!(encode_element_id(OsmElementKind::Node, 42), Some(42));
-        assert_eq!(
-            encode_element_id(OsmElementKind::Way, 42),
-            Some(WAY_ID_PREFIX | 42),
-        );
-        assert_eq!(
-            encode_element_id(OsmElementKind::Relation, 42),
-            Some(REL_ID_PREFIX | 42),
-        );
+    #[fixture]
+    fn base_id() -> i64 {
+        42
     }
 
-    #[test]
-    fn rejects_negative_identifiers() {
-        assert_eq!(encode_element_id(OsmElementKind::Way, -7), None);
+    #[fixture]
+    fn out_of_range_id() -> i64 {
+        (TYPE_ID_MASK + 1) as i64
     }
 
-    #[test]
-    fn rejects_out_of_range_identifiers() {
-        let out_of_range = (TYPE_ID_MASK + 1) as i64;
-        assert_eq!(encode_element_id(OsmElementKind::Node, out_of_range), None);
+    #[rstest]
+    #[case::node(OsmElementKind::Node, 0)]
+    #[case::way(OsmElementKind::Way, WAY_ID_PREFIX)]
+    #[case::relation(OsmElementKind::Relation, REL_ID_PREFIX)]
+    fn encodes_nodes_ways_and_relations(
+        #[case] kind: OsmElementKind,
+        #[case] prefix: u64,
+        base_id: i64,
+    ) {
+        let expected = prefix | u64::try_from(base_id).expect("fixture should be positive");
+        assert_eq!(encode_element_id(kind, base_id), Some(expected));
+    }
+
+    #[rstest]
+    #[case::node(OsmElementKind::Node)]
+    #[case::way(OsmElementKind::Way)]
+    #[case::relation(OsmElementKind::Relation)]
+    fn rejects_negative_identifiers(#[case] kind: OsmElementKind) {
+        assert_eq!(encode_element_id(kind, -7), None);
+    }
+
+    #[rstest]
+    #[case::node(OsmElementKind::Node)]
+    #[case::way(OsmElementKind::Way)]
+    #[case::relation(OsmElementKind::Relation)]
+    fn rejects_out_of_range_identifiers(#[case] kind: OsmElementKind, out_of_range_id: i64) {
+        assert_eq!(encode_element_id(kind, out_of_range_id), None);
     }
 }
