@@ -60,8 +60,14 @@ mod tests {
     fn collects_tags_into_owned_map(monument_tags: Vec<(&'static str, &'static str)>) {
         let collected = collect_tags(monument_tags.iter().copied());
 
-        assert_eq!(collected.get("historic"), Some(&"monument".to_string()));
-        assert_eq!(collected.get("name"), Some(&"Victory Column".to_string()));
+        assert_eq!(
+            collected.get("historic").map(String::as_str),
+            Some("monument")
+        );
+        assert_eq!(
+            collected.get("name").map(String::as_str),
+            Some("Victory Column")
+        );
     }
 
     fn make_monument_tags() -> Vec<(&'static str, &'static str)> {

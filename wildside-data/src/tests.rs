@@ -66,25 +66,28 @@ fn extracts_relevant_pois(poi_pbf: TempPath) -> Result<(), OsmIngestError> {
         "expected four POIs (three nodes, one way) to be emitted"
     );
 
-    let names: Vec<String> = report
+    let names: Vec<&str> = report
         .pois
         .iter()
-        .filter_map(|poi| poi.tags.get("name").cloned())
+        .filter_map(|poi| poi.tags.get("name").map(String::as_str))
         .collect();
-    assert!(names.contains(&"Brandenburg Gate".to_string()));
-    assert!(names.contains(&"Pergamon Museum".to_string()));
-    assert!(names.contains(&"Victory Column".to_string()));
-    assert!(names.contains(&"Museum Island Walk".to_string()));
+    assert!(names.contains(&"Brandenburg Gate"));
+    assert!(names.contains(&"Pergamon Museum"));
+    assert!(names.contains(&"Victory Column"));
+    assert!(names.contains(&"Museum Island Walk"));
 
     let dual_tag = report
         .pois
         .iter()
         .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Victory Column"))
         .expect("dual-tag POI should be present");
-    assert_eq!(dual_tag.tags.get("historic"), Some(&"monument".to_string()));
     assert_eq!(
-        dual_tag.tags.get("tourism"),
-        Some(&"attraction".to_string())
+        dual_tag.tags.get("historic").map(String::as_str),
+        Some("monument")
+    );
+    assert_eq!(
+        dual_tag.tags.get("tourism").map(String::as_str),
+        Some("attraction")
     );
 
     let walk = report
@@ -92,14 +95,17 @@ fn extracts_relevant_pois(poi_pbf: TempPath) -> Result<(), OsmIngestError> {
         .iter()
         .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Museum Island Walk"))
         .expect("way POI should be present");
-    assert_eq!(walk.tags.get("tourism"), Some(&"attraction".to_string()));
+    assert_eq!(
+        walk.tags.get("tourism").map(String::as_str),
+        Some("attraction")
+    );
     assert_close(walk.location.x, 13.404954);
     assert_close(walk.location.y, 52.520008);
 
     let ruins_count = report
         .pois
         .iter()
-        .filter(|poi| poi.tags.get("historic") == Some(&"ruins".to_string()))
+        .filter(|poi| poi.tags.get("historic").map(String::as_str) == Some("ruins"))
         .count();
     assert_eq!(
         ruins_count, 0,
