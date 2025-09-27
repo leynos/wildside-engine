@@ -27,7 +27,7 @@ where
 ///
 /// Currently we only treat the `historic` and `tourism` tags as POI markers.
 /// Extend this predicate when new tag families must be supported.
-fn is_relevant_key(key: &str) -> bool {
+pub(super) fn is_relevant_key(key: &str) -> bool {
     matches!(key, "historic" | "tourism")
 }
 

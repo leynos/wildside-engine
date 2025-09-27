@@ -33,6 +33,25 @@ impl FixtureTarget {
     }
 }
 
+fn store_fixture(
+    target: &RefCell<Option<FixtureTarget>>,
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    fixture: FixtureTarget,
+) {
+    *target.borrow_mut() = Some(fixture);
+    *result.borrow_mut() = None;
+}
+
+fn load_fixture_by_name(
+    dir: PathBuf,
+    target: &RefCell<Option<FixtureTarget>>,
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    name: &str,
+) {
+    let fixture = decode_fixture(&dir, name);
+    store_fixture(target, result, FixtureTarget::Existing(fixture));
+}
+
 #[fixture]
 fn target_fixture() -> RefCell<Option<FixtureTarget>> {
     RefCell::new(None)
@@ -61,9 +80,7 @@ fn valid_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "triangle");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+    load_fixture_by_name(dir, target, result, "triangle");
 }
 
 #[given("a path to a missing PBF file")]
@@ -72,8 +89,11 @@ fn missing_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    *target.borrow_mut() = Some(FixtureTarget::Missing(dir.join("missing.osm.pbf")));
-    *result.borrow_mut() = None;
+    store_fixture(
+        target,
+        result,
+        FixtureTarget::Missing(dir.join("missing.osm.pbf")),
+    );
 }
 
 #[given("a path to a file containing invalid PBF data")]
@@ -82,9 +102,7 @@ fn invalid_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "invalid");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+    load_fixture_by_name(dir, target, result, "invalid");
 }
 
 #[given("a PBF file containing tourism and historic features")]
@@ -93,9 +111,7 @@ fn tagged_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "poi_tags");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+    load_fixture_by_name(dir, target, result, "poi_tags");
 }
 
 #[given("a PBF file combining relevant and irrelevant tags")]
@@ -104,9 +120,7 @@ fn mixed_tag_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "poi_tags");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+    load_fixture_by_name(dir, target, result, "poi_tags");
 }
 
 #[given("a PBF file containing only irrelevant tags")]
@@ -115,9 +129,7 @@ fn irrelevant_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let fixture = decode_fixture(&dir, "irrelevant_tags");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+    load_fixture_by_name(dir, target, result, "irrelevant_tags");
 }
 
 #[when("I ingest the PBF file")]

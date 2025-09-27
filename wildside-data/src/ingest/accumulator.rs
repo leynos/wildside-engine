@@ -15,7 +15,7 @@ use osmpbf::Element;
 use wildside_core::{PointOfInterest, poi::Tags as PoiTags};
 
 use super::ids::{OsmElementKind, encode_element_id};
-use super::tags::{collect_tags, has_relevant_key};
+use super::tags::{collect_tags, has_relevant_key, is_relevant_key};
 use super::{OsmIngestReport, OsmIngestSummary};
 
 #[derive(Debug, Default)]
@@ -53,20 +53,50 @@ impl OsmPoiAccumulator {
         let Some(encoded_id) = encode_element_id(OsmElementKind::Node, raw_id) else {
             return;
         };
-        let borrowed: Vec<(&'a str, &'a str)> = tags_iter.into_iter().collect();
-        let is_relevant = has_relevant_key(borrowed.iter().copied());
-        let was_pending = self.pending_way_nodes.remove(&encoded_id);
+        let was_pending = self.pending_way_nodes.contains(&encoded_id);
+
+        let mut staged: Vec<(&'a str, &'a str)> = Vec::new();
+        let mut collected: Option<PoiTags> = None;
+        let mut is_relevant = false;
+
+        for (key, value) in tags_iter {
+            if is_relevant {
+                collected
+                    .as_mut()
+                    .expect("relevant nodes initialise tag collection")
+                    .insert(key.to_owned(), value.to_owned());
+            } else if is_relevant_key(key) {
+                is_relevant = true;
+                let mut tags = PoiTags::new();
+                for (stored_key, stored_value) in staged.drain(..) {
+                    tags.insert(stored_key.to_owned(), stored_value.to_owned());
+                }
+                tags.insert(key.to_owned(), value.to_owned());
+                collected = Some(tags);
+            } else {
+                staged.push((key, value));
+            }
+        }
+
         let Some(location) = validated_coord(lon, lat) else {
-            // Coordinates outside the valid range cannot resolve pending ways;
-            // the pending marker (if any) was cleared above.
+            if was_pending {
+                self.pending_way_nodes.remove(&encoded_id);
+            }
             return;
         };
+
         if !is_relevant && !was_pending {
             return;
         }
+
+        if was_pending {
+            self.pending_way_nodes.remove(&encoded_id);
+        }
+
         self.nodes.insert(encoded_id, location);
+
         if is_relevant {
-            let tags = collect_tags(borrowed);
+            let tags = collected.expect("relevant nodes must collect tags");
             self.node_pois
                 .push(PointOfInterest::new(encoded_id, location, tags));
         }
