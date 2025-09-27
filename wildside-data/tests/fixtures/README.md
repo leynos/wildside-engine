@@ -22,6 +22,9 @@ repository. The commands above are only required when running the ingestion
 code outside the test suite.
 
 - `poi_tags.osm.pbf.b64`: Synthetic Berlin sample combining historic and
-  tourism tags for POI extraction tests.
+  tourism tags (including a dual-tag POI) alongside an irrelevant service way
+  for POI extraction tests.
 - `irrelevant_tags.osm.pbf.b64`: Dataset with only non-POI tags used to confirm
   filtering skips irrelevant features.
+- `invalid_coords.osm.pbf.b64`: Mixed dataset with valid and invalid
+  coordinates used to confirm POIs outside the WGS84 bounds are skipped.

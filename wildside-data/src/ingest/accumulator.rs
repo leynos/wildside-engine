@@ -31,10 +31,10 @@ impl OsmPoiAccumulator {
     pub(super) fn process_element(&mut self, element: Element<'_>) {
         match element {
             Element::Node(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags(), node.tags())
+                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
             }
             Element::DenseNode(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags(), node.tags())
+                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
             }
             Element::Way(way) => self.process_way(way),
             Element::Relation(relation) => {
@@ -45,37 +45,30 @@ impl OsmPoiAccumulator {
         }
     }
 
-    fn process_node<'a, R, C>(
-        &mut self,
-        raw_id: i64,
-        lon: f64,
-        lat: f64,
-        relevance_tags: R,
-        tags: C,
-    ) where
-        R: IntoIterator<Item = (&'a str, &'a str)>,
-        C: IntoIterator<Item = (&'a str, &'a str)>,
+    fn process_node<'a, T>(&mut self, raw_id: i64, lon: f64, lat: f64, tags_iter: T)
+    where
+        T: IntoIterator<Item = (&'a str, &'a str)>,
     {
         self.summary.record_node(lon, lat);
         let Some(encoded_id) = encode_element_id(OsmElementKind::Node, raw_id) else {
             return;
         };
+        let tags = collect_tags(tags_iter);
+        let is_relevant = has_relevant_key(
+            tags.iter()
+                .map(|(key, value)| (key.as_str(), value.as_str())),
+        );
+        let was_pending = self.pending_way_nodes.remove(&encoded_id);
         let Some(location) = validated_coord(lon, lat) else {
-            self.pending_way_nodes.remove(&encoded_id);
+            // Coordinates outside the valid range cannot resolve pending ways;
+            // the pending marker (if any) was cleared above.
             return;
         };
-
-        let is_relevant = has_relevant_key(relevance_tags);
-        let was_pending = self.pending_way_nodes.remove(&encoded_id);
-
         if !is_relevant && !was_pending {
             return;
         }
-
         self.nodes.insert(encoded_id, location);
-
         if is_relevant {
-            let tags = collect_tags(tags);
             self.node_pois
                 .push(PointOfInterest::new(encoded_id, location, tags));
         }
@@ -179,4 +172,50 @@ pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
         && (-180.0..=180.0).contains(&lon)
         && (-90.0..=90.0).contains(&lat))
     .then_some(Coord { x: lon, y: lat })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn process_node_emits_poi_for_relevant_tags() {
+        let mut accumulator = OsmPoiAccumulator::default();
+        accumulator.process_node(1, 13.4, 52.5, [("historic", "memorial")]);
+
+        assert_eq!(accumulator.node_pois.len(), 1);
+        let poi = accumulator
+            .node_pois
+            .first()
+            .expect("POI should be recorded");
+        assert_eq!(poi.location.x, 13.4);
+        assert_eq!(poi.location.y, 52.5);
+        assert!(accumulator.nodes.contains_key(&poi.id));
+    }
+
+    #[test]
+    fn process_node_retains_pending_coordinates_for_irrelevant_tags() {
+        let mut accumulator = OsmPoiAccumulator::default();
+        let encoded = encode_element_id(OsmElementKind::Node, 2).expect("id should encode");
+        accumulator.pending_way_nodes.insert(encoded);
+
+        accumulator.process_node(2, 0.5, -0.5, [("highway", "service")]);
+
+        assert!(accumulator.nodes.contains_key(&encoded));
+        assert!(accumulator.node_pois.is_empty());
+        assert!(!accumulator.pending_way_nodes.contains(&encoded));
+    }
+
+    #[test]
+    fn process_node_clears_pending_for_invalid_coordinates() {
+        let mut accumulator = OsmPoiAccumulator::default();
+        let encoded = encode_element_id(OsmElementKind::Node, 3).expect("id should encode");
+        accumulator.pending_way_nodes.insert(encoded);
+
+        accumulator.process_node(3, 200.0, 95.0, [("tourism", "attraction")]);
+
+        assert!(!accumulator.nodes.contains_key(&encoded));
+        assert!(accumulator.node_pois.is_empty());
+        assert!(!accumulator.pending_way_nodes.contains(&encoded));
+    }
 }
