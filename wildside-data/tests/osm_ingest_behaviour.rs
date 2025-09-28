@@ -33,6 +33,25 @@ impl FixtureTarget {
     }
 }
 
+fn store_fixture(
+    target: &RefCell<Option<FixtureTarget>>,
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    fixture: FixtureTarget,
+) {
+    *target.borrow_mut() = Some(fixture);
+    *result.borrow_mut() = None;
+}
+
+fn load_fixture_by_name(
+    dir: PathBuf,
+    target: &RefCell<Option<FixtureTarget>>,
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    name: &str,
+) {
+    let fixture = decode_fixture(&dir, name);
+    store_fixture(target, result, FixtureTarget::Existing(fixture));
+}
+
 #[fixture]
 fn target_fixture() -> RefCell<Option<FixtureTarget>> {
     RefCell::new(None)
@@ -55,16 +74,41 @@ fn expect_report(
     })
 }
 
-#[given("a valid PBF file containing 3 nodes, 1 way and 1 relation")]
-fn valid_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let fixture = decode_fixture(&dir, "triangle");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
+fn expect_error<F>(
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    expectation: &str,
+    mut inspect: F,
+) where
+    F: FnMut(&OsmIngestError),
+{
+    let borrowed = result.borrow();
+    let outcome = borrowed.as_ref().expect("ingestion was attempted");
+    match outcome {
+        Ok(_) => panic!("expected {expectation}"),
+        Err(error) => inspect(error),
+    }
 }
+
+macro_rules! fixture_given {
+    ($fn_name:ident, $annotation:literal, $fixture:literal) => {
+        #[given($annotation)]
+        fn $fn_name(
+            #[from(fixtures_dir)] dir: PathBuf,
+            #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
+            #[from(ingestion_result)] result: &RefCell<
+                Option<Result<OsmIngestReport, OsmIngestError>>,
+            >,
+        ) {
+            load_fixture_by_name(dir, target, result, $fixture);
+        }
+    };
+}
+
+fixture_given!(
+    valid_dataset,
+    "a valid PBF file containing 3 nodes, 1 way and 1 relation",
+    "triangle"
+);
 
 #[given("a path to a missing PBF file")]
 fn missing_dataset(
@@ -72,42 +116,36 @@ fn missing_dataset(
     #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    *target.borrow_mut() = Some(FixtureTarget::Missing(dir.join("missing.osm.pbf")));
-    *result.borrow_mut() = None;
+    store_fixture(
+        target,
+        result,
+        FixtureTarget::Missing(dir.join("missing.osm.pbf")),
+    );
 }
 
-#[given("a path to a file containing invalid PBF data")]
-fn invalid_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let fixture = decode_fixture(&dir, "invalid");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
-}
+fixture_given!(
+    invalid_dataset,
+    "a path to a file containing invalid PBF data",
+    "invalid"
+);
 
-#[given("a PBF file containing tourism and historic features")]
-fn tagged_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let fixture = decode_fixture(&dir, "poi_tags");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
-}
+fixture_given!(
+    tagged_dataset,
+    "a PBF file containing tourism and historic features",
+    "poi_tags"
+);
 
-#[given("a PBF file containing only irrelevant tags")]
-fn irrelevant_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let fixture = decode_fixture(&dir, "irrelevant_tags");
-    *target.borrow_mut() = Some(FixtureTarget::Existing(fixture));
-    *result.borrow_mut() = None;
-}
+fixture_given!(
+    mixed_tag_dataset,
+    "a PBF file combining relevant and irrelevant tags",
+    "poi_tags"
+);
+
+fixture_given!(
+    irrelevant_dataset,
+    "a PBF file containing only irrelevant tags",
+    "irrelevant_tags"
+);
 
 #[when("I ingest the PBF file")]
 
@@ -123,16 +161,64 @@ fn ingest_selected(
     *result.borrow_mut() = Some(outcome);
 }
 
-#[then("the summary includes 3 nodes, 1 way and 1 relation")]
-fn summary_counts(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+fn assert_summary_counts(
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    nodes: u64,
+    ways: u64,
+    relations: u64,
 ) {
-    let report = expect_report(result);
-    let summary = &report.summary;
-    assert_eq!(summary.nodes, 3, "expected three nodes");
-    assert_eq!(summary.ways, 1, "expected one way");
-    assert_eq!(summary.relations, 1, "expected one relation");
+    let summary = &expect_report(result).summary;
+    assert_eq!(
+        summary.nodes, nodes,
+        "expected {} nodes, found {}",
+        nodes, summary.nodes
+    );
+    assert_eq!(
+        summary.ways, ways,
+        "expected {} ways, found {}",
+        ways, summary.ways
+    );
+    assert_eq!(
+        summary.relations, relations,
+        "expected {} relations, found {}",
+        relations, summary.relations
+    );
 }
+
+macro_rules! summary_then {
+    ($fn_name:ident, $annotation:literal, $nodes:expr, $ways:expr, $relations:expr) => {
+        #[then($annotation)]
+        fn $fn_name(
+            #[from(ingestion_result)] result: &RefCell<
+                Option<Result<OsmIngestReport, OsmIngestError>>,
+            >,
+        ) {
+            assert_summary_counts(result, $nodes, $ways, $relations);
+        }
+    };
+}
+
+macro_rules! report_then {
+    ($fn_name:ident, $annotation:literal, |$report:ident| $body:block) => {
+        #[then($annotation)]
+        fn $fn_name(
+            #[from(ingestion_result)] result: &RefCell<
+                Option<Result<OsmIngestReport, OsmIngestError>>,
+            >,
+        ) {
+            let $report = expect_report(result);
+            $body
+        }
+    };
+}
+
+summary_then!(
+    summary_counts,
+    "the summary includes 3 nodes, 1 way and 1 relation",
+    3,
+    1,
+    1
+);
 
 #[then("the summary bounding box spans the sample coordinates")]
 fn summary_bounds(
@@ -153,102 +239,117 @@ fn summary_bounds(
     assert_close(max.y, 52.12240315616);
 }
 
-#[then("the summary includes 3 nodes, 3 ways and 1 relation")]
-fn tagged_summary_counts(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let summary = &expect_report(result).summary;
-    assert_eq!(summary.nodes, 3, "expected three nodes");
-    assert_eq!(summary.ways, 3, "expected three ways");
-    assert_eq!(summary.relations, 1, "expected one relation");
-}
+summary_then!(
+    tagged_summary_counts,
+    "the summary includes 4 nodes, 3 ways and 1 relation",
+    4,
+    3,
+    1
+);
 
-#[then("the report lists 3 points of interest")]
-fn poi_count(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let report = expect_report(result);
-    assert_eq!(
-        report.pois.len(),
-        3,
-        "expected three POIs (two nodes, one way)"
-    );
-}
+report_then!(
+    poi_count,
+    "the report lists 4 points of interest",
+    |report| {
+        assert_eq!(
+            report.pois.len(),
+            4,
+            "expected four POIs (three nodes, one way)",
+        );
+    }
+);
 
-#[then("no points of interest are reported")]
-fn no_points_reported(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let report = expect_report(result);
-    assert!(
-        report.pois.is_empty(),
-        "expected no points of interest for irrelevant tags, found {}",
-        report.pois.len()
-    );
-}
-#[then("the POI named \"Museum Island Walk\" uses the first node location")]
-fn walkway_location(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let report = expect_report(result);
-    let walk = report
-        .pois
-        .iter()
-        .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Museum Island Walk"))
-        .expect("expected way POI");
-    assert_close(walk.location.x, 13.404954);
-    assert_close(walk.location.y, 52.520008);
-}
+report_then!(
+    ignores_irrelevant_features_in_mixed_dataset,
+    "irrelevant features within the dataset are ignored",
+    |report| {
+        assert!(
+            report
+                .pois
+                .iter()
+                .all(|poi| !poi.tags.contains_key("highway")),
+            "expected highway-tagged features to be omitted from POIs",
+        );
+    }
+);
 
-#[then("POIs referencing missing nodes are skipped")]
-fn skips_missing_nodes(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let report = expect_report(result);
-    let ruins = report
-        .pois
-        .iter()
-        .filter(|poi| poi.tags.get("historic") == Some(&"ruins".to_string()))
-        .count();
-    assert_eq!(ruins, 0, "missing node references should not produce POIs");
-}
+report_then!(
+    no_points_reported,
+    "no points of interest are reported",
+    |report| {
+        assert!(
+            report.pois.is_empty(),
+            "expected no points of interest for irrelevant tags, found {}",
+            report.pois.len()
+        );
+    }
+);
+
+report_then!(
+    walkway_location,
+    "the POI named \"Museum Island Walk\" uses the first node location",
+    |report| {
+        let walk = report
+            .pois
+            .iter()
+            .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Museum Island Walk"))
+            .expect("expected way POI");
+        assert_close(walk.location.x, 13.404954);
+        assert_close(walk.location.y, 52.520008);
+    }
+);
+
+report_then!(
+    skips_missing_nodes,
+    "POIs referencing missing nodes are skipped",
+    |report| {
+        let ruins = report
+            .pois
+            .iter()
+            .filter(|poi| poi.tags.get("historic").map(String::as_str) == Some("ruins"))
+            .count();
+        assert_eq!(ruins, 0, "missing node references should not produce POIs");
+    }
+);
 
 #[then("an open error is returned")]
 fn open_error(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let borrowed = result.borrow();
-    let outcome = borrowed.as_ref().expect("ingestion was attempted");
-    match outcome {
-        Ok(_) => panic!("expected an error for the missing file"),
-        Err(OsmIngestError::Open { path, .. }) => {
-            assert!(
-                path.ends_with("missing.osm.pbf"),
-                "unexpected path in error: {path:?}"
-            );
-        }
-        Err(other) => panic!("expected an open error, got {other:?}"),
-    }
+    expect_error(
+        result,
+        "an error for the missing file",
+        |error| match error {
+            OsmIngestError::Open { path, .. } => {
+                assert!(
+                    path.ends_with("missing.osm.pbf"),
+                    "unexpected path in error: {path:?}"
+                );
+            }
+            other => panic!("expected an open error, got {other:?}"),
+        },
+    );
 }
 
 #[then("a decode error is returned")]
 fn decode_error(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
 ) {
-    let borrowed = result.borrow();
-    let outcome = borrowed.as_ref().expect("ingestion was attempted");
-    match outcome {
-        Ok(_) => panic!("expected an error for the invalid data"),
-        Err(OsmIngestError::Decode { source, path }) => {
-            let extension = path.extension().and_then(|ext| ext.to_str());
-            assert_eq!(extension, Some("pbf"), "unexpected path in error: {path:?}");
-            assert!(
-                !source.to_string().is_empty(),
-                "decode error should preserve the source message"
-            );
-        }
-        Err(other) => panic!("expected a decode error, got {other:?}"),
-    }
+    expect_error(
+        result,
+        "an error for the invalid data",
+        |error| match error {
+            OsmIngestError::Decode { source, path } => {
+                let extension = path.extension().and_then(|ext| ext.to_str());
+                assert_eq!(extension, Some("pbf"), "unexpected path in error: {path:?}");
+                assert!(
+                    !source.to_string().is_empty(),
+                    "decode error should preserve the source message"
+                );
+            }
+            other => panic!("expected a decode error, got {other:?}"),
+        },
+    );
 }
 
 #[test]
@@ -270,6 +371,7 @@ fn scenario_indices_follow_feature_order() {
         "reporting a missing file",
         "rejecting a corrupted dataset",
         "extracting points of interest from tagged data",
+        "filtering irrelevant features from a mixed dataset",
         "ignoring irrelevant tags",
     ];
     assert_eq!(
@@ -307,4 +409,5 @@ register_ingest_scenario!(summarising_known_dataset, 0);
 register_ingest_scenario!(reporting_missing_files, 1);
 register_ingest_scenario!(rejecting_invalid_payloads, 2);
 register_ingest_scenario!(extracting_points_of_interest, 3);
-register_ingest_scenario!(ignoring_irrelevant_tags, 4);
+register_ingest_scenario!(filtering_irrelevant_features_from_mixed_dataset, 4);
+register_ingest_scenario!(ignoring_irrelevant_tags, 5);

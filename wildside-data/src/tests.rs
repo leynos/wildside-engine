@@ -29,6 +29,11 @@ fn poi_pbf(#[from(fixtures_dir)] dir: PathBuf) -> TempPath {
     decode_fixture(&dir, "poi_tags")
 }
 
+#[fixture]
+fn poi_pbf_with_invalid_coords(#[from(fixtures_dir)] dir: PathBuf) -> TempPath {
+    decode_fixture(&dir, "invalid_coords")
+}
+
 #[rstest]
 fn summarises_small_fixture(valid_pbf: TempPath) -> Result<(), OsmIngestError> {
     let summary = ingest_osm_pbf(valid_pbf.as_ref())?;
@@ -49,7 +54,7 @@ fn summarises_small_fixture(valid_pbf: TempPath) -> Result<(), OsmIngestError> {
 #[rstest]
 fn extracts_relevant_pois(poi_pbf: TempPath) -> Result<(), OsmIngestError> {
     let report = ingest_osm_pbf_report(poi_pbf.as_ref())?;
-    assert_eq!(report.summary.nodes, 3, "expected three nodes in fixture");
+    assert_eq!(report.summary.nodes, 4, "expected four nodes in fixture");
     assert_eq!(report.summary.ways, 3, "expected three ways in fixture");
     assert_eq!(
         report.summary.relations, 1,
@@ -57,37 +62,105 @@ fn extracts_relevant_pois(poi_pbf: TempPath) -> Result<(), OsmIngestError> {
     );
     assert_eq!(
         report.pois.len(),
-        3,
-        "expected three POIs (two nodes, one way) to be emitted"
+        4,
+        "expected four POIs (three nodes, one way) to be emitted"
     );
 
-    let names: Vec<String> = report
+    let names: Vec<&str> = report
         .pois
         .iter()
-        .filter_map(|poi| poi.tags.get("name").cloned())
+        .filter_map(|poi| poi.tags.get("name").map(String::as_str))
         .collect();
-    assert!(names.contains(&"Brandenburg Gate".to_string()));
-    assert!(names.contains(&"Pergamon Museum".to_string()));
-    assert!(names.contains(&"Museum Island Walk".to_string()));
+    assert!(names.contains(&"Brandenburg Gate"));
+    assert!(names.contains(&"Pergamon Museum"));
+    assert!(names.contains(&"Victory Column"));
+    assert!(names.contains(&"Museum Island Walk"));
+
+    let dual_tag = report
+        .pois
+        .iter()
+        .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Victory Column"))
+        .expect("dual-tag POI should be present");
+    assert_eq!(
+        dual_tag.tags.get("historic").map(String::as_str),
+        Some("monument")
+    );
+    assert_eq!(
+        dual_tag.tags.get("tourism").map(String::as_str),
+        Some("attraction")
+    );
 
     let walk = report
         .pois
         .iter()
         .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Museum Island Walk"))
         .expect("way POI should be present");
-    assert_eq!(walk.tags.get("tourism"), Some(&"attraction".to_string()));
+    assert_eq!(
+        walk.tags.get("tourism").map(String::as_str),
+        Some("attraction")
+    );
     assert_close(walk.location.x, 13.404954);
     assert_close(walk.location.y, 52.520008);
 
     let ruins_count = report
         .pois
         .iter()
-        .filter(|poi| poi.tags.get("historic") == Some(&"ruins".to_string()))
+        .filter(|poi| poi.tags.get("historic").map(String::as_str) == Some("ruins"))
         .count();
     assert_eq!(
         ruins_count, 0,
         "ways without resolvable nodes should be ignored"
     );
+    Ok(())
+}
+
+#[rstest]
+fn skips_pois_with_invalid_coordinates(
+    poi_pbf_with_invalid_coords: TempPath,
+) -> Result<(), OsmIngestError> {
+    let report = ingest_osm_pbf_report(poi_pbf_with_invalid_coords.as_ref())?;
+    assert_eq!(report.summary.nodes, 4, "expected four nodes in fixture");
+    assert_eq!(report.summary.ways, 1, "expected one way in fixture");
+    assert_eq!(
+        report.summary.relations, 0,
+        "expected no relations in fixture",
+    );
+    assert_eq!(
+        report.pois.len(),
+        2,
+        "expected only valid POIs (one node, one way) to be emitted",
+    );
+
+    let names: Vec<&str> = report
+        .pois
+        .iter()
+        .filter_map(|poi| poi.tags.get("name").map(String::as_str))
+        .collect();
+    assert!(
+        !names.contains(&"Imaginary Summit"),
+        "invalid latitude should skip the POI",
+    );
+    assert!(
+        !names.contains(&"Far East Museum"),
+        "invalid longitude should skip the POI",
+    );
+    assert!(
+        names.contains(&"Valid Landmark"),
+        "valid POI should be included"
+    );
+    assert!(
+        names.contains(&"Invalid Loop"),
+        "way POI should be anchored to a valid node",
+    );
+
+    let way = report
+        .pois
+        .iter()
+        .find(|poi| poi.tags.get("name").map(String::as_str) == Some("Invalid Loop"))
+        .expect("expected way POI");
+    assert_close(way.location.x, -0.12);
+    assert_close(way.location.y, 51.5);
+
     Ok(())
 }
 

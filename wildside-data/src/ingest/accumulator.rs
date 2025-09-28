@@ -15,7 +15,7 @@ use osmpbf::Element;
 use wildside_core::{PointOfInterest, poi::Tags as PoiTags};
 
 use super::ids::{OsmElementKind, encode_element_id};
-use super::tags::{collect_tags, has_relevant_key};
+use super::tags::{collect_tags, has_relevant_key, is_relevant_key};
 use super::{OsmIngestReport, OsmIngestSummary};
 
 #[derive(Debug, Default)]
@@ -31,10 +31,10 @@ impl OsmPoiAccumulator {
     pub(super) fn process_element(&mut self, element: Element<'_>) {
         match element {
             Element::Node(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags(), node.tags())
+                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
             }
             Element::DenseNode(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags(), node.tags())
+                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
             }
             Element::Way(way) => self.process_way(way),
             Element::Relation(relation) => {
@@ -45,37 +45,58 @@ impl OsmPoiAccumulator {
         }
     }
 
-    fn process_node<'a, R, C>(
-        &mut self,
-        raw_id: i64,
-        lon: f64,
-        lat: f64,
-        relevance_tags: R,
-        tags: C,
-    ) where
-        R: IntoIterator<Item = (&'a str, &'a str)>,
-        C: IntoIterator<Item = (&'a str, &'a str)>,
+    fn process_node<'a, T>(&mut self, raw_id: i64, lon: f64, lat: f64, tags_iter: T)
+    where
+        T: IntoIterator<Item = (&'a str, &'a str)>,
     {
         self.summary.record_node(lon, lat);
         let Some(encoded_id) = encode_element_id(OsmElementKind::Node, raw_id) else {
             return;
         };
+        let was_pending = self.pending_way_nodes.contains(&encoded_id);
+
+        let mut staged: Vec<(&'a str, &'a str)> = Vec::new();
+        let mut collected: Option<PoiTags> = None;
+        let mut is_relevant = false;
+
+        for (key, value) in tags_iter {
+            if is_relevant {
+                collected
+                    .as_mut()
+                    .expect("relevant nodes initialise tag collection")
+                    .insert(key.to_owned(), value.to_owned());
+            } else if is_relevant_key(key) {
+                is_relevant = true;
+                let mut tags = PoiTags::new();
+                for (stored_key, stored_value) in staged.drain(..) {
+                    tags.insert(stored_key.to_owned(), stored_value.to_owned());
+                }
+                tags.insert(key.to_owned(), value.to_owned());
+                collected = Some(tags);
+            } else {
+                staged.push((key, value));
+            }
+        }
+
         let Some(location) = validated_coord(lon, lat) else {
-            self.pending_way_nodes.remove(&encoded_id);
+            if was_pending {
+                self.pending_way_nodes.remove(&encoded_id);
+            }
             return;
         };
-
-        let is_relevant = has_relevant_key(relevance_tags);
-        let was_pending = self.pending_way_nodes.remove(&encoded_id);
 
         if !is_relevant && !was_pending {
             return;
         }
 
+        if was_pending {
+            self.pending_way_nodes.remove(&encoded_id);
+        }
+
         self.nodes.insert(encoded_id, location);
 
         if is_relevant {
-            let tags = collect_tags(tags);
+            let tags = collected.expect("relevant nodes must collect tags");
             self.node_pois
                 .push(PointOfInterest::new(encoded_id, location, tags));
         }
@@ -179,4 +200,71 @@ pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
         && (-180.0..=180.0).contains(&lon)
         && (-90.0..=90.0).contains(&lat))
     .then_some(Coord { x: lon, y: lat })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Tests for the POI accumulator.
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn accumulator() -> OsmPoiAccumulator {
+        OsmPoiAccumulator::default()
+    }
+
+    #[rstest]
+    #[case::historic(vec![("historic", "memorial")])]
+    #[case::tourism(vec![("tourism", "attraction")])]
+    #[case::mixed(vec![("name", "Victory Column"), ("historic", "monument")])]
+    fn process_node_emits_poi_for_relevant_tags(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] tags: Vec<(&'static str, &'static str)>,
+    ) {
+        accumulator.process_node(1, 13.4, 52.5, tags.iter().copied());
+
+        let poi = accumulator
+            .node_pois
+            .first()
+            .expect("POI should be recorded");
+        assert_eq!(poi.location.x, 13.4);
+        assert_eq!(poi.location.y, 52.5);
+        assert!(accumulator.nodes.contains_key(&poi.id));
+        assert_eq!(accumulator.node_pois.len(), 1);
+    }
+
+    #[rstest]
+    #[case::highway(vec![("highway", "service")])]
+    #[case::name_only(vec![("name", "Unnamed")])]
+    fn process_node_retains_pending_coordinates_for_irrelevant_tags(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] tags: Vec<(&'static str, &'static str)>,
+    ) {
+        let encoded = encode_element_id(OsmElementKind::Node, 2).expect("id should encode");
+        accumulator.pending_way_nodes.insert(encoded);
+
+        accumulator.process_node(2, 0.5, -0.5, tags.iter().copied());
+
+        assert!(accumulator.nodes.contains_key(&encoded));
+        assert!(accumulator.node_pois.is_empty());
+        assert!(!accumulator.pending_way_nodes.contains(&encoded));
+    }
+
+    #[rstest]
+    #[case::longitude(200.0, 45.0)]
+    #[case::latitude(13.4, 95.0)]
+    fn process_node_clears_pending_for_invalid_coordinates(
+        mut accumulator: OsmPoiAccumulator,
+        #[case] lon: f64,
+        #[case] lat: f64,
+    ) {
+        let encoded = encode_element_id(OsmElementKind::Node, 3).expect("id should encode");
+        accumulator.pending_way_nodes.insert(encoded);
+
+        accumulator.process_node(3, lon, lat, [("tourism", "attraction")]);
+
+        assert!(!accumulator.nodes.contains_key(&encoded));
+        assert!(accumulator.node_pois.is_empty());
+        assert!(!accumulator.pending_way_nodes.contains(&encoded));
+    }
 }

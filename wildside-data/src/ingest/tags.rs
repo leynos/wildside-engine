@@ -27,6 +27,51 @@ where
 ///
 /// Currently we only treat the `historic` and `tourism` tags as POI markers.
 /// Extend this predicate when new tag families must be supported.
-fn is_relevant_key(key: &str) -> bool {
+pub(super) fn is_relevant_key(key: &str) -> bool {
     matches!(key, "historic" | "tourism")
+}
+
+#[cfg(test)]
+mod tests {
+    //! Tests for POI tag helpers.
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn monument_tags() -> Vec<(&'static str, &'static str)> {
+        make_monument_tags()
+    }
+
+    #[rstest]
+    #[case::historic(vec![("historic", "memorial")])]
+    #[case::tourism(vec![("tourism", "museum")])]
+    #[case::mixed(make_monument_tags())]
+    fn detects_relevant_keys(#[case] tags: Vec<(&'static str, &'static str)>) {
+        assert!(has_relevant_key(tags.iter().copied()));
+    }
+
+    #[rstest]
+    #[case::amenity(vec![("amenity", "cafe")])]
+    #[case::name(vec![("name", "Pergamon Museum")])]
+    fn ignores_irrelevant_keys(#[case] tags: Vec<(&'static str, &'static str)>) {
+        assert!(!has_relevant_key(tags.iter().copied()));
+    }
+
+    #[rstest]
+    fn collects_tags_into_owned_map(monument_tags: Vec<(&'static str, &'static str)>) {
+        let collected = collect_tags(monument_tags.iter().copied());
+
+        assert_eq!(
+            collected.get("historic").map(String::as_str),
+            Some("monument")
+        );
+        assert_eq!(
+            collected.get("name").map(String::as_str),
+            Some("Victory Column")
+        );
+    }
+
+    fn make_monument_tags() -> Vec<(&'static str, &'static str)> {
+        vec![("historic", "monument"), ("name", "Victory Column")]
+    }
 }

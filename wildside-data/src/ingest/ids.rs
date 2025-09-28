@@ -53,3 +53,49 @@ pub(super) fn encode_element_id(kind: OsmElementKind, raw_id: i64) -> Option<u64
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Tests for OSM element ID encoding.
+    use super::*;
+    use rstest::{fixture, rstest};
+
+    #[fixture]
+    fn base_id() -> i64 {
+        42
+    }
+
+    #[fixture]
+    fn out_of_range_id() -> i64 {
+        (TYPE_ID_MASK + 1) as i64
+    }
+
+    #[rstest]
+    #[case::node(OsmElementKind::Node, 0)]
+    #[case::way(OsmElementKind::Way, WAY_ID_PREFIX)]
+    #[case::relation(OsmElementKind::Relation, REL_ID_PREFIX)]
+    fn encodes_nodes_ways_and_relations(
+        #[case] kind: OsmElementKind,
+        #[case] prefix: u64,
+        base_id: i64,
+    ) {
+        let expected = prefix | u64::try_from(base_id).expect("fixture should be positive");
+        assert_eq!(encode_element_id(kind, base_id), Some(expected));
+    }
+
+    #[rstest]
+    #[case::node(OsmElementKind::Node)]
+    #[case::way(OsmElementKind::Way)]
+    #[case::relation(OsmElementKind::Relation)]
+    fn rejects_negative_identifiers(#[case] kind: OsmElementKind) {
+        assert_eq!(encode_element_id(kind, -7), None);
+    }
+
+    #[rstest]
+    #[case::node(OsmElementKind::Node)]
+    #[case::way(OsmElementKind::Way)]
+    #[case::relation(OsmElementKind::Relation)]
+    fn rejects_out_of_range_identifiers(#[case] kind: OsmElementKind, out_of_range_id: i64) {
+        assert_eq!(encode_element_id(kind, out_of_range_id), None);
+    }
+}

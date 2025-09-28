@@ -22,10 +22,17 @@ Feature: ingesting OSM PBF data
   Scenario: extracting points of interest from tagged data
     Given a PBF file containing tourism and historic features
     When I ingest the PBF file
-    Then the summary includes 3 nodes, 3 ways and 1 relation
-    And the report lists 3 points of interest
+    Then the summary includes 4 nodes, 3 ways and 1 relation
+    And the report lists 4 points of interest
     And the POI named "Museum Island Walk" uses the first node location
     And POIs referencing missing nodes are skipped
+
+  Scenario: filtering irrelevant features from a mixed dataset
+    Given a PBF file combining relevant and irrelevant tags
+    When I ingest the PBF file
+    Then the summary includes 4 nodes, 3 ways and 1 relation
+    And the report lists 4 points of interest
+    And irrelevant features within the dataset are ignored
 
   Scenario: ignoring irrelevant tags
     Given a PBF file containing only irrelevant tags
