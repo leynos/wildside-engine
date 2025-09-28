@@ -74,14 +74,26 @@ fn expect_report(
     })
 }
 
-#[given("a valid PBF file containing 3 nodes, 1 way and 1 relation")]
-fn valid_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    load_fixture_by_name(dir, target, result, "triangle");
+macro_rules! fixture_given {
+    ($fn_name:ident, $annotation:literal, $fixture:literal) => {
+        #[given($annotation)]
+        fn $fn_name(
+            #[from(fixtures_dir)] dir: PathBuf,
+            #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
+            #[from(ingestion_result)] result: &RefCell<
+                Option<Result<OsmIngestReport, OsmIngestError>>,
+            >,
+        ) {
+            load_fixture_by_name(dir, target, result, $fixture);
+        }
+    };
 }
+
+fixture_given!(
+    valid_dataset,
+    "a valid PBF file containing 3 nodes, 1 way and 1 relation",
+    "triangle"
+);
 
 #[given("a path to a missing PBF file")]
 fn missing_dataset(
@@ -96,41 +108,29 @@ fn missing_dataset(
     );
 }
 
-#[given("a path to a file containing invalid PBF data")]
-fn invalid_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    load_fixture_by_name(dir, target, result, "invalid");
-}
+fixture_given!(
+    invalid_dataset,
+    "a path to a file containing invalid PBF data",
+    "invalid"
+);
 
-#[given("a PBF file containing tourism and historic features")]
-fn tagged_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    load_fixture_by_name(dir, target, result, "poi_tags");
-}
+fixture_given!(
+    tagged_dataset,
+    "a PBF file containing tourism and historic features",
+    "poi_tags"
+);
 
-#[given("a PBF file combining relevant and irrelevant tags")]
-fn mixed_tag_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    load_fixture_by_name(dir, target, result, "poi_tags");
-}
+fixture_given!(
+    mixed_tag_dataset,
+    "a PBF file combining relevant and irrelevant tags",
+    "poi_tags"
+);
 
-#[given("a PBF file containing only irrelevant tags")]
-fn irrelevant_dataset(
-    #[from(fixtures_dir)] dir: PathBuf,
-    #[from(target_fixture)] target: &RefCell<Option<FixtureTarget>>,
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    load_fixture_by_name(dir, target, result, "irrelevant_tags");
-}
+fixture_given!(
+    irrelevant_dataset,
+    "a PBF file containing only irrelevant tags",
+    "irrelevant_tags"
+);
 
 #[when("I ingest the PBF file")]
 
@@ -146,16 +146,50 @@ fn ingest_selected(
     *result.borrow_mut() = Some(outcome);
 }
 
-#[then("the summary includes 3 nodes, 1 way and 1 relation")]
-fn summary_counts(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+fn assert_summary_counts(
+    result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
+    nodes: u64,
+    ways: u64,
+    relations: u64,
 ) {
-    let report = expect_report(result);
-    let summary = &report.summary;
-    assert_eq!(summary.nodes, 3, "expected three nodes");
-    assert_eq!(summary.ways, 1, "expected one way");
-    assert_eq!(summary.relations, 1, "expected one relation");
+    let summary = &expect_report(result).summary;
+    assert_eq!(
+        summary.nodes, nodes,
+        "expected {} nodes, found {}",
+        nodes, summary.nodes
+    );
+    assert_eq!(
+        summary.ways, ways,
+        "expected {} ways, found {}",
+        ways, summary.ways
+    );
+    assert_eq!(
+        summary.relations, relations,
+        "expected {} relations, found {}",
+        relations, summary.relations
+    );
 }
+
+macro_rules! summary_then {
+    ($fn_name:ident, $annotation:literal, $nodes:expr, $ways:expr, $relations:expr) => {
+        #[then($annotation)]
+        fn $fn_name(
+            #[from(ingestion_result)] result: &RefCell<
+                Option<Result<OsmIngestReport, OsmIngestError>>,
+            >,
+        ) {
+            assert_summary_counts(result, $nodes, $ways, $relations);
+        }
+    };
+}
+
+summary_then!(
+    summary_counts,
+    "the summary includes 3 nodes, 1 way and 1 relation",
+    3,
+    1,
+    1
+);
 
 #[then("the summary bounding box spans the sample coordinates")]
 fn summary_bounds(
@@ -176,16 +210,13 @@ fn summary_bounds(
     assert_close(max.y, 52.12240315616);
 }
 
-#[then("the summary includes 4 nodes, 3 ways and 1 relation")]
-fn tagged_summary_counts(
-    #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
-) {
-    let summary = &expect_report(result).summary;
-    assert_eq!(summary.nodes, 4, "expected four nodes");
-    assert_eq!(summary.ways, 3, "expected three ways");
-    assert_eq!(summary.relations, 1, "expected one relation");
-}
-
+summary_then!(
+    tagged_summary_counts,
+    "the summary includes 4 nodes, 3 ways and 1 relation",
+    4,
+    3,
+    1
+);
 #[then("the report lists 4 points of interest")]
 fn poi_count(
     #[from(ingestion_result)] result: &RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,

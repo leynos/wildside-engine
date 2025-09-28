@@ -204,6 +204,7 @@ pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for the POI accumulator.
     use super::*;
     use rstest::{fixture, rstest};
 

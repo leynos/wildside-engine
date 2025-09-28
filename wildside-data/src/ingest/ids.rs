@@ -56,6 +56,7 @@ pub(super) fn encode_element_id(kind: OsmElementKind, raw_id: i64) -> Option<u64
 
 #[cfg(test)]
 mod tests {
+    //! Tests for OSM element ID encoding.
     use super::*;
     use rstest::{fixture, rstest};
 

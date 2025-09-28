@@ -33,6 +33,7 @@ pub(super) fn is_relevant_key(key: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for POI tag helpers.
     use super::*;
     use rstest::{fixture, rstest};
 
