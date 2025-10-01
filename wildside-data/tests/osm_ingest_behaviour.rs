@@ -354,7 +354,7 @@ fn decode_error(
 
 #[test]
 fn scenario_indices_follow_feature_order() {
-    // rstest-bdd v0.1.0-alpha1 only exposes index-based bindings.
+    // rstest-bdd v0.1.0-alpha4 only exposes index-based bindings.
     // Guard the scenario order so edits to the feature file keep indices stable.
     let feature =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/features/ingest_osm_pbf.feature");
