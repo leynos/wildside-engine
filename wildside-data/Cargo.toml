@@ -13,7 +13,7 @@ wildside-core = { workspace = true }
 
 [dev-dependencies]
 base64 = "0.22"
-tempfile = "3.12.0"
+tempfile = "3.23.0"
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
