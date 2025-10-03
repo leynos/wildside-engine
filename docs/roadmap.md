@@ -57,9 +57,9 @@ core data structures of the engine.
 
 - **Adopt GeoRust Primitives**
 
-- [x] Standardize on `geo::Coord` for all location data within the
+  - [x] Standardize on `geo::Coord` for all location data within the
         `PointOfInterest` struct.
-- [x] Create a function `build_spatial_index` that consumes an iterator of
+  - [x] Create a function `build_spatial_index` that consumes an iterator of
         `PointOfInterest` values and returns a `SpatialIndex` backed by an
         R*-tree.
   - [ ] Implement a `SqlitePoiStore` that loads a pre-built R*-tree from a file
