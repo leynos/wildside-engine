@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use geo::Coord;
 use wildside_core::{PointOfInterest, Tags, build_spatial_index};
 
@@ -21,16 +23,13 @@ fn point_of_interest_retains_tags() {
 
 #[test]
 fn spatial_index_len_matches_input() {
-    let pois = vec![poi(1, 0.0, 0.0), poi(2, 1.0, 1.0)];
-    let index = build_spatial_index(pois.clone());
+    let index = build_spatial_index(vec![poi(1, 0.0, 0.0), poi(2, 1.0, 1.0)]);
 
-    assert_eq!(index.len(), pois.len());
+    assert_eq!(index.len(), 2);
     assert!(!index.is_empty());
 
-    let collected: Vec<_> = index.iter().collect();
-    for poi in &pois {
-        assert!(collected.contains(&poi), "missing POI with id {}", poi.id);
-    }
+    let ids: BTreeSet<_> = index.iter().map(|poi| poi.id).collect();
+    assert_eq!(ids, BTreeSet::from([1, 2]));
 }
 
 #[test]

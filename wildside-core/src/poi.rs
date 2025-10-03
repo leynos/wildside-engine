@@ -39,6 +39,7 @@ pub struct PointOfInterest {
     pub tags: Tags,
 }
 
+/// Enable spatial indexing by representing POIs as zero-dimensional points.
 impl RTreeObject for PointOfInterest {
     type Envelope = AABB<[f64; 2]>;
 
