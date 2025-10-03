@@ -84,12 +84,14 @@ providing a stable vocabulary across crates.
 
 ### Spatial indexing
 
-Spatial queries rely on an `rstar::RTree<PointOfInterest>` built through the
-`build_spatial_index` helper. The function clones the provided slice and calls
-`RTree::bulk_load`, which balances the tree in a single pass and avoids the
-skew that incremental insertions can introduce. Relying on the GeoRust `Coord`
-type keeps geometric semantics consistent across ingestion, storage, and
-querying components.
+Spatial queries rely on the `SpatialIndex` newtype, which wraps an
+`rstar::RTree<PointOfInterest>` built through the `build_spatial_index` helper.
+`build_spatial_index` consumes any iterator of POIs and uses `RTree::bulk_load`
+to balance the tree in a single pass without cloning owned data. The index
+exposes read-only helpers for iteration, bounding-box queries, and length
+checks while keeping `rstar` types out of the public API. Reusing the GeoRust
+`Coord` type keeps geometric semantics consistent across ingestion, storage,
+and querying components.
 
 ```mermaid
 classDiagram
@@ -111,10 +113,18 @@ classDiagram
         +locate_in_envelope_intersecting(envelope: Envelope)
     }
     PointOfInterest --> RTree
-    class build_spatial_index {
-        +build_spatial_index(pois: &[PointOfInterest]) RTree<PointOfInterest>
+    class SpatialIndex {
+        +len() usize
+        +is_empty() bool
+        +iter() Iterator<PointOfInterest>
+        +query_within(minimum: Coord, maximum: Coord) Vec<PointOfInterest>
     }
-    build_spatial_index --> RTree
+    SpatialIndex --> RTree
+    PointOfInterest --> SpatialIndex
+    class build_spatial_index {
+        +build_spatial_index(pois: IntoIterator<PointOfInterest>) SpatialIndex
+    }
+    build_spatial_index --> SpatialIndex
     build_spatial_index --> PointOfInterest
 ```
 

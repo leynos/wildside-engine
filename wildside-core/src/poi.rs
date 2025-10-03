@@ -47,26 +47,72 @@ impl RTreeObject for PointOfInterest {
     }
 }
 
+/// A spatial index for locating [`PointOfInterest`] values.
+#[derive(Clone, Debug)]
+pub struct SpatialIndex {
+    tree: RTree<PointOfInterest>,
+}
+
+impl SpatialIndex {
+    /// Return the number of indexed points.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.tree.size()
+    }
+
+    /// Report whether the index is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Iterate over all indexed points.
+    pub fn iter(&self) -> impl Iterator<Item = &PointOfInterest> {
+        self.tree.iter()
+    }
+
+    /// Query the index for points intersecting the provided bounding box.
+    #[must_use]
+    pub fn query_within(&self, minimum: Coord<f64>, maximum: Coord<f64>) -> Vec<PointOfInterest> {
+        let lower = Coord {
+            x: minimum.x.min(maximum.x),
+            y: minimum.y.min(maximum.y),
+        };
+        let upper = Coord {
+            x: minimum.x.max(maximum.x),
+            y: minimum.y.max(maximum.y),
+        };
+        let envelope = AABB::from_corners([lower.x, lower.y], [upper.x, upper.y]);
+        self.tree
+            .locate_in_envelope_intersecting(&envelope)
+            .cloned()
+            .collect()
+    }
+}
+
 /// Build an R\*-tree spatial index for the provided points of interest.
 ///
-/// The returned tree owns cloned copies of the POIs and can be used for
-/// efficient bounding-box or nearest-neighbour queries.
+/// The returned index owns the provided POIs and supports efficient
+/// bounding-box or nearest-neighbour queries.
 ///
 /// # Examples
 /// ```rust
 /// use geo::Coord;
-/// use rstar::RTree;
 /// use wildside_core::{build_spatial_index, PointOfInterest};
 ///
-/// let pois = [
+/// let pois = vec![
 ///     PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 }),
 ///     PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 1.0 }),
 /// ];
-/// let tree: RTree<PointOfInterest> = build_spatial_index(&pois);
-/// assert_eq!(tree.size(), 2);
+/// let index = build_spatial_index(pois);
+/// assert_eq!(index.len(), 2);
 /// ```
-pub fn build_spatial_index(pois: &[PointOfInterest]) -> RTree<PointOfInterest> {
-    RTree::bulk_load(pois.to_vec())
+pub fn build_spatial_index<I>(pois: I) -> SpatialIndex
+where
+    I: IntoIterator<Item = PointOfInterest>,
+{
+    let tree = RTree::bulk_load(pois.into_iter().collect());
+    SpatialIndex { tree }
 }
 
 impl PointOfInterest {
@@ -101,47 +147,7 @@ impl PointOfInterest {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use rstar::{AABB, RTree};
-    use rstest::rstest;
-
-    fn poi(id: u64, x: f64, y: f64) -> PointOfInterest {
-        PointOfInterest::with_empty_tags(id, Coord { x, y })
-    }
-
-    #[rstest]
-    fn poi_stores_tags() {
-        let poi = PointOfInterest::new(
-            1,
-            Coord { x: 0.0, y: 0.0 },
-            Tags::from([("key".into(), "value".into())]),
-        );
-        assert_eq!(poi.tags.get("key"), Some(&"value".to_string()));
-    }
-
-    #[rstest]
-    fn spatial_index_contains_all_points() {
-        let pois = [poi(1, 0.0, 0.0), poi(2, 1.0, 1.0)];
-
-        let tree = build_spatial_index(&pois);
-
-        assert_eq!(tree.size(), pois.len());
-        for expected in pois {
-            let envelope = AABB::from_point([expected.location.x, expected.location.y]);
-            let mut matches = tree.locate_in_envelope_intersecting(&envelope);
-            let found = matches.next().expect("point present in tree");
-            assert_eq!(found, &expected);
-            assert!(
-                matches.next().is_none(),
-                "envelope should match exactly one POI"
-            );
-        }
-    }
-
-    #[rstest]
-    fn spatial_index_handles_empty_input() {
-        let tree: RTree<PointOfInterest> = build_spatial_index(&[]);
-        assert_eq!(tree.size(), 0);
-    }
+    // Integration tests cover the `PointOfInterest` module. See
+    // `tests/spatial_index.rs` for coverage of constructors and spatial
+    // indexing behaviour.
 }
