@@ -38,7 +38,9 @@ providing a stable vocabulary across crates.
 - `PointOfInterest` stores a unique identifier, a `geo::Coord`, and a map of
   tags. Tags remain a `HashMap<String, String>` to mirror the free-form
   key/value pairs common in OpenStreetMap. Convenience constructors provide
-  explicit creation paths with or without tags.
+  explicit creation paths with or without tags. The struct now implements
+  `rstar::RTreeObject`, allowing POIs to be inserted directly into R\*-trees
+  without additional wrappers.
 - `Theme` is an enum describing broad categories like history, art, and food.
   Using an enum rather than free-form strings prevents runtime typos.
 - `InterestProfile` represents thematic preferences as a `HashMap<Theme, f32>`
@@ -79,6 +81,15 @@ providing a stable vocabulary across crates.
   and a `TagScorer` compile automatically in tests and are gated behind a
   `test-support` feature for consumers, preventing accidental production
   dependencies.
+
+### Spatial indexing
+
+Spatial queries rely on an `rstar::RTree<PointOfInterest>` built through the
+`build_spatial_index` helper. The function clones the provided slice and calls
+`RTree::bulk_load`, which balances the tree in a single pass and avoids the
+skew that incremental insertions can introduce. Relying on the GeoRust `Coord`
+type keeps geometric semantics consistent across ingestion, storage, and
+querying components.
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
