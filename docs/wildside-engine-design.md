@@ -91,6 +91,33 @@ skew that incremental insertions can introduce. Relying on the GeoRust `Coord`
 type keeps geometric semantics consistent across ingestion, storage, and
 querying components.
 
+```mermaid
+classDiagram
+    class PointOfInterest {
+        +id: u64
+        +location: Coord
+        +tags: Tags
+        +new(id: u64, location: Coord, tags: Tags)
+        +with_empty_tags(id: u64, location: Coord)
+    }
+    PointOfInterest ..|> RTreeObject
+    RTreeObject <|.. PointOfInterest
+    class RTreeObject {
+        +envelope() Envelope
+    }
+    class RTree {
+        +bulk_load(items: Vec<T>)
+        +size()
+        +locate_in_envelope_intersecting(envelope: Envelope)
+    }
+    PointOfInterest --> RTree
+    class build_spatial_index {
+        +build_spatial_index(pois: &[PointOfInterest]) RTree<PointOfInterest>
+    }
+    build_spatial_index --> RTree
+    build_spatial_index --> PointOfInterest
+```
+
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
