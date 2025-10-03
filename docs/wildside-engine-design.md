@@ -93,6 +93,10 @@ checks while keeping `rstar` types out of the public API. Reusing the GeoRust
 `Coord` type keeps geometric semantics consistent across ingestion, storage,
 and querying components.
 
+The following class diagram describes the relationships between
+`PointOfInterest`, `SpatialIndex`, the underlying R-tree, and the
+`build_spatial_index` helper.
+
 ```mermaid
 classDiagram
     class PointOfInterest {

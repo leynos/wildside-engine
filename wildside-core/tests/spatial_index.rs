@@ -21,16 +21,16 @@ fn point_of_interest_retains_tags() {
 
 #[test]
 fn spatial_index_len_matches_input() {
-    let mut pois = vec![poi(1, 0.0, 0.0), poi(2, 1.0, 1.0)];
+    let pois = vec![poi(1, 0.0, 0.0), poi(2, 1.0, 1.0)];
     let index = build_spatial_index(pois.clone());
 
     assert_eq!(index.len(), pois.len());
     assert!(!index.is_empty());
 
-    let mut collected: Vec<_> = index.iter().cloned().collect();
-    collected.sort_by_key(|poi| poi.id);
-    pois.sort_by_key(|poi| poi.id);
-    assert_eq!(collected, pois);
+    let collected: Vec<_> = index.iter().collect();
+    for poi in &pois {
+        assert!(collected.contains(&poi), "missing POI with id {}", poi.id);
+    }
 }
 
 #[test]
