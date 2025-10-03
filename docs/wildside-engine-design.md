@@ -38,7 +38,9 @@ providing a stable vocabulary across crates.
 - `PointOfInterest` stores a unique identifier, a `geo::Coord`, and a map of
   tags. Tags remain a `HashMap<String, String>` to mirror the free-form
   key/value pairs common in OpenStreetMap. Convenience constructors provide
-  explicit creation paths with or without tags.
+  explicit creation paths with or without tags. The struct now implements
+  `rstar::RTreeObject`, allowing POIs to be inserted directly into R\*-trees
+  without additional wrappers.
 - `Theme` is an enum describing broad categories like history, art, and food.
   Using an enum rather than free-form strings prevents runtime typos.
 - `InterestProfile` represents thematic preferences as a `HashMap<Theme, f32>`
@@ -79,6 +81,56 @@ providing a stable vocabulary across crates.
   and a `TagScorer` compile automatically in tests and are gated behind a
   `test-support` feature for consumers, preventing accidental production
   dependencies.
+
+### Spatial indexing
+
+Spatial queries rely on the `SpatialIndex` newtype, which wraps an
+`rstar::RTree<PointOfInterest>` built through the `build_spatial_index` helper.
+`build_spatial_index` consumes any iterator of POIs and uses `RTree::bulk_load`
+to balance the tree in a single pass without cloning owned data. The index
+exposes read-only helpers for iteration, bounding-box queries, and length
+checks while keeping `rstar` types out of the public API. Reusing the GeoRust
+`Coord` type keeps geometric semantics consistent across ingestion, storage,
+and querying components.
+
+The following class diagram describes the relationships between
+`PointOfInterest`, `SpatialIndex`, the underlying R-tree, and the
+`build_spatial_index` helper.
+
+```mermaid
+classDiagram
+    class PointOfInterest {
+        +id: u64
+        +location: Coord
+        +tags: Tags
+        +new(id: u64, location: Coord, tags: Tags)
+        +with_empty_tags(id: u64, location: Coord)
+    }
+    PointOfInterest ..|> RTreeObject
+    RTreeObject <|.. PointOfInterest
+    class RTreeObject {
+        +envelope() Envelope
+    }
+    class RTree {
+        +bulk_load(items: Vec<T>)
+        +size()
+        +locate_in_envelope_intersecting(envelope: Envelope)
+    }
+    PointOfInterest --> RTree
+    class SpatialIndex {
+        +len() usize
+        +is_empty() bool
+        +iter() Iterator<PointOfInterest>
+        +query_within(minimum: Coord, maximum: Coord) Vec<PointOfInterest>
+    }
+    SpatialIndex --> RTree
+    PointOfInterest --> SpatialIndex
+    class build_spatial_index {
+        +build_spatial_index(pois: IntoIterator<PointOfInterest>) SpatialIndex
+    }
+    build_spatial_index --> SpatialIndex
+    build_spatial_index --> PointOfInterest
+```
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.

@@ -11,7 +11,7 @@ pub mod store;
 pub mod theme;
 pub mod travel_time;
 
-pub use poi::PointOfInterest;
+pub use poi::{PointOfInterest, SpatialIndex, Tags, build_spatial_index};
 pub use profile::InterestProfile;
 pub use route::Route;
 pub use scorer::Scorer;
