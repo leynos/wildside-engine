@@ -135,6 +135,20 @@ classDiagram
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
+### Sqlite-backed POI access
+
+The walking skeleton introduces a `SqlitePoiStore` housed in `wildside-data` to
+serve POIs at runtime. The ingest phase serialises each `PointOfInterest` into
+a `pois` table as a `BLOB` using `bincode`; this keeps the schema minimal
+whilst preserving the full struct for later enrichment. A companion R\*-tree
+file, also encoded via `bincode`, stores a pre-built `SpatialIndex` so queries
+avoid rebuilding the tree on start-up. When the store is constructed it eagerly
+loads both artefacts, validating that every node in the index has a matching
+SQLite row and that the blob identifiers align with their primary keys. The
+bounding-box API then becomes a pure lookup: the in-memory index locates
+candidate IDs and a hash map of the decoded POIs yields cloned values for
+callers without further I/O.
+
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
 The intelligence of the Wildside engine is predicated on the quality and

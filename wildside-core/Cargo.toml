@@ -19,7 +19,7 @@ rstest-bdd-macros = { workspace = true }
 
 [features]
 default = []
-serde = ["dep:serde", "geo/use-serde"]
+serde = ["dep:serde", "geo/use-serde", "rstar/serde"]
 test-support = []
 
 [package.metadata.docs.rs]

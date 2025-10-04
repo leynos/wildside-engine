@@ -14,10 +14,12 @@
 //! - No global mutable state.
 
 mod ingest;
+mod store;
 
 pub use crate::ingest::{
     OsmIngestError, OsmIngestReport, OsmIngestSummary, ingest_osm_pbf, ingest_osm_pbf_report,
 };
+pub use crate::store::{SqlitePoiStore, SqlitePoiStoreError};
 
 #[cfg(test)]
 mod tests;

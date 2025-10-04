@@ -49,6 +49,8 @@ impl RTreeObject for PointOfInterest {
 }
 
 /// A spatial index for locating [`PointOfInterest`] values.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Debug)]
 pub struct SpatialIndex {
     tree: RTree<PointOfInterest>,

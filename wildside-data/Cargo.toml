@@ -9,7 +9,9 @@ geo = "0.31.0"
 log = { workspace = true }
 osmpbf = "0.3.6"
 thiserror = "1"
-wildside-core = { workspace = true }
+wildside-core = { workspace = true, features = ["serde"] }
+bincode = "1.3.3"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
 
 [dev-dependencies]
 base64 = "0.22"
