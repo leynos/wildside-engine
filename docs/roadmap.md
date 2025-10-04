@@ -62,7 +62,7 @@ core data structures of the engine.
   - [x] Create a function `build_spatial_index` that consumes an iterator of
         `PointOfInterest` values and returns a `SpatialIndex` backed by an
         R*-tree.
-  - [ ] Implement a `SqlitePoiStore` that loads a pre-built R*-tree from a file
+  - [x] Implement a `SqlitePoiStore` that loads a pre-built R*-tree from a file
         and uses it to implement the `get_pois_in_bbox` method efficiently.
 
 - **Build Wikidata ETL Pipeline**
