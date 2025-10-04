@@ -57,6 +57,18 @@ providing a stable vocabulary across crates.
   `x = longitude`, `y = latitude`). The full semantics are documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
+- `SqlitePoiStore` is the first production-grade implementation of that
+  interface. It expects two artefacts produced by the offline ETL pipeline:
+  `pois.db` (an SQLite database whose `pois` table stores POI ids, coordinates,
+  and JSON-encoded tags) and `pois.rstar` (a binary R\*-tree serialisation).
+  The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
+  version (currently `1`), followed by a `bincode` payload of `IndexedPoi`
+  structs. Each struct records the POI id and its `geo::Coord`; the runtime
+  reconstructs an `rstar::RTree` directly from this blob. During start-up the
+  store loads the index and queries the SQLite database for the corresponding
+  POIs, erroring if any referenced id is missing. Only indexed POIs are kept in
+  memory to avoid retaining historical rows that are no longer spatially
+  searchable.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
@@ -134,6 +146,14 @@ classDiagram
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
+
+At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
+R\*-tree keeps query latency sub-millisecond for bounding boxes, while the
+in-memory cache of POIs—populated from SQLite during initialisation—ensures that
+`get_pois_in_bbox` remains infallible at the trait level. The header on the
+`pois.rstar` artefact gives us room for future evolution (e.g., switching to a
+memory-mapped format or adding compression) without silently corrupting older
+deployments.
 
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
