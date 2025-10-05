@@ -107,15 +107,13 @@ fn open_store(
 fn query_bbox_helper(
     _store_holder: &RefCell<Option<SqlitePoiStore>>,
     _query_results: &RefCell<Vec<PointOfInterest>>,
-    x1: f64,
-    y1: f64,
-    x2: f64,
-    y2: f64,
+    coords: (f64, f64, f64, f64),
 ) {
     let borrowed_store = _store_holder.borrow();
     let store = borrowed_store
         .as_ref()
         .expect("store should be available for querying");
+    let (x1, y1, x2, y2) = coords;
     let bbox = bbox(x1, y1, x2, y2);
     _query_results.replace(store.get_pois_in_bbox(&bbox).collect());
 }
@@ -125,7 +123,7 @@ fn query_origin(
     _store_holder: &RefCell<Option<SqlitePoiStore>>,
     _query_results: &RefCell<Vec<PointOfInterest>>,
 ) {
-    query_bbox_helper(_store_holder, _query_results, -0.5, -0.5, 0.5, 0.5);
+    query_bbox_helper(_store_holder, _query_results, (-0.5, -0.5, 0.5, 0.5));
 }
 
 #[when("I query the bbox that excludes the origin")]
@@ -133,7 +131,7 @@ fn query_outside(
     _store_holder: &RefCell<Option<SqlitePoiStore>>,
     _query_results: &RefCell<Vec<PointOfInterest>>,
 ) {
-    query_bbox_helper(_store_holder, _query_results, 2.0, 2.0, 3.0, 3.0);
+    query_bbox_helper(_store_holder, _query_results, (2.0, 2.0, 3.0, 3.0));
 }
 
 #[then("one POI is returned from the SQLite store")]
