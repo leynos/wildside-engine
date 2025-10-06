@@ -179,11 +179,10 @@ impl SqlitePoiStore {
 
         let mut pois = Vec::with_capacity(index_entries.len());
         for entry in index_entries {
-            let poi = all_pois
-                .get(&entry.id)
-                .cloned()
-                .ok_or(SqlitePoiStoreError::MissingPoi { id: entry.id })?;
-            pois.push(poi);
+            let poi_position = all_pois
+                .binary_search_by_key(&entry.id, |poi| poi.id)
+                .map_err(|_| SqlitePoiStoreError::MissingPoi { id: entry.id })?;
+            pois.push(all_pois[poi_position].clone());
         }
 
         Ok(Self {
@@ -290,16 +289,16 @@ pub(crate) fn write_index(
 fn load_pois(
     connection: &Connection,
     ids: &[u64],
-) -> Result<HashMap<u64, PointOfInterest>, SqlitePoiStoreError> {
+) -> Result<Vec<PointOfInterest>, SqlitePoiStoreError> {
     if ids.is_empty() {
-        return Ok(HashMap::new());
+        return Ok(Vec::new());
     }
 
     let placeholders = vec!["?"; ids.len()].join(", ");
     let query = format!("SELECT id, lon, lat, tags FROM pois WHERE id IN ({placeholders})");
     let mut statement = connection.prepare(&query)?;
     let mut rows = statement.query(params_from_iter(ids.iter()))?;
-    let mut poi_by_id = HashMap::new();
+    let mut pois = Vec::new();
 
     while let Some(row) = rows.next()? {
         let id: u64 = row.get(0)?;
@@ -310,10 +309,12 @@ fn load_pois(
             .map_err(|source| SqlitePoiStoreError::InvalidTags { id, source })?;
 
         let poi = PointOfInterest::new(id, Coord { x: lon, y: lat }, tags);
-        poi_by_id.insert(id, poi);
+        pois.push(poi);
     }
 
-    Ok(poi_by_id)
+    pois.sort_unstable_by_key(|poi| poi.id);
+
+    Ok(pois)
 }
 
 /// Read-only access to persisted points of interest.
