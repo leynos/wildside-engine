@@ -218,29 +218,40 @@ fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreErro
         source,
     })?;
 
-    if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
-        let mut found = [0_u8; 4];
-        found[..bytes.len()].copy_from_slice(&bytes);
+    let file: SpatialIndexFile = match deserialize(&bytes) {
+        Ok(file) => file,
+        Err(source) => {
+            if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
+                let mut found = [0_u8; 4];
+                found[..bytes.len()].copy_from_slice(&bytes);
+                return Err(SqlitePoiStoreError::InvalidIndexMagic {
+                    expected: SPATIAL_INDEX_MAGIC,
+                    found,
+                });
+            }
+
+            let mut found = [0_u8; 4];
+            found.copy_from_slice(&bytes[..SPATIAL_INDEX_MAGIC.len()]);
+            if found != SPATIAL_INDEX_MAGIC {
+                return Err(SqlitePoiStoreError::InvalidIndexMagic {
+                    expected: SPATIAL_INDEX_MAGIC,
+                    found,
+                });
+            }
+
+            return Err(SqlitePoiStoreError::IndexDecode {
+                path: path.to_path_buf(),
+                source,
+            });
+        }
+    };
+
+    if file.magic != SPATIAL_INDEX_MAGIC {
         return Err(SqlitePoiStoreError::InvalidIndexMagic {
             expected: SPATIAL_INDEX_MAGIC,
-            found,
+            found: file.magic,
         });
     }
-
-    let mut magic = [0_u8; 4];
-    magic.copy_from_slice(&bytes[..4]);
-    if magic != SPATIAL_INDEX_MAGIC {
-        return Err(SqlitePoiStoreError::InvalidIndexMagic {
-            expected: SPATIAL_INDEX_MAGIC,
-            found: magic,
-        });
-    }
-
-    let file: SpatialIndexFile =
-        deserialize(&bytes).map_err(|source| SqlitePoiStoreError::IndexDecode {
-            path: path.to_path_buf(),
-            source,
-        })?;
 
     if file.version != SPATIAL_INDEX_VERSION {
         return Err(SqlitePoiStoreError::UnsupportedIndexVersion {
