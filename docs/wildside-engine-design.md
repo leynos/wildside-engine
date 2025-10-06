@@ -60,15 +60,14 @@ providing a stable vocabulary across crates.
 - `SqlitePoiStore` is the first production-grade implementation of that
   interface. It expects two artefacts produced by the offline ETL pipeline:
   `pois.db` (an SQLite database whose `pois` table stores POI ids, coordinates,
-  and JSON-encoded tags) and `pois.rstar` (a binary R\*-tree serialisation).
+  and JSON-encoded tags) and `pois.rstar` (a binary R\*-tree serialization).
   The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
   version (currently `1`), followed by a `bincode` payload of `IndexedPoi`
-  structs. Each struct records the POI id and its `geo::Coord`; the runtime
-  reconstructs an `rstar::RTree` directly from this blob. During start-up the
-  store loads the index and queries the SQLite database for the corresponding
-  POIs, erroring if any referenced id is missing. Only indexed POIs are kept in
-  memory to avoid retaining historical rows that are no longer spatially
-  searchable.
+  structs. Each struct records the POI id and its `geo::Coord`. During start-up
+  the store reads these entries, hydrates the referenced POIs from SQLite, and
+  bulk-loads an in-memory `RTree<PointOfInterest>` from the results. Only
+  indexed POIs are kept in memory to avoid retaining historical rows that are
+  no longer spatially searchable.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
@@ -148,12 +147,11 @@ These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
 At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
-R\*-tree keeps query latency sub-millisecond for bounding boxes, while the
-in-memory cache of POIs—populated from SQLite during initialization—ensures
-that `get_pois_in_bbox` remains infallible at the trait level. The header on
-the `pois.rstar` artefact gives us room for future evolution (e.g., switching
-to a memory-mapped format or adding compression) without silently corrupting
-older deployments.
+R\*-tree keeps query latency sub-millisecond for bounding boxes, storing
+hydrated POIs so that `get_pois_in_bbox` remains infallible at the trait level.
+The header on the `pois.rstar` artefact gives us room for future evolution
+(e.g., switching to a memory-mapped format or adding compression) without
+silently corrupting older deployments.
 
 ```mermaid
 sequenceDiagram
@@ -163,7 +161,6 @@ sequenceDiagram
   participant SQLite as SQLite (read-only)
   participant FS as File System (index file)
   participant RTree as In-memory R*-tree
-  participant Cache as In-memory POI Map
 
   rect rgb(240,248,255)
     note over Test,Store: Open store
@@ -171,10 +168,9 @@ sequenceDiagram
     Store->>SQLite: Connect (RO)
     Store->>FS: Read index file
     FS-->>Store: Magic, version, entries
-    Store->>RTree: Build from entries
-    Store->>SQLite: SELECT id, lon, lat, tags_json
+    Store->>SQLite: SELECT id, lon, lat, tags_json WHERE id IN entries
     SQLite-->>Store: Rows
-    Store->>Cache: Build HashMap<u64, POI>
+    Store->>RTree: Bulk-load PointOfInterest[]
     Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
   end
 
@@ -182,8 +178,7 @@ sequenceDiagram
     note over Test,Store: Query bbox
     Test->>Store: get_pois_in_bbox(bbox)
     Store->>RTree: Query envelopes intersecting bbox
-    RTree-->>Store: IndexedPoi[]
-    Store->>Cache: Map ids to POIs
+    RTree-->>Store: PointOfInterest[]
     Store-->>Test: Vec<PointOfInterest>
   end
 
@@ -191,7 +186,7 @@ sequenceDiagram
     note over Store,FS: Error paths
     FS-->>Store: Corrupt magic/version
     Store-->>Test: SqlitePoiStoreError::InvalidMagic/Version
-    RTree-->>Store: id not in Cache
+    SQLite-->>Store: Missing id referenced by index
     Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
     SQLite-->>Store: JSON parse failure
     Store-->>Test: SqlitePoiStoreError::TagParse

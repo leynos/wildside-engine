@@ -7,11 +7,10 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{BufReader, Read, Write},
     path::{Path, PathBuf},
 };
 
-use bincode::{deserialize_from, serialize_into};
+use bincode::{deserialize, serialize_into};
 use geo::{Coord, Rect};
 use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, OpenFlags, params_from_iter};
@@ -48,6 +47,13 @@ impl RTreeObject for IndexedPoi {
     fn envelope(&self) -> Self::Envelope {
         AABB::from_point([self.location.x, self.location.y])
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SpatialIndexFile {
+    magic: [u8; 4],
+    version: u16,
+    entries: Vec<IndexedPoi>,
 }
 
 /// Error raised when reading or validating persisted POI artefacts.
@@ -146,8 +152,7 @@ pub enum SpatialIndexWriteError {
 /// Read-only POI store backed by SQLite metadata and a persisted R\*-tree.
 #[derive(Debug)]
 pub struct SqlitePoiStore {
-    index: RTree<IndexedPoi>,
-    poi_by_id: HashMap<u64, PointOfInterest>,
+    index: RTree<PointOfInterest>,
 }
 
 impl SqlitePoiStore {
@@ -168,20 +173,22 @@ impl SqlitePoiStore {
                 },
             )?;
 
-        let index = load_index(&index_path)?;
-        let ids: Vec<u64> = index.iter().map(|entry| entry.id).collect();
+        let index_entries = load_index_entries(&index_path)?;
+        let ids: Vec<u64> = index_entries.iter().map(|entry| entry.id).collect();
         let all_pois = load_pois(&connection, &ids)?;
 
-        let mut poi_by_id = HashMap::with_capacity(index.size());
-        for entry in index.iter() {
+        let mut pois = Vec::with_capacity(index_entries.len());
+        for entry in index_entries {
             let poi = all_pois
                 .get(&entry.id)
                 .cloned()
                 .ok_or(SqlitePoiStoreError::MissingPoi { id: entry.id })?;
-            poi_by_id.insert(entry.id, poi);
+            pois.push(poi);
         }
 
-        Ok(Self { index, poi_by_id })
+        Ok(Self {
+            index: RTree::bulk_load(pois),
+        })
     }
 }
 
@@ -192,38 +199,36 @@ impl PoiStore for SqlitePoiStore {
     ) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_> {
         let envelope =
             AABB::from_corners([bbox.min().x, bbox.min().y], [bbox.max().x, bbox.max().y]);
-        let mut ids: Vec<u64> = self
+        let mut pois: Vec<PointOfInterest> = self
             .index
             .locate_in_envelope_intersecting(&envelope)
-            .map(|entry| entry.id)
+            .cloned()
             .collect();
         // Sort to provide deterministic ordering for callers consuming the
         // iterator directly (e.g., behaviour specs that assert on POI IDs).
-        ids.sort_unstable();
+        pois.sort_unstable_by_key(|poi| poi.id);
 
-        Box::new(
-            ids.into_iter()
-                .filter_map(move |id| self.poi_by_id.get(&id).cloned()),
-        )
+        Box::new(pois.into_iter())
     }
 }
 
-fn load_index(path: &Path) -> Result<RTree<IndexedPoi>, SqlitePoiStoreError> {
-    let mut reader =
-        BufReader::new(
-            File::open(path).map_err(|source| SqlitePoiStoreError::IndexIo {
-                path: path.to_path_buf(),
-                source,
-            })?,
-        );
+fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreError> {
+    let bytes = std::fs::read(path).map_err(|source| SqlitePoiStoreError::IndexIo {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
+        let mut found = [0_u8; 4];
+        found[..bytes.len()].copy_from_slice(&bytes);
+        return Err(SqlitePoiStoreError::InvalidIndexMagic {
+            expected: SPATIAL_INDEX_MAGIC,
+            found,
+        });
+    }
 
     let mut magic = [0_u8; 4];
-    reader
-        .read_exact(&mut magic)
-        .map_err(|source| SqlitePoiStoreError::IndexIo {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    magic.copy_from_slice(&bytes[..4]);
     if magic != SPATIAL_INDEX_MAGIC {
         return Err(SqlitePoiStoreError::InvalidIndexMagic {
             expected: SPATIAL_INDEX_MAGIC,
@@ -231,27 +236,20 @@ fn load_index(path: &Path) -> Result<RTree<IndexedPoi>, SqlitePoiStoreError> {
         });
     }
 
-    let mut version_bytes = [0_u8; 2];
-    reader
-        .read_exact(&mut version_bytes)
-        .map_err(|source| SqlitePoiStoreError::IndexIo {
+    let file: SpatialIndexFile =
+        deserialize(&bytes).map_err(|source| SqlitePoiStoreError::IndexDecode {
             path: path.to_path_buf(),
             source,
         })?;
-    let version = u16::from_le_bytes(version_bytes);
-    if version != SPATIAL_INDEX_VERSION {
+
+    if file.version != SPATIAL_INDEX_VERSION {
         return Err(SqlitePoiStoreError::UnsupportedIndexVersion {
-            found: version,
+            found: file.version,
             supported: SPATIAL_INDEX_VERSION,
         });
     }
 
-    let entries: Vec<IndexedPoi> =
-        deserialize_from(&mut reader).map_err(|source| SqlitePoiStoreError::IndexDecode {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    Ok(RTree::bulk_load(entries))
+    Ok(file.entries)
 }
 
 pub(crate) fn write_index(
@@ -262,17 +260,12 @@ pub(crate) fn write_index(
         path: path.to_path_buf(),
         source,
     })?;
-    file.write_all(&SPATIAL_INDEX_MAGIC)
-        .map_err(|source| SpatialIndexWriteError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    file.write_all(&SPATIAL_INDEX_VERSION.to_le_bytes())
-        .map_err(|source| SpatialIndexWriteError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    serialize_into(&mut file, entries).map_err(|source| SpatialIndexWriteError::Encode {
+    let payload = SpatialIndexFile {
+        magic: SPATIAL_INDEX_MAGIC,
+        version: SPATIAL_INDEX_VERSION,
+        entries: entries.to_vec(),
+    };
+    serialize_into(&mut file, &payload).map_err(|source| SpatialIndexWriteError::Encode {
         path: path.to_path_buf(),
         source,
     })?;
