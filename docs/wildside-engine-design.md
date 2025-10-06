@@ -64,10 +64,10 @@ providing a stable vocabulary across crates.
   The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
   version (currently `1`), followed by a `bincode` payload of `IndexedPoi`
   structs. Each struct records the POI id and its `geo::Coord`. During start-up
-  the store reads these entries, hydrates the referenced POIs from SQLite, and
-  bulk-loads an in-memory `RTree<PointOfInterest>` from the results. Only
-  indexed POIs are kept in memory to avoid retaining historical rows that are
-  no longer spatially searchable.
+  the store reads these entries, validates them against SQLite in batches, and
+  bulk-loads an in-memory `RTree<IndexedPoi>`. Bounding-box queries then fetch
+  full POIs on demand so memory scales with the query surface rather than the
+  entire dataset.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
@@ -147,11 +147,13 @@ These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
 At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
-R\*-tree keeps query latency sub-millisecond for bounding boxes, storing
-hydrated POIs so that `get_pois_in_bbox` remains infallible at the trait level.
-The header on the `pois.rstar` artefact gives us room for future evolution
-(e.g., switching to a memory-mapped format or adding compression) without
-silently corrupting older deployments.
+R\*-tree stores `IndexedPoi` values so the in-memory footprint remains minimal
+while SQLite stays the source of truth for rich POI data. During start-up the
+store validates every referenced id in manageable batches, hydrating POIs on
+demand to surface missing rows or malformed tag payloads. Bounding-box queries
+convert the R\*-tree results into `SELECT … WHERE id IN (…)` calls so SQLite
+only returns rows for the active request, and deterministic sorting keeps the
+response order stable for callers.
 
 ```mermaid
 sequenceDiagram
@@ -168,9 +170,9 @@ sequenceDiagram
     Store->>SQLite: Connect (RO)
     Store->>FS: Read index file
     FS-->>Store: Magic, version, entries
-    Store->>SQLite: SELECT id, lon, lat, tags_json WHERE id IN entries
-    SQLite-->>Store: Rows
-    Store->>RTree: Bulk-load PointOfInterest[]
+    Store->>SQLite: Validate referenced ids in batches
+    SQLite-->>Store: Rows (id, lon, lat, tags_json)
+    Store->>RTree: Bulk-load IndexedPoi[]
     Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
   end
 
@@ -178,7 +180,9 @@ sequenceDiagram
     note over Test,Store: Query bbox
     Test->>Store: get_pois_in_bbox(bbox)
     Store->>RTree: Query envelopes intersecting bbox
-    RTree-->>Store: PointOfInterest[]
+    RTree-->>Store: IndexedPoi[]
+    Store->>SQLite: SELECT id, lon, lat, tags_json WHERE id IN ids
+    SQLite-->>Store: Rows -> PointOfInterest
     Store-->>Test: Vec<PointOfInterest>
   end
 
@@ -189,7 +193,7 @@ sequenceDiagram
     SQLite-->>Store: Missing id referenced by index
     Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
     SQLite-->>Store: JSON parse failure
-    Store-->>Test: SqlitePoiStoreError::TagParse
+    Store-->>Test: SqlitePoiStoreError::InvalidTags
   end
 ```
 

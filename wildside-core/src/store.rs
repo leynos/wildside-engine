@@ -6,6 +6,7 @@
 
 use std::{
     collections::HashMap,
+    fmt,
     fs::File,
     path::{Path, PathBuf},
 };
@@ -24,6 +25,10 @@ pub(crate) const SPATIAL_INDEX_MAGIC: [u8; 4] = *b"WSPI";
 
 /// Supported version of the persisted spatial index format.
 pub(crate) const SPATIAL_INDEX_VERSION: u16 = 1;
+
+/// SQLite limits bound parameters per statement to 999 by default. The store
+/// chunks `IN` queries to remain below that ceiling.
+const SQLITE_MAX_VARIABLE_NUMBER: usize = 999;
 
 /// Entry stored inside the persisted spatial index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,9 +155,17 @@ pub enum SpatialIndexWriteError {
 }
 
 /// Read-only POI store backed by SQLite metadata and a persisted R\*-tree.
-#[derive(Debug)]
 pub struct SqlitePoiStore {
-    index: RTree<PointOfInterest>,
+    connection: Connection,
+    index: RTree<IndexedPoi>,
+}
+
+impl fmt::Debug for SqlitePoiStore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SqlitePoiStore")
+            .field("entries", &self.index.size())
+            .finish_non_exhaustive()
+    }
 }
 
 impl SqlitePoiStore {
@@ -174,19 +187,11 @@ impl SqlitePoiStore {
             )?;
 
         let index_entries = load_index_entries(&index_path)?;
-        let ids: Vec<u64> = index_entries.iter().map(|entry| entry.id).collect();
-        let all_pois = load_pois(&connection, &ids)?;
-
-        let mut pois = Vec::with_capacity(index_entries.len());
-        for entry in index_entries {
-            let poi_position = all_pois
-                .binary_search_by_key(&entry.id, |poi| poi.id)
-                .map_err(|_| SqlitePoiStoreError::MissingPoi { id: entry.id })?;
-            pois.push(all_pois[poi_position].clone());
-        }
+        ensure_index_pois_exist(&connection, &index_entries)?;
 
         Ok(Self {
-            index: RTree::bulk_load(pois),
+            connection,
+            index: RTree::bulk_load(index_entries),
         })
     }
 }
@@ -198,17 +203,57 @@ impl PoiStore for SqlitePoiStore {
     ) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_> {
         let envelope =
             AABB::from_corners([bbox.min().x, bbox.min().y], [bbox.max().x, bbox.max().y]);
-        let mut pois: Vec<PointOfInterest> = self
+        let mut ids: Vec<u64> = self
             .index
             .locate_in_envelope_intersecting(&envelope)
-            .cloned()
+            .map(|entry| entry.id)
             .collect();
-        // Sort to provide deterministic ordering for callers consuming the
-        // iterator directly (e.g., behaviour specs that assert on POI IDs).
-        pois.sort_unstable_by_key(|poi| poi.id);
+        if ids.is_empty() {
+            return Box::new(Vec::new().into_iter());
+        }
+
+        ids.sort_unstable();
+        ids.dedup();
+
+        let pois = load_pois(&self.connection, &ids).unwrap_or_else(|error| {
+            panic!("failed to hydrate POIs for bounding-box query after validation: {error}")
+        });
 
         Box::new(pois.into_iter())
     }
+}
+
+fn ensure_index_pois_exist(
+    connection: &Connection,
+    entries: &[IndexedPoi],
+) -> Result<(), SqlitePoiStoreError> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+
+    let mut ids: Vec<u64> = entries.iter().map(|entry| entry.id).collect();
+    ids.sort_unstable();
+    ids.dedup();
+
+    let max_parameters = max_variable_limit(connection);
+    for chunk in ids.chunks(max_parameters) {
+        let pois = load_pois_chunk(connection, chunk)?;
+        if pois.len() != chunk.len() {
+            for id in chunk {
+                if pois.binary_search_by_key(id, |poi| poi.id).is_err() {
+                    return Err(SqlitePoiStoreError::MissingPoi { id: *id });
+                }
+            }
+            debug_assert!(false, "chunk length mismatch should reveal missing id");
+        }
+    }
+
+    Ok(())
+}
+
+fn max_variable_limit(connection: &Connection) -> usize {
+    let _ = connection; // connection kept for symmetry with future tunables.
+    SQLITE_MAX_VARIABLE_NUMBER
 }
 
 fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreError> {
@@ -288,6 +333,27 @@ pub(crate) fn write_index(
 }
 
 fn load_pois(
+    connection: &Connection,
+    ids: &[u64],
+) -> Result<Vec<PointOfInterest>, SqlitePoiStoreError> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let max_parameters = max_variable_limit(connection);
+    let mut pois = Vec::new();
+
+    for chunk in ids.chunks(max_parameters) {
+        pois.extend(load_pois_chunk(connection, chunk)?);
+    }
+
+    pois.sort_unstable_by_key(|poi| poi.id);
+    pois.dedup_by_key(|poi| poi.id);
+
+    Ok(pois)
+}
+
+fn load_pois_chunk(
     connection: &Connection,
     ids: &[u64],
 ) -> Result<Vec<PointOfInterest>, SqlitePoiStoreError> {
