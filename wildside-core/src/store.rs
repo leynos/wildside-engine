@@ -217,33 +217,13 @@ fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreErro
         source,
     })?;
 
-    let file: SpatialIndexFile = match deserialize(&bytes) {
-        Ok(file) => file,
-        Err(source) => {
-            if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
-                let mut found = [0_u8; 4];
-                found[..bytes.len()].copy_from_slice(&bytes);
-                return Err(SqlitePoiStoreError::InvalidIndexMagic {
-                    expected: SPATIAL_INDEX_MAGIC,
-                    found,
-                });
-            }
+    ensure_magic_prefix(&bytes)?;
 
-            let mut found = [0_u8; 4];
-            found.copy_from_slice(&bytes[..SPATIAL_INDEX_MAGIC.len()]);
-            if found != SPATIAL_INDEX_MAGIC {
-                return Err(SqlitePoiStoreError::InvalidIndexMagic {
-                    expected: SPATIAL_INDEX_MAGIC,
-                    found,
-                });
-            }
-
-            return Err(SqlitePoiStoreError::IndexDecode {
-                path: path.to_path_buf(),
-                source,
-            });
-        }
-    };
+    let file: SpatialIndexFile =
+        deserialize(&bytes).map_err(|source| SqlitePoiStoreError::IndexDecode {
+            path: path.to_path_buf(),
+            source,
+        })?;
 
     if file.magic != SPATIAL_INDEX_MAGIC {
         return Err(SqlitePoiStoreError::InvalidIndexMagic {
@@ -260,6 +240,27 @@ fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreErro
     }
 
     Ok(file.entries)
+}
+
+fn ensure_magic_prefix(bytes: &[u8]) -> Result<(), SqlitePoiStoreError> {
+    let mut found = [0_u8; 4];
+    if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
+        found[..bytes.len()].copy_from_slice(bytes);
+        return Err(SqlitePoiStoreError::InvalidIndexMagic {
+            expected: SPATIAL_INDEX_MAGIC,
+            found,
+        });
+    }
+
+    found.copy_from_slice(&bytes[..SPATIAL_INDEX_MAGIC.len()]);
+    if found != SPATIAL_INDEX_MAGIC {
+        return Err(SqlitePoiStoreError::InvalidIndexMagic {
+            expected: SPATIAL_INDEX_MAGIC,
+            found,
+        });
+    }
+
+    Ok(())
 }
 
 pub(crate) fn write_index(
