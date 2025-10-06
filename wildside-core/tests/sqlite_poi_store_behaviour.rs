@@ -46,9 +46,7 @@ fn paths() -> RefCell<Option<(std::path::PathBuf, std::path::PathBuf)>> {
 }
 
 #[given("a temporary directory for SQLite artefacts")]
-fn given_temp_dir(_temp_dir: &TempDir) {
-    let _ = _temp_dir;
-}
+fn given_temp_dir(_temp_dir: &TempDir) {}
 
 #[given("a SQLite POI dataset containing a point at the origin")]
 fn given_dataset(
@@ -63,6 +61,25 @@ fn given_dataset(
     write_sqlite_spatial_index(&index_path, std::slice::from_ref(&poi)).expect("persist index");
     _paths.replace(Some((db_path, index_path)));
     _dataset.replace(vec![poi]);
+}
+
+#[given("a SQLite POI dataset containing multiple points near the origin")]
+fn given_multi_poi_dataset(
+    _temp_dir: &TempDir,
+    _paths: &RefCell<Option<(std::path::PathBuf, std::path::PathBuf)>>,
+    _dataset: &RefCell<Vec<PointOfInterest>>,
+) {
+    let pois = vec![
+        PointOfInterest::with_empty_tags(1, Coord { x: -0.2, y: -0.2 }),
+        PointOfInterest::with_empty_tags(2, Coord { x: 0.4, y: 0.4 }),
+        PointOfInterest::with_empty_tags(3, Coord { x: 2.0, y: 2.0 }),
+    ];
+    let db_path = _temp_dir.path().join("pois.db");
+    let index_path = _temp_dir.path().join("pois.rstar");
+    write_sqlite_database(&db_path, &pois).expect("persist database");
+    write_sqlite_spatial_index(&index_path, &pois).expect("persist index");
+    _paths.replace(Some((db_path, index_path)));
+    _dataset.replace(pois);
 }
 
 #[given("a SQLite dataset whose index references a missing POI")]
@@ -126,6 +143,14 @@ fn query_origin(
     query_bbox_helper(_store_holder, _query_results, (-0.5, -0.5, 0.5, 0.5));
 }
 
+#[when("I query the bbox covering multiple POIs")]
+fn query_multiple(
+    _store_holder: &RefCell<Option<SqlitePoiStore>>,
+    _query_results: &RefCell<Vec<PointOfInterest>>,
+) {
+    query_bbox_helper(_store_holder, _query_results, (-0.3, -0.3, 0.6, 0.6));
+}
+
 #[when("I query the bbox that excludes the origin")]
 fn query_outside(
     _store_holder: &RefCell<Option<SqlitePoiStore>>,
@@ -154,6 +179,18 @@ fn then_no_results(
 ) {
     assert!(_store_error.borrow().is_none(), "unexpected store error");
     assert!(_query_results.borrow().is_empty(), "expected no POIs");
+}
+
+#[then("exactly two POIs are returned from the SQLite store")]
+fn then_two_results(
+    _query_results: &RefCell<Vec<PointOfInterest>>,
+    _store_error: &RefCell<Option<SqlitePoiStoreError>>,
+) {
+    assert!(_store_error.borrow().is_none(), "unexpected store error");
+    let results = _query_results.borrow();
+    assert_eq!(results.len(), 2, "expected exactly two POIs");
+    let ids: Vec<_> = results.iter().map(|poi| poi.id).collect();
+    assert_eq!(ids, vec![1, 2], "unexpected POI identifiers");
 }
 
 #[then("opening the SQLite store fails with a missing POI error")]
@@ -187,6 +224,17 @@ fn empty_result(
 
 #[scenario(path = "tests/features/sqlite_poi_store.feature", index = 2)]
 fn missing_poi_error(
+    _temp_dir: TempDir,
+    _dataset: RefCell<Vec<PointOfInterest>>,
+    _store_holder: RefCell<Option<SqlitePoiStore>>,
+    _store_error: RefCell<Option<SqlitePoiStoreError>>,
+    _query_results: RefCell<Vec<PointOfInterest>>,
+    _paths: RefCell<Option<(std::path::PathBuf, std::path::PathBuf)>>,
+) {
+}
+
+#[scenario(path = "tests/features/sqlite_poi_store.feature", index = 3)]
+fn multiple_results(
     _temp_dir: TempDir,
     _dataset: RefCell<Vec<PointOfInterest>>,
     _store_holder: RefCell<Option<SqlitePoiStore>>,

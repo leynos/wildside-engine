@@ -14,7 +14,7 @@ use std::{
 use bincode::{deserialize_from, serialize_into};
 use geo::{Coord, Rect};
 use rstar::{AABB, RTree, RTreeObject};
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, OpenFlags, params_from_iter};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -170,7 +170,8 @@ impl SqlitePoiStore {
         })?;
 
         let index = load_index(&index_path)?;
-        let all_pois = load_pois(&connection)?;
+        let ids: Vec<u64> = index.iter().map(|entry| entry.id).collect();
+        let all_pois = load_pois(&connection, &ids)?;
 
         let mut poi_by_id = HashMap::with_capacity(index.size());
         for entry in index.iter() {
@@ -278,9 +279,16 @@ pub(crate) fn write_index(
 
 fn load_pois(
     connection: &Connection,
+    ids: &[u64],
 ) -> Result<HashMap<u64, PointOfInterest>, SqlitePoiStoreError> {
-    let mut statement = connection.prepare("SELECT id, lon, lat, tags FROM pois")?;
-    let mut rows = statement.query([])?;
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let placeholders = vec!["?"; ids.len()].join(", ");
+    let query = format!("SELECT id, lon, lat, tags FROM pois WHERE id IN ({placeholders})");
+    let mut statement = connection.prepare(&query)?;
+    let mut rows = statement.query(params_from_iter(ids.iter()))?;
     let mut poi_by_id = HashMap::new();
 
     while let Some(row) = rows.next()? {
@@ -363,7 +371,7 @@ mod tests {
     };
     use geo::Coord;
     use rstest::{fixture, rstest};
-    use std::path::PathBuf;
+    use std::{fs::File, io::Write, path::PathBuf};
     use tempfile::TempDir;
 
     fn poi(id: u64, x: f64, y: f64, name: &str) -> PointOfInterest {
@@ -489,6 +497,31 @@ mod tests {
         assert!(matches!(
             error,
             SqlitePoiStoreError::InvalidIndexMagic { .. }
+        ));
+    }
+
+    #[rstest]
+    fn sqlite_store_errors_on_unsupported_version(
+        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        sample_pois: Vec<PointOfInterest>,
+    ) {
+        write_sqlite_database(&db_path, &sample_pois).expect("persist database");
+        {
+            let mut file = File::create(&index_path).expect("create index file");
+            file.write_all(&SPATIAL_INDEX_MAGIC)
+                .expect("write index magic");
+            let unsupported = SPATIAL_INDEX_VERSION + 1;
+            file.write_all(&unsupported.to_le_bytes())
+                .expect("write unsupported version");
+            serialize_into(&mut file, &Vec::<IndexedPoi>::new()).expect("write empty index");
+        }
+
+        let error = SqlitePoiStore::open(&db_path, &index_path)
+            .expect_err("unsupported version should fail");
+        assert!(matches!(
+            error,
+            SqlitePoiStoreError::UnsupportedIndexVersion { found, supported }
+                if found == SPATIAL_INDEX_VERSION + 1 && supported == SPATIAL_INDEX_VERSION
         ));
     }
 

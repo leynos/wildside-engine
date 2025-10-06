@@ -63,8 +63,9 @@ impl PoiStore for MemoryStore {
 /// Persist a SQLite database containing the provided POIs.
 #[cfg(any(test, feature = "test-support"))]
 pub fn write_sqlite_database(path: &Path, pois: &[PointOfInterest]) -> Result<(), rusqlite::Error> {
-    let connection = Connection::open(path)?;
-    connection.execute(
+    let mut connection = Connection::open(path)?;
+    let transaction = connection.transaction()?;
+    transaction.execute(
         "CREATE TABLE pois (
             id INTEGER PRIMARY KEY,
             lon REAL NOT NULL,
@@ -73,13 +74,16 @@ pub fn write_sqlite_database(path: &Path, pois: &[PointOfInterest]) -> Result<()
         )",
         [],
     )?;
-    let mut statement =
-        connection.prepare("INSERT INTO pois (id, lon, lat, tags) VALUES (?1, ?2, ?3, ?4)")?;
-    for poi in pois {
-        let tags = to_string(&poi.tags)
-            .map_err(|source| SqliteError::ToSqlConversionFailure(source.into()))?;
-        statement.execute((poi.id, poi.location.x, poi.location.y, tags))?;
+    {
+        let mut statement =
+            transaction.prepare("INSERT INTO pois (id, lon, lat, tags) VALUES (?1, ?2, ?3, ?4)")?;
+        for poi in pois {
+            let tags = to_string(&poi.tags)
+                .map_err(|source| SqliteError::ToSqlConversionFailure(source.into()))?;
+            statement.execute((poi.id, poi.location.x, poi.location.y, tags))?;
+        }
     }
+    transaction.commit()?;
     Ok(())
 }
 
