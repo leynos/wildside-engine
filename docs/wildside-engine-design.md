@@ -149,11 +149,54 @@ components such as scorers and solvers operate exclusively on these types.
 
 At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
 R\*-tree keeps query latency sub-millisecond for bounding boxes, while the
-in-memory cache of POIs—populated from SQLite during initialisation—ensures that
-`get_pois_in_bbox` remains infallible at the trait level. The header on the
-`pois.rstar` artefact gives us room for future evolution (e.g., switching to a
-memory-mapped format or adding compression) without silently corrupting older
-deployments.
+in-memory cache of POIs—populated from SQLite during initialization—ensures
+that `get_pois_in_bbox` remains infallible at the trait level. The header on
+the `pois.rstar` artefact gives us room for future evolution (e.g., switching
+to a memory-mapped format or adding compression) without silently corrupting
+older deployments.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Test as Test/Caller
+  participant Store as SqlitePoiStore
+  participant SQLite as SQLite (read-only)
+  participant FS as File System (index file)
+  participant RTree as In-memory R*-tree
+  participant Cache as In-memory POI Map
+
+  rect rgb(240,248,255)
+    note over Test,Store: Open store
+    Test->>Store: open(db_path, index_path)
+    Store->>SQLite: Connect (RO)
+    Store->>FS: Read index file
+    FS-->>Store: Magic, version, entries
+    Store->>RTree: Build from entries
+    Store->>SQLite: SELECT id, lon, lat, tags_json
+    SQLite-->>Store: Rows
+    Store->>Cache: Build HashMap<u64, POI>
+    Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
+  end
+
+  rect rgb(245,255,245)
+    note over Test,Store: Query bbox
+    Test->>Store: get_pois_in_bbox(bbox)
+    Store->>RTree: Query envelopes intersecting bbox
+    RTree-->>Store: IndexedPoi[]
+    Store->>Cache: Map ids to POIs
+    Store-->>Test: Vec<PointOfInterest>
+  end
+
+  rect rgb(255,245,245)
+    note over Store,FS: Error paths
+    FS-->>Store: Corrupt magic/version
+    Store-->>Test: SqlitePoiStoreError::InvalidMagic/Version
+    RTree-->>Store: id not in Cache
+    Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
+    SQLite-->>Store: JSON parse failure
+    Store-->>Test: SqlitePoiStoreError::TagParse
+  end
+```
 
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
@@ -508,7 +551,7 @@ for performance and scalability.
 
 #### 3.4.1. Artefact versioning and migration
 
-Embed a fixed header: 4-byte ASCII magic "WSID", u16 major, u16 minor, u8
+Embed a fixed header: 4-byte ASCII magic "WSPI", u16 major, u16 minor, u8
 flags, all little-endian. Bump MAJOR for incompatible changes; bump MINOR for
 backward-compatible additions. Readers MUST refuse unknown MAJOR versions and
 MAY accept newer MINOR versions. Provide a `wildside-cli migrate` subcommand

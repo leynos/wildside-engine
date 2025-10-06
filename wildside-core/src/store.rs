@@ -160,14 +160,13 @@ impl SqlitePoiStore {
         let database_path = database_path.as_ref().to_path_buf();
         let index_path = index_path.as_ref().to_path_buf();
 
-        let connection = Connection::open_with_flags(
-            &database_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
-        )
-        .map_err(|source| SqlitePoiStoreError::OpenDatabase {
-            path: database_path.clone(),
-            source,
-        })?;
+        let connection =
+            Connection::open_with_flags(&database_path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(
+                |source| SqlitePoiStoreError::OpenDatabase {
+                    path: database_path.clone(),
+                    source,
+                },
+            )?;
 
         let index = load_index(&index_path)?;
         let ids: Vec<u64> = index.iter().map(|entry| entry.id).collect();
@@ -198,6 +197,8 @@ impl PoiStore for SqlitePoiStore {
             .locate_in_envelope_intersecting(&envelope)
             .map(|entry| entry.id)
             .collect();
+        // Sort to provide deterministic ordering for callers consuming the
+        // iterator directly (e.g., behaviour specs that assert on POI IDs).
         ids.sort_unstable();
 
         Box::new(
@@ -274,7 +275,12 @@ pub(crate) fn write_index(
     serialize_into(&mut file, entries).map_err(|source| SpatialIndexWriteError::Encode {
         path: path.to_path_buf(),
         source,
-    })
+    })?;
+    file.sync_all()
+        .map_err(|source| SpatialIndexWriteError::Io {
+            path: path.to_path_buf(),
+            source,
+        })
 }
 
 fn load_pois(
