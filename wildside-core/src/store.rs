@@ -223,6 +223,22 @@ impl PoiStore for SqlitePoiStore {
     }
 }
 
+fn find_missing_poi_in_chunk(chunk: &[u64], pois: &[PointOfInterest]) -> Option<u64> {
+    if pois.len() == chunk.len() {
+        return None;
+    }
+
+    for id in chunk {
+        if pois.binary_search_by_key(id, |poi| poi.id).is_err() {
+            return Some(*id);
+        }
+    }
+
+    debug_assert!(false, "chunk length mismatch should reveal missing id");
+
+    None
+}
+
 fn ensure_index_pois_exist(
     connection: &Connection,
     entries: &[IndexedPoi],
@@ -238,13 +254,8 @@ fn ensure_index_pois_exist(
     let max_parameters = max_variable_limit(connection);
     for chunk in ids.chunks(max_parameters) {
         let pois = load_pois_chunk(connection, chunk)?;
-        if pois.len() != chunk.len() {
-            for id in chunk {
-                if pois.binary_search_by_key(id, |poi| poi.id).is_err() {
-                    return Err(SqlitePoiStoreError::MissingPoi { id: *id });
-                }
-            }
-            debug_assert!(false, "chunk length mismatch should reveal missing id");
+        if let Some(missing_id) = find_missing_poi_in_chunk(chunk, &pois) {
+            return Err(SqlitePoiStoreError::MissingPoi { id: missing_id });
         }
     }
 
