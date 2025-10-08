@@ -158,41 +158,34 @@ stable response order.
 ```mermaid
 sequenceDiagram
   autonumber
-  actor Test as Test/Caller
+  actor App
   participant Store as SqlitePoiStore
-  participant SQLite as SQLite (read-only)
-  participant FS as File System (index file)
-  participant RTree as In-memory R*-tree
+  participant FS as Filesystem
+  participant RTree as RTree<PointOfInterest>
 
-  rect rgb(240,248,255)
-    note over Test,Store: Open store
-    Test->>Store: open(db_path, index_path)
-    Store->>SQLite: Connect (RO)
-    Store->>FS: Read index file
-    FS-->>Store: Magic, version, entries
-    Store->>SQLite: Validate referenced ids in batches
-    SQLite-->>Store: Rows (id, lon, lat, tags_json)
-    Store->>RTree: Bulk-load PointOfInterest[]
-    Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
-  end
+  App->>Store: open(path)
+  Store->>FS: read spatial_index.bin
+  FS-->>Store: bytes
+  Store->>Store: validate magic/version (v2)
+  Store->>Store: decode Vec<PointOfInterest>
+  Store->>RTree: bulk_load(PointOfInterest[])
+  Store-->>App: SqlitePoiStore ready
+  Note over Store,RTree: Errors surfaced as SpatialIndexError via SqlitePoiStoreError::SpatialIndex
+```
 
-  rect rgb(245,255,245)
-    note over Test,Store: Query bbox
-    Test->>Store: get_pois_in_bbox(bbox)
-    Store->>RTree: Query envelopes intersecting bbox
-    RTree-->>Store: PointOfInterest[]
-    Store-->>Test: Vec<PointOfInterest>
-  end
+```mermaid
+sequenceDiagram
+  autonumber
+  actor App
+  participant Store as SqlitePoiStore
+  participant RTree as RTree<PointOfInterest>
 
-  rect rgb(255,245,245)
-    note over Store,FS: Error paths
-    FS-->>Store: Corrupt magic/version
-    Store-->>Test: SqlitePoiStoreError::SpatialIndex(...)
-    SQLite-->>Store: Missing id referenced by index
-    Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
-    SQLite-->>Store: JSON parse failure
-    Store-->>Test: SqlitePoiStoreError::InvalidTags
-  end
+  App->>Store: get_pois_in_bbox(bbox)
+  Store->>RTree: locate_in_envelope(bbox)
+  RTree-->>Store: PointOfInterest[]
+  Store->>Store: sort by id
+  Store-->>App: Vec<PointOfInterest>
+  Note over Store: No SQLite rehydration
 ```
 
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
