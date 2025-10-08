@@ -57,6 +57,17 @@ providing a stable vocabulary across crates.
   `x = longitude`, `y = latitude`). The full semantics are documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
+- `SqlitePoiStore` is the first production-grade implementation of that
+  interface. It expects two artefacts produced by the offline ETL pipeline:
+  `pois.db` (an SQLite database whose `pois` table stores POI ids, coordinates,
+  and JSON-encoded tags) and `pois.rstar` (a binary R\*-tree serialization).
+  The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
+  version (currently `1`), followed by a `bincode` payload of `IndexedPoi`
+  structs. Each struct records the POI id and its `geo::Coord`. During start-up
+  the store reads these entries, validates them against SQLite in batches, and
+  bulk-loads an in-memory `RTree<IndexedPoi>`. Bounding-box queries then fetch
+  full POIs on demand so memory scales with the query surface rather than the
+  entire dataset.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
@@ -134,6 +145,57 @@ classDiagram
 
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
+
+At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
+R\*-tree stores `IndexedPoi` values so the in-memory footprint remains minimal
+while SQLite stays the source of truth for rich POI data. During start-up the
+store validates every referenced id in manageable batches, hydrating POIs on
+demand to surface missing rows or malformed tag payloads. Bounding-box queries
+convert the R\*-tree results into `SELECT … WHERE id IN (…)` calls so SQLite
+only returns rows for the active request, and deterministic sorting keeps the
+response order stable for callers.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Test as Test/Caller
+  participant Store as SqlitePoiStore
+  participant SQLite as SQLite (read-only)
+  participant FS as File System (index file)
+  participant RTree as In-memory R*-tree
+
+  rect rgb(240,248,255)
+    note over Test,Store: Open store
+    Test->>Store: open(db_path, index_path)
+    Store->>SQLite: Connect (RO)
+    Store->>FS: Read index file
+    FS-->>Store: Magic, version, entries
+    Store->>SQLite: Validate referenced ids in batches
+    SQLite-->>Store: Rows (id, lon, lat, tags_json)
+    Store->>RTree: Bulk-load IndexedPoi[]
+    Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
+  end
+
+  rect rgb(245,255,245)
+    note over Test,Store: Query bbox
+    Test->>Store: get_pois_in_bbox(bbox)
+    Store->>RTree: Query envelopes intersecting bbox
+    RTree-->>Store: IndexedPoi[]
+    Store->>SQLite: SELECT id, lon, lat, tags_json WHERE id IN ids
+    SQLite-->>Store: Rows -> PointOfInterest
+    Store-->>Test: Vec<PointOfInterest>
+  end
+
+  rect rgb(255,245,245)
+    note over Store,FS: Error paths
+    FS-->>Store: Corrupt magic/version
+    Store-->>Test: SqlitePoiStoreError::InvalidMagic/Version
+    SQLite-->>Store: Missing id referenced by index
+    Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
+    SQLite-->>Store: JSON parse failure
+    Store-->>Test: SqlitePoiStoreError::InvalidTags
+  end
+```
 
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
 
@@ -488,7 +550,7 @@ for performance and scalability.
 
 #### 3.4.1. Artefact versioning and migration
 
-Embed a fixed header: 4-byte ASCII magic "WSID", u16 major, u16 minor, u8
+Embed a fixed header: 4-byte ASCII magic "WSPI", u16 major, u16 minor, u8
 flags, all little-endian. Bump MAJOR for incompatible changes; bump MINOR for
 backward-compatible additions. Readers MUST refuse unknown MAJOR versions and
 MAY accept newer MINOR versions. Provide a `wildside-cli migrate` subcommand

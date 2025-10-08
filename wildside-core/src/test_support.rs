@@ -5,16 +5,19 @@
 
 use geo::{Intersects, Rect};
 #[cfg(any(test, feature = "test-support"))]
-use std::str::FromStr;
+use std::{path::Path, str::FromStr, time::Duration};
+
 #[cfg(any(test, feature = "test-support"))]
-use std::time::Duration;
+use rusqlite::{Connection, Error as SqliteError};
+#[cfg(any(test, feature = "test-support"))]
+use serde_json::to_string;
 
 use crate::{
     InterestProfile, PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix,
     TravelTimeProvider,
 };
 #[cfg(any(test, feature = "test-support"))]
-use crate::{Scorer, Theme};
+use crate::{Scorer, Theme, store::IndexedPoi, store::SpatialIndexWriteError, store::write_index};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -55,6 +58,43 @@ impl PoiStore for MemoryStore {
                 .cloned(),
         )
     }
+}
+
+/// Persist a SQLite database containing the provided POIs.
+#[cfg(any(test, feature = "test-support"))]
+pub fn write_sqlite_database(path: &Path, pois: &[PointOfInterest]) -> Result<(), rusqlite::Error> {
+    let mut connection = Connection::open(path)?;
+    let transaction = connection.transaction()?;
+    transaction.execute(
+        "CREATE TABLE pois (
+            id INTEGER PRIMARY KEY,
+            lon REAL NOT NULL,
+            lat REAL NOT NULL,
+            tags TEXT NOT NULL
+        )",
+        [],
+    )?;
+    {
+        let mut statement =
+            transaction.prepare("INSERT INTO pois (id, lon, lat, tags) VALUES (?1, ?2, ?3, ?4)")?;
+        for poi in pois {
+            let tags = to_string(&poi.tags)
+                .map_err(|source| SqliteError::ToSqlConversionFailure(source.into()))?;
+            statement.execute((poi.id, poi.location.x, poi.location.y, tags))?;
+        }
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
+/// Write the persisted R\*-tree artefact for the provided POIs.
+#[cfg(any(test, feature = "test-support"))]
+pub fn write_sqlite_spatial_index(
+    path: &Path,
+    pois: &[PointOfInterest],
+) -> Result<(), SpatialIndexWriteError> {
+    let entries: Vec<IndexedPoi> = pois.iter().map(IndexedPoi::from).collect();
+    write_index(path, &entries)
 }
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.
