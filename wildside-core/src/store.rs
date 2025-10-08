@@ -25,7 +25,7 @@ use crate::PointOfInterest;
 pub(crate) const SPATIAL_INDEX_MAGIC: [u8; 4] = *b"WSPI";
 
 /// Supported version of the persisted spatial index format.
-pub(crate) const SPATIAL_INDEX_VERSION: u16 = 1;
+pub(crate) const SPATIAL_INDEX_VERSION: u16 = 2;
 
 /// SQLite limits bound parameters per statement to 999 by default. The store
 /// chunks `IN` queries to remain below that ceiling.
@@ -666,6 +666,25 @@ mod tests {
             error,
             SpatialIndexError::UnsupportedVersion { found, supported }
                 if found == SPATIAL_INDEX_VERSION + 1 && supported == SPATIAL_INDEX_VERSION
+        ));
+    }
+
+    #[rstest]
+    fn load_index_entries_errors_on_legacy_version(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        let mut file = File::create(&index_path).expect("create index file");
+        file.write_all(&SPATIAL_INDEX_MAGIC)
+            .expect("write magic header");
+        let legacy = (SPATIAL_INDEX_VERSION - 1).to_le_bytes();
+        file.write_all(&legacy).expect("write version");
+        drop(file);
+
+        let error = load_index_entries(&index_path).expect_err("legacy version should fail");
+        assert!(matches!(
+            error,
+            SpatialIndexError::UnsupportedVersion { found, supported }
+                if found == SPATIAL_INDEX_VERSION - 1 && supported == SPATIAL_INDEX_VERSION
         ));
     }
 
