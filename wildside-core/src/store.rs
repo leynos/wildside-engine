@@ -8,12 +8,13 @@ use std::{
     collections::HashMap,
     fmt,
     fs::File,
+    io::Read,
     path::{Path, PathBuf},
 };
 
-use bincode::{deserialize, serialize_into};
+use bincode::{deserialize_from, serialize_into};
 use geo::{Coord, Rect};
-use rstar::{AABB, RTree, RTreeObject};
+use rstar::{AABB, RTree};
 use rusqlite::{Connection, OpenFlags, params_from_iter};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -24,41 +25,17 @@ use crate::PointOfInterest;
 pub(crate) const SPATIAL_INDEX_MAGIC: [u8; 4] = *b"WSPI";
 
 /// Supported version of the persisted spatial index format.
-pub(crate) const SPATIAL_INDEX_VERSION: u16 = 1;
+pub(crate) const SPATIAL_INDEX_VERSION: u16 = 2;
 
 /// SQLite limits bound parameters per statement to 999 by default. The store
 /// chunks `IN` queries to remain below that ceiling.
 const SQLITE_MAX_VARIABLE_NUMBER: usize = 999;
 
-/// Entry stored inside the persisted spatial index.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct IndexedPoi {
-    id: u64,
-    location: Coord<f64>,
-}
-
-impl From<&PointOfInterest> for IndexedPoi {
-    fn from(poi: &PointOfInterest) -> Self {
-        Self {
-            id: poi.id,
-            location: poi.location,
-        }
-    }
-}
-
-impl RTreeObject for IndexedPoi {
-    type Envelope = AABB<[f64; 2]>;
-
-    fn envelope(&self) -> Self::Envelope {
-        AABB::from_point([self.location.x, self.location.y])
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SpatialIndexFile {
     magic: [u8; 4],
     version: u16,
-    entries: Vec<IndexedPoi>,
+    entries: Vec<PointOfInterest>,
 }
 
 /// Error raised when reading or validating persisted POI artefacts.
@@ -73,40 +50,9 @@ pub enum SqlitePoiStoreError {
         #[source]
         source: rusqlite::Error,
     },
-    /// Reading the persisted R\*-tree from disk failed.
-    #[error("failed to read spatial index from {path}: {source}")]
-    IndexIo {
-        /// Location of the persisted R\*-tree artefact.
-        path: PathBuf,
-        /// Underlying I/O error.
-        #[source]
-        source: std::io::Error,
-    },
-    /// The file did not contain the expected header.
-    #[error("invalid spatial index magic: expected {expected:?}, found {found:?}")]
-    InvalidIndexMagic {
-        /// Expected byte sequence identifying a spatial index file.
-        expected: [u8; 4],
-        /// Sequence read from the file.
-        found: [u8; 4],
-    },
-    /// The reader encountered an unsupported format version.
-    #[error("unsupported spatial index version {found}; supported version is {supported}")]
-    UnsupportedIndexVersion {
-        /// Version present in the file header.
-        found: u16,
-        /// Latest version supported by this binary.
-        supported: u16,
-    },
-    /// The serialised R\*-tree could not be decoded.
-    #[error("failed to decode spatial index from {path}: {source}")]
-    IndexDecode {
-        /// Location of the persisted R\*-tree artefact.
-        path: PathBuf,
-        /// Decoder error returned by `bincode`.
-        #[source]
-        source: bincode::Error,
-    },
+    /// Errors encountered while loading or validating the persisted R\*-tree.
+    #[error(transparent)]
+    SpatialIndex(#[from] SpatialIndexError),
     /// The SQLite database did not contain a POI referenced by the index.
     #[error("point of interest {id} listed in the index is missing from the database")]
     MissingPoi {
@@ -123,11 +69,46 @@ pub enum SqlitePoiStoreError {
         source: serde_json::Error,
     },
     /// Generic SQLite error when reading POI rows.
-    #[error("database error: {source}")]
-    Database {
-        /// Source error raised by the SQLite driver.
-        #[from]
-        source: rusqlite::Error,
+    #[error(transparent)]
+    Database(#[from] rusqlite::Error),
+}
+
+/// Error emitted when loading or validating the persisted spatial index.
+#[derive(Debug, Error)]
+pub enum SpatialIndexError {
+    /// The index file could not be read from disk.
+    #[error("failed to read spatial index from {path}: {source}")]
+    Io {
+        /// Location of the persisted R\*-tree artefact.
+        path: PathBuf,
+        /// Underlying I/O error.
+        #[source]
+        source: std::io::Error,
+    },
+    /// The serialised R\*-tree could not be decoded.
+    #[error("failed to decode spatial index from {path}: {source}")]
+    Decode {
+        /// Location of the persisted R\*-tree artefact.
+        path: PathBuf,
+        /// Decoder error returned by `bincode`.
+        #[source]
+        source: bincode::Error,
+    },
+    /// The file did not contain the expected header.
+    #[error("invalid spatial index magic: expected {expected:?}, found {found:?}")]
+    InvalidMagic {
+        /// Expected byte sequence identifying a spatial index file.
+        expected: [u8; 4],
+        /// Sequence read from the file.
+        found: [u8; 4],
+    },
+    /// The reader encountered an unsupported format version.
+    #[error("unsupported spatial index version {found}; supported version is {supported}")]
+    UnsupportedVersion {
+        /// Version present in the file header.
+        found: u16,
+        /// Latest version supported by this binary.
+        supported: u16,
     },
 }
 
@@ -156,8 +137,7 @@ pub enum SpatialIndexWriteError {
 
 /// Read-only POI store backed by SQLite metadata and a persisted R\*-tree.
 pub struct SqlitePoiStore {
-    connection: Connection,
-    index: RTree<IndexedPoi>,
+    index: RTree<PointOfInterest>,
 }
 
 impl fmt::Debug for SqlitePoiStore {
@@ -186,12 +166,11 @@ impl SqlitePoiStore {
                 },
             )?;
 
-        let index_entries = load_index_entries(&index_path)?;
-        ensure_index_pois_exist(&connection, &index_entries)?;
+        let entries = load_index_entries(&index_path)?;
+        ensure_index_pois_exist(&connection, &entries)?;
 
         Ok(Self {
-            connection,
-            index: RTree::bulk_load(index_entries),
+            index: RTree::bulk_load(entries),
         })
     }
 }
@@ -203,21 +182,13 @@ impl PoiStore for SqlitePoiStore {
     ) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_> {
         let envelope =
             AABB::from_corners([bbox.min().x, bbox.min().y], [bbox.max().x, bbox.max().y]);
-        let mut ids: Vec<u64> = self
+        let mut pois: Vec<_> = self
             .index
             .locate_in_envelope_intersecting(&envelope)
-            .map(|entry| entry.id)
+            .cloned()
             .collect();
-        if ids.is_empty() {
-            return Box::new(Vec::new().into_iter());
-        }
 
-        ids.sort_unstable();
-        ids.dedup();
-
-        let pois = load_pois(&self.connection, &ids).unwrap_or_else(|error| {
-            panic!("failed to hydrate POIs for bounding-box query after validation: {error}")
-        });
+        pois.sort_unstable_by_key(|poi| poi.id);
 
         Box::new(pois.into_iter())
     }
@@ -241,7 +212,7 @@ fn find_missing_poi_in_chunk(chunk: &[u64], pois: &[PointOfInterest]) -> Option<
 
 fn ensure_index_pois_exist(
     connection: &Connection,
-    entries: &[IndexedPoi],
+    entries: &[PointOfInterest],
 ) -> Result<(), SqlitePoiStoreError> {
     if entries.is_empty() {
         return Ok(());
@@ -267,61 +238,48 @@ fn max_variable_limit(connection: &Connection) -> usize {
     SQLITE_MAX_VARIABLE_NUMBER
 }
 
-fn load_index_entries(path: &Path) -> Result<Vec<IndexedPoi>, SqlitePoiStoreError> {
-    let bytes = std::fs::read(path).map_err(|source| SqlitePoiStoreError::IndexIo {
+fn load_index_entries(path: &Path) -> Result<Vec<PointOfInterest>, SpatialIndexError> {
+    let mut file = File::open(path).map_err(|source| SpatialIndexError::Io {
         path: path.to_path_buf(),
         source,
     })?;
 
-    ensure_magic_prefix(&bytes)?;
-
-    let file: SpatialIndexFile =
-        deserialize(&bytes).map_err(|source| SqlitePoiStoreError::IndexDecode {
+    let mut magic = [0_u8; 4];
+    file.read_exact(&mut magic)
+        .map_err(|source| SpatialIndexError::Io {
             path: path.to_path_buf(),
             source,
         })?;
-
-    if file.magic != SPATIAL_INDEX_MAGIC {
-        return Err(SqlitePoiStoreError::InvalidIndexMagic {
+    if magic != SPATIAL_INDEX_MAGIC {
+        return Err(SpatialIndexError::InvalidMagic {
             expected: SPATIAL_INDEX_MAGIC,
-            found: file.magic,
+            found: magic,
         });
     }
 
-    if file.version != SPATIAL_INDEX_VERSION {
-        return Err(SqlitePoiStoreError::UnsupportedIndexVersion {
-            found: file.version,
+    let mut version_bytes = [0_u8; 2];
+    file.read_exact(&mut version_bytes)
+        .map_err(|source| SpatialIndexError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let version = u16::from_le_bytes(version_bytes);
+    if version != SPATIAL_INDEX_VERSION {
+        return Err(SpatialIndexError::UnsupportedVersion {
+            found: version,
             supported: SPATIAL_INDEX_VERSION,
         });
     }
 
-    Ok(file.entries)
-}
-
-fn ensure_magic_prefix(bytes: &[u8]) -> Result<(), SqlitePoiStoreError> {
-    let mut found = [0_u8; 4];
-    if bytes.len() < SPATIAL_INDEX_MAGIC.len() {
-        found[..bytes.len()].copy_from_slice(bytes);
-        return Err(SqlitePoiStoreError::InvalidIndexMagic {
-            expected: SPATIAL_INDEX_MAGIC,
-            found,
-        });
-    }
-
-    found.copy_from_slice(&bytes[..SPATIAL_INDEX_MAGIC.len()]);
-    if found != SPATIAL_INDEX_MAGIC {
-        return Err(SqlitePoiStoreError::InvalidIndexMagic {
-            expected: SPATIAL_INDEX_MAGIC,
-            found,
-        });
-    }
-
-    Ok(())
+    deserialize_from(&mut file).map_err(|source| SpatialIndexError::Decode {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 pub(crate) fn write_index(
     path: &Path,
-    entries: &[IndexedPoi],
+    entries: &[PointOfInterest],
 ) -> Result<(), SpatialIndexWriteError> {
     let mut file = File::create(path).map_err(|source| SpatialIndexWriteError::Io {
         path: path.to_path_buf(),
@@ -341,27 +299,6 @@ pub(crate) fn write_index(
             path: path.to_path_buf(),
             source,
         })
-}
-
-fn load_pois(
-    connection: &Connection,
-    ids: &[u64],
-) -> Result<Vec<PointOfInterest>, SqlitePoiStoreError> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let max_parameters = max_variable_limit(connection);
-    let mut pois = Vec::new();
-
-    for chunk in ids.chunks(max_parameters) {
-        pois.extend(load_pois_chunk(connection, chunk)?);
-    }
-
-    pois.sort_unstable_by_key(|poi| poi.id);
-    pois.dedup_by_key(|poi| poi.id);
-
-    Ok(pois)
 }
 
 fn load_pois_chunk(
@@ -458,6 +395,7 @@ mod tests {
         Tags,
         test_support::{MemoryStore, write_sqlite_database, write_sqlite_spatial_index},
     };
+    use bincode::{deserialize_from, serialize_into};
     use geo::Coord;
     use rstest::{fixture, rstest};
     use std::{fs::File, io::Write, path::PathBuf};
@@ -549,6 +487,27 @@ mod tests {
     }
 
     #[rstest]
+    fn sqlite_store_returns_sorted_results(
+        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        let pois = vec![
+            poi(3, 3.0, 3.0, "gallery"),
+            poi(1, 0.0, 0.0, "centre"),
+            poi(2, 1.0, 1.0, "library"),
+        ];
+        write_sqlite_database(&db_path, &pois).expect("persist database");
+        write_sqlite_spatial_index(&index_path, &pois).expect("persist index");
+
+        let store = SqlitePoiStore::open(&db_path, &index_path).expect("open store");
+        let bbox = Rect::new(Coord { x: -10.0, y: -10.0 }, Coord { x: 10.0, y: 10.0 });
+        let found: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
+
+        let mut expected = pois;
+        expected.sort_unstable_by_key(|poi| poi.id);
+        assert_eq!(found, expected);
+    }
+
+    #[rstest]
     fn sqlite_store_returns_empty_outside_bbox(
         sqlite_store_fixture: (TempDir, PathBuf, PathBuf, Vec<PointOfInterest>),
     ) {
@@ -585,7 +544,7 @@ mod tests {
             SqlitePoiStore::open(&db_path, &index_path).expect_err("invalid magic should fail");
         assert!(matches!(
             error,
-            SqlitePoiStoreError::InvalidIndexMagic { .. }
+            SqlitePoiStoreError::SpatialIndex(SpatialIndexError::InvalidMagic { .. })
         ));
     }
 
@@ -597,19 +556,19 @@ mod tests {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
         {
             let mut file = File::create(&index_path).expect("create index file");
-            file.write_all(&SPATIAL_INDEX_MAGIC)
-                .expect("write index magic");
-            let unsupported = SPATIAL_INDEX_VERSION + 1;
-            file.write_all(&unsupported.to_le_bytes())
-                .expect("write unsupported version");
-            serialize_into(&mut file, &Vec::<IndexedPoi>::new()).expect("write empty index");
+            let payload = SpatialIndexFile {
+                magic: SPATIAL_INDEX_MAGIC,
+                version: SPATIAL_INDEX_VERSION + 1,
+                entries: Vec::new(),
+            };
+            serialize_into(&mut file, &payload).expect("write unsupported payload");
         }
 
         let error = SqlitePoiStore::open(&db_path, &index_path)
             .expect_err("unsupported version should fail");
         assert!(matches!(
             error,
-            SqlitePoiStoreError::UnsupportedIndexVersion { found, supported }
+            SqlitePoiStoreError::SpatialIndex(SpatialIndexError::UnsupportedVersion { found, supported })
                 if found == SPATIAL_INDEX_VERSION + 1 && supported == SPATIAL_INDEX_VERSION
         ));
     }
@@ -645,5 +604,101 @@ mod tests {
             error,
             SqlitePoiStoreError::InvalidTags { id: 1, .. }
         ));
+    }
+
+    #[rstest]
+    fn load_index_entries_round_trips_entries(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+        sample_pois: Vec<PointOfInterest>,
+    ) {
+        write_index(&index_path, &sample_pois).expect("persist index");
+
+        let loaded = load_index_entries(&index_path).expect("load index");
+        assert_eq!(loaded, sample_pois);
+    }
+
+    #[rstest]
+    fn load_index_entries_returns_io_error_for_missing_file() {
+        let missing_path = PathBuf::from("/non-existent/index-file");
+        let error = load_index_entries(&missing_path).expect_err("missing file should error");
+        assert!(matches!(error, SpatialIndexError::Io { .. }));
+    }
+
+    #[rstest]
+    fn load_index_entries_errors_on_invalid_magic(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        std::fs::write(&index_path, b"BAD!").expect("write corrupt header");
+
+        let error = load_index_entries(&index_path).expect_err("invalid magic should fail");
+        assert!(matches!(error, SpatialIndexError::InvalidMagic { .. }));
+    }
+
+    #[rstest]
+    fn load_index_entries_errors_on_decode_failure(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        let mut file = File::create(&index_path).expect("create index file");
+        file.write_all(&SPATIAL_INDEX_MAGIC)
+            .expect("write magic header");
+        file.write_all(&SPATIAL_INDEX_VERSION.to_le_bytes())
+            .expect("write version");
+        drop(file);
+
+        let error = load_index_entries(&index_path).expect_err("decode should fail");
+        assert!(matches!(error, SpatialIndexError::Decode { .. }));
+    }
+
+    #[rstest]
+    fn load_index_entries_errors_on_unsupported_version(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        let mut file = File::create(&index_path).expect("create index file");
+        file.write_all(&SPATIAL_INDEX_MAGIC)
+            .expect("write magic header");
+        let unsupported = (SPATIAL_INDEX_VERSION + 1).to_le_bytes();
+        file.write_all(&unsupported).expect("write version");
+        serialize_into(&mut file, &Vec::<PointOfInterest>::new()).expect("write payload");
+        drop(file);
+
+        let error = load_index_entries(&index_path).expect_err("unsupported version should fail");
+        assert!(matches!(
+            error,
+            SpatialIndexError::UnsupportedVersion { found, supported }
+                if found == SPATIAL_INDEX_VERSION + 1 && supported == SPATIAL_INDEX_VERSION
+        ));
+    }
+
+    #[rstest]
+    fn load_index_entries_errors_on_legacy_version(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+    ) {
+        let mut file = File::create(&index_path).expect("create index file");
+        file.write_all(&SPATIAL_INDEX_MAGIC)
+            .expect("write magic header");
+        let legacy = (SPATIAL_INDEX_VERSION - 1).to_le_bytes();
+        file.write_all(&legacy).expect("write version");
+        drop(file);
+
+        let error = load_index_entries(&index_path).expect_err("legacy version should fail");
+        assert!(matches!(
+            error,
+            SpatialIndexError::UnsupportedVersion { found, supported }
+                if found == SPATIAL_INDEX_VERSION - 1 && supported == SPATIAL_INDEX_VERSION
+        ));
+    }
+
+    #[rstest]
+    fn write_index_persists_spatial_index_file(
+        #[from(temp_artifacts)] (_dir, _db_path, index_path): (TempDir, PathBuf, PathBuf),
+        sample_pois: Vec<PointOfInterest>,
+    ) {
+        write_index(&index_path, &sample_pois).expect("persist index");
+        let mut file = File::open(&index_path).expect("open index");
+        let payload: SpatialIndexFile = deserialize_from(&mut file).expect("decode payload");
+
+        assert_eq!(payload.magic, SPATIAL_INDEX_MAGIC);
+        assert_eq!(payload.version, SPATIAL_INDEX_VERSION);
+        assert_eq!(payload.entries, sample_pois);
     }
 }

@@ -62,12 +62,13 @@ providing a stable vocabulary across crates.
   `pois.db` (an SQLite database whose `pois` table stores POI ids, coordinates,
   and JSON-encoded tags) and `pois.rstar` (a binary R\*-tree serialization).
   The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
-  version (currently `1`), followed by a `bincode` payload of `IndexedPoi`
-  structs. Each struct records the POI id and its `geo::Coord`. During start-up
-  the store reads these entries, validates them against SQLite in batches, and
-  bulk-loads an in-memory `RTree<IndexedPoi>`. Bounding-box queries then fetch
-  full POIs on demand so memory scales with the query surface rather than the
-  entire dataset.
+  version (currently `2`), followed by a `bincode` payload of
+  [`PointOfInterest`](../wildside-core/src/poi.rs) structs. Version 2 stores
+  the full POI records (id, `geo::Coord`, and tag map) directly in the R\*-tree
+  so lookups can avoid secondary hash-map probes. During start-up the store
+  reads these entries, validates them against SQLite in batches, and bulk-loads
+  an in-memory `RTree<PointOfInterest>`. Bounding-box queries clone matching
+  entries from the tree, avoiding additional database round-trips.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via
@@ -147,54 +148,47 @@ These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
 At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
-R\*-tree stores `IndexedPoi` values so the in-memory footprint remains minimal
-while SQLite stays the source of truth for rich POI data. During start-up the
-store validates every referenced id in manageable batches, hydrating POIs on
-demand to surface missing rows or malformed tag payloads. Bounding-box queries
-convert the R\*-tree results into `SELECT … WHERE id IN (…)` calls so SQLite
-only returns rows for the active request, and deterministic sorting keeps the
-response order stable for callers.
+R\*-tree owns full `PointOfInterest` values, so query responses can be produced
+without re-querying SQLite. Start-up still validates every referenced id in
+manageable batches, hydrating rows only to surface missing entries or malformed
+tag payloads. Once validation succeeds the database connection is released, and
+bounding-box queries clone matching POIs directly from the tree, guaranteeing a
+stable response order.
 
 ```mermaid
 sequenceDiagram
   autonumber
-  actor Test as Test/Caller
+  actor App
   participant Store as SqlitePoiStore
-  participant SQLite as SQLite (read-only)
-  participant FS as File System (index file)
-  participant RTree as In-memory R*-tree
+  participant FS as Filesystem
+  participant RTree as RTree<PointOfInterest>
 
-  rect rgb(240,248,255)
-    note over Test,Store: Open store
-    Test->>Store: open(db_path, index_path)
-    Store->>SQLite: Connect (RO)
-    Store->>FS: Read index file
-    FS-->>Store: Magic, version, entries
-    Store->>SQLite: Validate referenced ids in batches
-    SQLite-->>Store: Rows (id, lon, lat, tags_json)
-    Store->>RTree: Bulk-load IndexedPoi[]
-    Store-->>Test: SqlitePoiStore | or SqlitePoiStoreError
-  end
+  App->>Store: open(path)
+  Store->>FS: read spatial_index.bin
+  FS-->>Store: bytes
+  Store->>Store: validate magic/version (v2)
+  Store->>Store: decode Vec<PointOfInterest>
+  Store->>RTree: bulk_load(PointOfInterest[])
+  Store-->>App: SqlitePoiStore ready
+  Note over Store,RTree: Errors surfaced as SpatialIndexError via SqlitePoiStoreError::SpatialIndex
+```
 
-  rect rgb(245,255,245)
-    note over Test,Store: Query bbox
-    Test->>Store: get_pois_in_bbox(bbox)
-    Store->>RTree: Query envelopes intersecting bbox
-    RTree-->>Store: IndexedPoi[]
-    Store->>SQLite: SELECT id, lon, lat, tags_json WHERE id IN ids
-    SQLite-->>Store: Rows -> PointOfInterest
-    Store-->>Test: Vec<PointOfInterest>
-  end
+The following sequence diagram shows how the application queries the SQLite POI
+store which uses an R-tree to locate points within a bounding box.
 
-  rect rgb(255,245,245)
-    note over Store,FS: Error paths
-    FS-->>Store: Corrupt magic/version
-    Store-->>Test: SqlitePoiStoreError::InvalidMagic/Version
-    SQLite-->>Store: Missing id referenced by index
-    Store-->>Test: SqlitePoiStoreError::MissingPoi(id)
-    SQLite-->>Store: JSON parse failure
-    Store-->>Test: SqlitePoiStoreError::InvalidTags
-  end
+```mermaid
+sequenceDiagram
+  autonumber
+  actor App
+  participant Store as SqlitePoiStore
+  participant RTree as RTree<PointOfInterest>
+
+  App->>Store: get_pois_in_bbox(bbox)
+  Store->>RTree: locate_in_envelope(bbox)
+  RTree-->>Store: PointOfInterest[]
+  Store->>Store: sort by id
+  Store-->>App: Vec<PointOfInterest>
+  Note over Store: No SQLite rehydration
 ```
 
 ## Section 1: The Data Foundation - Ingesting and Integrating Open Data
