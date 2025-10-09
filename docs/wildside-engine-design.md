@@ -173,6 +173,9 @@ sequenceDiagram
   Note over Store,RTree: Errors surfaced as SpatialIndexError via SqlitePoiStoreError::SpatialIndex
 ```
 
+The following sequence diagram shows how the application queries the SQLite POI
+store which uses an R-tree to locate points within a bounding box.
+
 ```mermaid
 sequenceDiagram
   autonumber
