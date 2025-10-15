@@ -10,6 +10,11 @@ log = { workspace = true }
 osmpbf = "0.3.6"
 thiserror = "1"
 wildside-core = { workspace = true }
+wikidata-rust = { package = "wikidata", version = "1.1.0" }
+simd-json = { version = "0.17.0", features = ["serde"] }
+rusqlite = { version = "0.31.0", features = ["bundled"] }
+ureq = { version = "2.10.1", default-features = false, features = ["tls", "json"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 base64 = "0.22"
@@ -17,3 +22,4 @@ tempfile = "3.23.0"
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
+serde_json = "1.0"

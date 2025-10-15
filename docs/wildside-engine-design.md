@@ -306,6 +306,34 @@ public endpoint outages. The nature of the Wildside scoring algorithm, which
 requires checking multiple properties for thousands of candidate POIs per
 request, makes this offline approach the only viable long-term solution.
 
+#### 1.2.1. Initial dump acquisition implementation
+
+The first increment of the Wikidata ETL focuses on reliably acquiring and
+auditing the upstream dump artefact. The `wildside-data` crate now exposes a
+`wikidata::dump` module that encapsulates three responsibilities:
+
+- **HTTP transport:** `HttpDumpSource` wraps the blocking `ureq` client and
+  always sends a descriptive `User-Agent` string. Requests time out
+  aggressively to surface network faults and propagate them as structured
+  `TransportError` values.
+- **Manifest parsing:** `resolve_latest_descriptor` downloads
+  `dumpstatus.json`, decodes it with `simd-json`, and walks the manifest to
+  locate the most recent `*-all.json.bz2` artefact. The parser ignores
+  unrelated jobs and tolerates missing optional fields, surfacing
+  `WikidataDumpError::MissingDump` when no suitable entry is found.
+- **Download logging:** `DownloadLog` stores a durable audit trail in SQLite
+  via `rusqlite`. Each run records the selected file name, URL, checksums, and
+  byte counts. This metadata primes future reconciliation jobs that will import
+  claims into `pois.db`.
+
+The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
+connects those primitives to an operator-facing CLI. Users select an output
+directory, optionally override the file name, and can opt in to logging by
+passing `--metadata <path>`. The tool refuses to overwrite existing dumps
+unless `--overwrite` is supplied and prints a succinct summary on success. This
+command is designed to be idempotent and easily wrapped by a cron job while the
+downstream parsing stages are implemented.
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
