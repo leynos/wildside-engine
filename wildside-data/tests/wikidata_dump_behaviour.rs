@@ -2,7 +2,12 @@
 
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
-use std::{cell::RefCell, fs, io::Write, path::PathBuf};
+use std::{
+    cell::RefCell,
+    fs,
+    io::{BufRead, Cursor, Write},
+    path::PathBuf,
+};
 use tempfile::TempDir;
 use wildside_data::wikidata::dump::{
     DownloadLog, DownloadReport, DumpSource, TransportError, WikidataDumpError,
@@ -38,8 +43,8 @@ impl DumpSource for StubSource {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Vec<u8>, TransportError> {
-        Ok(self.manifest.clone())
+    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+        Ok(Box::new(Cursor::new(self.manifest.clone())))
     }
 
     fn download_archive(&self, _url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {

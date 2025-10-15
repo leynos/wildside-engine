@@ -1,3 +1,4 @@
+//! Maintains a SQLite-backed audit log for Wikidata dump downloads.
 use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},

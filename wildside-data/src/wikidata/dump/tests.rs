@@ -1,6 +1,9 @@
 use super::*;
 use rstest::{fixture, rstest};
-use std::{fs, io::Write};
+use std::{
+    fs,
+    io::{Cursor, Write},
+};
 use tempfile::TempDir;
 use wikidata_rust::{Entity, Lang, WikiId};
 
@@ -16,8 +19,8 @@ impl DumpSource for StubSource {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Vec<u8>, TransportError> {
-        Ok(self.manifest.clone())
+    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+        Ok(Box::new(Cursor::new(self.manifest.clone())))
     }
 
     fn download_archive(&self, _url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {
@@ -61,8 +64,9 @@ fn archive() -> Vec<u8> {
 }
 
 #[rstest]
-fn parses_manifest(base_url: String, mut manifest: Vec<u8>) {
-    let descriptor = select_dump(&mut manifest, &base_url).expect("manifest should parse");
+fn parses_manifest(base_url: String, manifest: Vec<u8>) {
+    let mut reader = Cursor::new(manifest);
+    let descriptor = select_dump(&mut reader, &base_url).expect("manifest should parse");
     assert_eq!(descriptor.file_name, "wikidatawiki-20240909-all.json.bz2");
     assert_eq!(descriptor.size, Some(5));
     assert_eq!(
@@ -91,8 +95,8 @@ fn download_pipeline_writes_file(base_url: String, manifest: Vec<u8>, archive: V
 #[rstest]
 fn errors_when_manifest_missing_dump(base_url: String) {
     let json = r#"{"jobs": {"json": {"status": "failed", "files": {}}}}"#;
-    let mut manifest = json.as_bytes().to_vec();
-    let outcome = select_dump(&mut manifest, &base_url);
+    let mut reader = Cursor::new(json.as_bytes());
+    let outcome = select_dump(&mut reader, &base_url);
     assert!(matches!(outcome, Err(WikidataDumpError::MissingDump)));
 }
 
@@ -147,4 +151,72 @@ fn parses_sample_entity() {
     let english = Lang("en".to_owned());
     let label = entity.labels.get(&english).map(String::as_str);
     assert_eq!(label, Some("Douglas Adams"));
+}
+
+#[rstest]
+fn sanitises_base_urls(#[values("https://example.org/", "https://example.org")] input: &str
+) {
+    assert_eq!(sanitise_base_url(input.to_owned()), "https://example.org");
+}
+
+#[rstest]
+fn defaults_empty_base_url() {
+    assert_eq!(
+        sanitise_base_url(String::new()),
+        "https://dumps.wikimedia.org"
+    );
+}
+
+#[rstest]
+fn normalises_relative_urls(base_url: String) {
+    let relative = "entities/20240909/file.json";
+    let absolute = normalise_url(&base_url, relative);
+    assert_eq!(absolute, format!("{base_url}/{relative}"));
+}
+
+#[rstest]
+fn normalises_root_relative_urls(base_url: String) {
+    let absolute = normalise_url(&base_url, "/entities/20240909/file.json");
+    assert_eq!(absolute, format!("{base_url}/entities/20240909/file.json"));
+}
+
+#[rstest]
+fn download_descriptor_detects_size_mismatch(
+    base_url: String,
+    manifest: Vec<u8>,
+    archive: Vec<u8>,
+) {
+    let temp_dir = TempDir::new().expect("failed to create temporary directory");
+    let output = temp_dir.path().join("dump.json.bz2");
+    let source = StubSource {
+        base_url: base_url.clone(),
+        manifest,
+        archive,
+    };
+    let descriptor = DumpDescriptor {
+        file_name: "dump.json.bz2".to_owned(),
+        url: format!("{base_url}/dump.json.bz2"),
+        size: Some(99),
+        sha1: None,
+    };
+    let outcome = download_descriptor(&source, descriptor, &output, None);
+    assert!(matches!(
+        outcome,
+        Err(WikidataDumpError::SizeMismatch { .. })
+    ));
+}
+
+#[rstest]
+fn resolve_descriptor_reports_parse_errors(base_url: String) {
+    let manifest = b"not json".to_vec();
+    let source = StubSource {
+        base_url,
+        manifest,
+        archive: b"irrelevant".to_vec(),
+    };
+    let outcome = resolve_latest_descriptor(&source);
+    assert!(matches!(
+        outcome,
+        Err(WikidataDumpError::ParseManifest { .. })
+    ));
 }

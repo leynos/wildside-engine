@@ -1,16 +1,17 @@
+//! Facilities for discovering and downloading Wikidata dump artefacts.
 #![forbid(unsafe_code)]
 
+use reqwest::blocking::{Client, Response};
+use reqwest::header::USER_AGENT;
 use serde::Deserialize;
-use simd_json::serde::from_slice;
+use simd_json::serde::from_reader;
 use std::{
-    borrow::ToOwned,
     collections::HashMap,
     fs::{self, File},
-    io::{self, Read, Write},
+    io::{self, BufRead, BufReader, Write},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use ureq::{Agent, AgentBuilder};
 
 mod log;
 
@@ -120,7 +121,7 @@ pub trait DumpSource {
     /// Base URL of the dump endpoint.
     fn base_url(&self) -> &str;
     /// Fetch the dump status manifest.
-    fn fetch_status(&self) -> Result<Vec<u8>, TransportError>;
+    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError>;
     /// Stream the archive identified by `url` into `sink`.
     fn download_archive(&self, url: &str, sink: &mut dyn Write) -> Result<u64, TransportError>;
 }
@@ -128,7 +129,7 @@ pub trait DumpSource {
 /// HTTP implementation of [`DumpSource`].
 #[derive(Debug)]
 pub struct HttpDumpSource {
-    agent: Agent,
+    client: Client,
     base_url: String,
     user_agent: String,
 }
@@ -137,12 +138,13 @@ impl HttpDumpSource {
     /// Construct an HTTP-backed dump source.
     #[must_use]
     pub fn new(base_url: impl Into<String>) -> Self {
-        let agent = AgentBuilder::new()
-            .timeout_connect(std::time::Duration::from_secs(30))
-            .timeout_read(std::time::Duration::from_secs(120))
-            .build();
+        let client = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .expect("client builder only fails with invalid configuration");
         Self {
-            agent,
+            client,
             base_url: sanitise_base_url(base_url.into()),
             user_agent: DEFAULT_USER_AGENT.to_owned(),
         }
@@ -157,6 +159,16 @@ impl HttpDumpSource {
     fn status_url(&self) -> String {
         format!("{}{}", self.base_url, STATUS_PATH)
     }
+
+    fn call(&self, url: &str) -> Result<Response, TransportError> {
+        self.client
+            .get(url)
+            .header(USER_AGENT, self.user_agent.as_str())
+            .send()
+            .map_err(|err| convert_reqwest_error(err, url))?
+            .error_for_status()
+            .map_err(|err| convert_reqwest_error(err, url))
+    }
 }
 
 impl DumpSource for HttpDumpSource {
@@ -164,59 +176,38 @@ impl DumpSource for HttpDumpSource {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Vec<u8>, TransportError> {
+    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
         let url = self.status_url();
-        let response = self
-            .agent
-            .get(&url)
-            .set("User-Agent", &self.user_agent)
-            .call()
-            .map_err(|err| convert_ureq_error(err, &url))?;
-        let mut reader = response.into_reader();
-        let mut bytes = Vec::new();
-        reader
-            .read_to_end(&mut bytes)
-            .map_err(|source| TransportError::Network {
-                url: url.clone(),
-                source,
-            })?;
-        Ok(bytes)
+        let response = self.call(&url)?;
+        Ok(Box::new(BufReader::new(response)))
     }
 
     fn download_archive(&self, url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {
-        let response = self
-            .agent
-            .get(url)
-            .set("User-Agent", &self.user_agent)
-            .call()
-            .map_err(|err| convert_ureq_error(err, url))?;
-        let mut reader = response.into_reader();
-        io::copy(&mut reader, sink).map_err(|source| TransportError::Network {
+        let mut response = self.call(url)?;
+        io::copy(&mut response, sink).map_err(|source| TransportError::Network {
             url: url.to_owned(),
             source,
         })
     }
 }
 
-fn convert_ureq_error(error: ureq::Error, url: &str) -> TransportError {
-    match error {
-        ureq::Error::Status(status, response) => {
-            let message = response.status_text().to_owned();
-            TransportError::Http {
-                url: url.to_owned(),
-                status,
-                message,
-            }
-        }
-        ureq::Error::Transport(transport) => {
-            let message = transport
-                .message()
-                .map_or_else(|| "transport error".to_owned(), ToOwned::to_owned);
-            TransportError::Network {
-                url: url.to_owned(),
-                source: io::Error::other(message),
-            }
-        }
+fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
+    if let Some(status) = error.status() {
+        return TransportError::Http {
+            url: url.to_owned(),
+            status: status.as_u16(),
+            message: error.to_string(),
+        };
+    }
+
+    let kind = if error.is_timeout() {
+        io::ErrorKind::TimedOut
+    } else {
+        io::ErrorKind::Other
+    };
+    TransportError::Network {
+        url: url.to_owned(),
+        source: io::Error::new(kind, error),
     }
 }
 
@@ -278,18 +269,18 @@ pub fn download_descriptor<S: DumpSource>(
 pub fn resolve_latest_descriptor<S: DumpSource>(
     source: &S,
 ) -> Result<DumpDescriptor, WikidataDumpError> {
-    let mut manifest_bytes = source
+    let mut manifest = source
         .fetch_status()
         .map_err(|source| WikidataDumpError::StatusFetch { source })?;
-    select_dump(&mut manifest_bytes, source.base_url())
+    select_dump(manifest.as_mut(), source.base_url())
 }
 
 fn select_dump(
-    manifest_bytes: &mut [u8],
+    manifest_reader: &mut dyn BufRead,
     base_url: &str,
 ) -> Result<DumpDescriptor, WikidataDumpError> {
-    let status: DumpStatus =
-        from_slice(manifest_bytes).map_err(|source| WikidataDumpError::ParseManifest { source })?;
+    let status: DumpStatus = from_reader(manifest_reader)
+        .map_err(|source| WikidataDumpError::ParseManifest { source })?;
     status
         .jobs
         .values()
