@@ -18,6 +18,9 @@ pub struct DownloadLog {
 impl DownloadLog {
     /// Open (or create) the download log at the supplied path.
     ///
+    /// The log seeds uniqueness and timestamp indexes to keep repeated
+    /// initialisation idempotent while supporting fast lookups.
+    ///
     /// # Examples
     /// ```no_run
     /// # use std::path::Path;

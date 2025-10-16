@@ -359,6 +359,9 @@ fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
 
 /// Download the latest Wikidata dump using the supplied source.
 ///
+/// Provide a [`DownloadLog`] to persist audit entries; pass `None` to skip
+/// logging when durability is unnecessary.
+///
 /// # Examples
 /// ```no_run
 /// # use std::path::Path;
@@ -387,6 +390,9 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 }
 
 /// Download a specific dump described by `descriptor`.
+///
+/// Supplying a [`DownloadLog`] captures a durable record of the download while
+/// allowing callers to opt out by passing `None`.
 ///
 /// # Examples
 /// ```no_run
@@ -458,6 +464,9 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
 }
 
 /// Resolve the descriptor describing the latest available dump archive.
+///
+/// This helper streams the manifest and applies the JSON dump heuristics used
+/// by [`download_latest_dump`].
 ///
 /// # Examples
 /// ```no_run

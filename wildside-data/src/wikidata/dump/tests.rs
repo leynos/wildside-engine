@@ -205,3 +205,44 @@ fn resolve_descriptor_reports_parse_errors(base_url: BaseUrl) {
         Err(WikidataDumpError::ParseManifest { .. })
     ));
 }
+
+#[rstest]
+fn record_rejects_duplicate_rows(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
+    let temp_dir = TempDir::new().expect("failed to create temporary directory");
+    let log_path = temp_dir.path().join("downloads.sqlite");
+    let output = temp_dir.path().join("dump.json.bz2");
+    let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
+    let source = StubSource::new(base_url, manifest, archive);
+    let report = block_on(download_latest_dump(&source, &output, Some(&log)))
+        .expect("download should succeed");
+    let duplicate = log.record(&report);
+    assert!(matches!(
+        duplicate,
+        Err(WikidataDumpError::RecordLogSql { .. })
+    ));
+}
+
+#[rstest]
+fn record_reports_value_conversion_failures() {
+    let temp_dir = TempDir::new().expect("failed to create temporary directory");
+    let log_path = temp_dir.path().join("downloads.sqlite");
+    let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
+    let descriptor = DumpDescriptor {
+        file_name: DumpFileName::new("wikidata.json.bz2"),
+        url: DumpUrl::new("https://example.test/wikidata.json.bz2"),
+        size: None,
+        sha1: None,
+    };
+    let report = DownloadReport {
+        descriptor,
+        bytes_written: u64::MAX,
+        output_path: temp_dir.path().join("wikidata.json.bz2"),
+    };
+    let outcome = log.record(&report);
+    match outcome.expect_err("conversion should fail") {
+        WikidataDumpError::RecordLogValue { what, .. } => {
+            assert_eq!(what, "bytes written");
+        }
+        other => panic!("expected RecordLogValue error, got {other:?}"),
+    }
+}
