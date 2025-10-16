@@ -1,71 +1,15 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
-use async_trait::async_trait;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
-use std::{
-    cell::RefCell,
-    fs,
-    io::{BufRead, Cursor, Write},
-    path::PathBuf,
-};
+use std::{cell::RefCell, fs, path::PathBuf};
 use tempfile::TempDir;
 use tokio::runtime::Builder;
 use wildside_data::wikidata::dump::{
-    download_latest_dump, BaseUrl, DownloadLog, DownloadReport, DumpSource, TransportError,
-    WikidataDumpError,
+    DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump, test_support::StubSource,
 };
 
-const BASE_URL: &str = "https://example.org";
 const SAMPLE_ARCHIVE: &[u8] = b"sample";
-
-#[derive(Debug)]
-struct StubSource {
-    base_url: BaseUrl,
-    manifest: Vec<u8>,
-    archive: Vec<u8>,
-}
-
-impl StubSource {
-    fn with_manifest(manifest: Vec<u8>, archive: Vec<u8>) -> Self {
-        Self {
-            base_url: BaseUrl::from(BASE_URL),
-            manifest,
-            archive,
-        }
-    }
-
-    fn archive(&self) -> &[u8] {
-        &self.archive
-    }
-}
-
-#[async_trait(?Send)]
-impl DumpSource for StubSource {
-    fn base_url(&self) -> &BaseUrl {
-        &self.base_url
-    }
-
-    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
-        Ok(Box::new(Cursor::new(self.manifest.clone())))
-    }
-
-    async fn download_archive(
-        &self,
-        _url: &str,
-        sink: &mut dyn Write,
-    ) -> Result<u64, TransportError> {
-        sink.write_all(&self.archive)
-            .map_err(|source| TransportError::Network {
-                url: "stub".to_owned(),
-                source,
-            })?;
-        match u64::try_from(self.archive.len()) {
-            Ok(length) => Ok(length),
-            Err(err) => panic!("archive length exceeds u64: {err}"),
-        }
-    }
-}
 
 fn block_on<F>(future: F) -> F::Output
 where

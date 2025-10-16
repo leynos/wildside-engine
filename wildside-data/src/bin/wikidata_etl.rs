@@ -9,8 +9,8 @@ use std::{
 };
 use thiserror::Error;
 use wildside_data::wikidata::dump::{
-    download_descriptor, resolve_latest_descriptor, DEFAULT_USER_AGENT, DownloadLog,
-    DumpSource, HttpDumpSource, WikidataDumpError,
+    DEFAULT_USER_AGENT, DownloadLog, DumpSource, HttpDumpSource, WikidataDumpError,
+    download_descriptor, resolve_latest_descriptor,
 };
 
 #[tokio::main]

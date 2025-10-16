@@ -1,45 +1,11 @@
 use super::*;
-use async_trait::async_trait;
 use rstest::{fixture, rstest};
-use std::{
-    fs,
-    io::{BufRead, Cursor, Write},
-};
+use std::{fs, io::Cursor};
 use tempfile::TempDir;
 use tokio::runtime::Builder;
 use wikidata_rust::{Entity, Lang, WikiId};
 
-#[derive(Debug)]
-struct StubSource {
-    base_url: BaseUrl,
-    manifest: Vec<u8>,
-    archive: Vec<u8>,
-}
-
-#[async_trait(?Send)]
-impl DumpSource for StubSource {
-    fn base_url(&self) -> &BaseUrl {
-        &self.base_url
-    }
-
-    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
-        Ok(Box::new(Cursor::new(self.manifest.clone())))
-    }
-
-    async fn download_archive(
-        &self,
-        _url: &str,
-        sink: &mut dyn Write,
-    ) -> Result<u64, TransportError> {
-        sink.write_all(&self.archive)
-            .map_err(|source| TransportError::Network {
-                url: "stub".to_owned(),
-                source,
-            })?;
-        let length = u64::try_from(self.archive.len()).expect("archive length should fit in u64");
-        Ok(length)
-    }
-}
+use super::test_support::StubSource;
 
 fn block_on<F>(future: F) -> F::Output
 where
@@ -101,11 +67,7 @@ fn parses_manifest(base_url: BaseUrl, manifest: Vec<u8>) {
 fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
-    let source = StubSource {
-        base_url,
-        manifest,
-        archive: archive.clone(),
-    };
+    let source = StubSource::new(base_url, manifest, archive.clone());
     let report =
         block_on(download_latest_dump(&source, &output, None)).expect("download should succeed");
     let expected_len = u64::try_from(archive.len()).expect("archive length should fit in u64");
@@ -128,11 +90,7 @@ fn logs_downloads(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let output = temp_dir.path().join("dump.json.bz2");
     let log_path = temp_dir.path().join("downloads.sqlite");
     let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
-    let source = StubSource {
-        base_url,
-        manifest,
-        archive,
-    };
+    let source = StubSource::new(base_url, manifest, archive);
     let report = block_on(download_latest_dump(&source, &output, Some(&log)))
         .expect("download should succeed");
     assert!(log.path().exists(), "log file should be created");
@@ -186,7 +144,10 @@ fn sanitises_base_urls(#[values("https://example.org/", "https://example.org")] 
 
 #[rstest]
 fn defaults_empty_base_url() {
-    assert_eq!(sanitise_base_url(""), BaseUrl::from("https://dumps.wikimedia.org"));
+    assert_eq!(
+        sanitise_base_url(""),
+        BaseUrl::from("https://dumps.wikimedia.org")
+    );
 }
 
 #[rstest]
@@ -220,11 +181,7 @@ fn download_descriptor_detects_size_mismatch(
 ) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
-    let source = StubSource {
-        base_url: base_url.clone(),
-        manifest,
-        archive,
-    };
+    let source = StubSource::new(base_url.clone(), manifest, archive);
     let descriptor = DumpDescriptor {
         file_name: DumpFileName::from("dump.json.bz2"),
         url: DumpUrl::new(format!("{}/dump.json.bz2", base_url.as_ref())),
@@ -241,11 +198,7 @@ fn download_descriptor_detects_size_mismatch(
 #[rstest]
 fn resolve_descriptor_reports_parse_errors(base_url: BaseUrl) {
     let manifest = b"not json".to_vec();
-    let source = StubSource {
-        base_url,
-        manifest,
-        archive: b"irrelevant".to_vec(),
-    };
+    let source = StubSource::new(base_url, manifest, b"irrelevant".to_vec());
     let outcome = block_on(resolve_latest_descriptor(&source));
     assert!(matches!(
         outcome,

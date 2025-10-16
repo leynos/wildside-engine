@@ -18,6 +18,7 @@ use thiserror::Error;
 use tokio_util::io::{StreamReader, SyncIoBridge};
 
 mod log;
+pub mod test_support;
 
 pub use log::DownloadLog;
 
@@ -163,9 +164,17 @@ pub enum WikidataDumpError {
         source: rusqlite::Error,
         path: PathBuf,
     },
-    /// Recording metadata in the download log failed.
+    /// Recording metadata failed when interacting with SQLite.
     #[error("failed to record download metadata: {source}")]
-    RecordLog { source: rusqlite::Error },
+    RecordLogSql { source: rusqlite::Error },
+    /// Serialising metadata into SQLite-compatible values failed.
+    #[error("failed to prepare download metadata for persistence ({what}): {source}")]
+    RecordLogValue {
+        /// Description of the value that failed to serialise.
+        what: String,
+        /// Underlying conversion error.
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 /// Transport-level errors encountered while issuing HTTP requests.
@@ -205,11 +214,7 @@ pub struct DumpDescriptor {
 }
 
 impl DumpDescriptor {
-    fn from_manifest_entry(
-        file_name: &str,
-        entry: &DumpFile,
-        base_url: &BaseUrl,
-    ) -> Option<Self> {
+    fn from_manifest_entry(file_name: &str, entry: &DumpFile, base_url: &BaseUrl) -> Option<Self> {
         let relative = entry.url.as_deref()?;
         let url = normalise_url(base_url, relative);
         Some(Self {
