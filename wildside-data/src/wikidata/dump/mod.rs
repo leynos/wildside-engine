@@ -1,17 +1,20 @@
 //! Facilities for discovering and downloading Wikidata dump artefacts.
 #![forbid(unsafe_code)]
 
-use reqwest::blocking::{Client, Response};
+use async_trait::async_trait;
+use futures_util::TryStreamExt;
 use reqwest::header::USER_AGENT;
+use reqwest::{Client, Response};
 use serde::Deserialize;
 use simd_json::serde::from_reader;
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+use tokio_util::io::{StreamReader, SyncIoBridge};
 
 mod log;
 
@@ -117,13 +120,18 @@ pub struct DownloadReport {
 }
 
 /// Source of dump status manifests and archive bytes.
+#[async_trait(?Send)]
 pub trait DumpSource {
     /// Base URL of the dump endpoint.
     fn base_url(&self) -> &str;
     /// Fetch the dump status manifest.
-    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError>;
+    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError>;
     /// Stream the archive identified by `url` into `sink`.
-    fn download_archive(&self, url: &str, sink: &mut dyn Write) -> Result<u64, TransportError>;
+    async fn download_archive(
+        &self,
+        url: &str,
+        sink: &mut dyn Write,
+    ) -> Result<u64, TransportError>;
 }
 
 /// HTTP implementation of [`DumpSource`].
@@ -160,35 +168,55 @@ impl HttpDumpSource {
         format!("{}{}", self.base_url, STATUS_PATH)
     }
 
-    fn call(&self, url: &str) -> Result<Response, TransportError> {
+    async fn call(&self, url: &str) -> Result<Response, TransportError> {
         self.client
             .get(url)
             .header(USER_AGENT, self.user_agent.as_str())
             .send()
+            .await
             .map_err(|err| convert_reqwest_error(err, url))?
             .error_for_status()
             .map_err(|err| convert_reqwest_error(err, url))
     }
 }
 
+#[async_trait(?Send)]
 impl DumpSource for HttpDumpSource {
     fn base_url(&self) -> &str {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
         let url = self.status_url();
-        let response = self.call(&url)?;
-        Ok(Box::new(BufReader::new(response)))
+        let response = self.call(&url).await?;
+        Ok(to_blocking_reader(response))
     }
 
-    fn download_archive(&self, url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {
-        let mut response = self.call(url)?;
-        io::copy(&mut response, sink).map_err(|source| TransportError::Network {
+    async fn download_archive(
+        &self,
+        url: &str,
+        sink: &mut dyn Write,
+    ) -> Result<u64, TransportError> {
+        let response = self.call(url).await?;
+        let mut reader = to_sync_reader(response);
+        io::copy(&mut reader, sink).map_err(|source| TransportError::Network {
             url: url.to_owned(),
             source,
         })
     }
+}
+
+fn to_blocking_reader(response: Response) -> Box<dyn BufRead + Send> {
+    Box::new(BufReader::new(into_blocking_stream(response)))
+}
+
+fn to_sync_reader(response: Response) -> Box<dyn Read + Send> {
+    Box::new(into_blocking_stream(response))
+}
+
+fn into_blocking_stream(response: Response) -> impl Read + Send {
+    let stream = response.bytes_stream().map_err(io::Error::other);
+    SyncIoBridge::new(StreamReader::new(stream))
 }
 
 fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
@@ -212,17 +240,17 @@ fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
 }
 
 /// Download the latest Wikidata dump using the supplied source.
-pub fn download_latest_dump<S: DumpSource>(
+pub async fn download_latest_dump<S: DumpSource + ?Sized>(
     source: &S,
     output_path: &Path,
     log: Option<&DownloadLog>,
 ) -> Result<DownloadReport, WikidataDumpError> {
-    let descriptor = resolve_latest_descriptor(source)?;
-    download_descriptor(source, descriptor, output_path, log)
+    let descriptor = resolve_latest_descriptor(source).await?;
+    download_descriptor(source, descriptor, output_path, log).await
 }
 
 /// Download a specific dump described by `descriptor`.
-pub fn download_descriptor<S: DumpSource>(
+pub async fn download_descriptor<S: DumpSource + ?Sized>(
     source: &S,
     descriptor: DumpDescriptor,
     output_path: &Path,
@@ -240,6 +268,7 @@ pub fn download_descriptor<S: DumpSource>(
     })?;
     let bytes_written = source
         .download_archive(&descriptor.url, &mut file)
+        .await
         .map_err(|source| WikidataDumpError::Download { source })?;
     file.flush()
         .map_err(|source| WikidataDumpError::WriteDump {
@@ -266,11 +295,12 @@ pub fn download_descriptor<S: DumpSource>(
 }
 
 /// Resolve the descriptor describing the latest available dump archive.
-pub fn resolve_latest_descriptor<S: DumpSource>(
+pub async fn resolve_latest_descriptor<S: DumpSource + ?Sized>(
     source: &S,
 ) -> Result<DumpDescriptor, WikidataDumpError> {
     let mut manifest = source
         .fetch_status()
+        .await
         .map_err(|source| WikidataDumpError::StatusFetch { source })?;
     select_dump(manifest.as_mut(), source.base_url())
 }

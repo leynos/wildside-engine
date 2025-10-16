@@ -1,5 +1,6 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
+use async_trait::async_trait;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{
@@ -9,6 +10,7 @@ use std::{
     path::PathBuf,
 };
 use tempfile::TempDir;
+use tokio::runtime::Builder;
 use wildside_data::wikidata::dump::{
     DownloadLog, DownloadReport, DumpSource, TransportError, WikidataDumpError,
     download_latest_dump,
@@ -38,16 +40,21 @@ impl StubSource {
     }
 }
 
+#[async_trait(?Send)]
 impl DumpSource for StubSource {
     fn base_url(&self) -> &str {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
         Ok(Box::new(Cursor::new(self.manifest.clone())))
     }
 
-    fn download_archive(&self, _url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {
+    async fn download_archive(
+        &self,
+        _url: &str,
+        sink: &mut dyn Write,
+    ) -> Result<u64, TransportError> {
         sink.write_all(&self.archive)
             .map_err(|source| TransportError::Network {
                 url: "stub".to_owned(),
@@ -58,6 +65,17 @@ impl DumpSource for StubSource {
             Err(err) => panic!("archive length exceeds u64: {err}"),
         }
     }
+}
+
+fn block_on<F>(future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build Tokio runtime")
+        .block_on(future)
 }
 
 #[fixture]
@@ -181,7 +199,7 @@ fn download_latest(
     };
     let log_borrow = log_cell.borrow();
     let log_ref = log_borrow.as_ref();
-    let outcome = download_latest_dump(stub, &output_path, log_ref);
+    let outcome = block_on(download_latest_dump(stub, &output_path, log_ref));
     *result_cell.borrow_mut() = Some(outcome);
 }
 

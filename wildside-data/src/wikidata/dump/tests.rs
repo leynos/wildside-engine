@@ -1,10 +1,12 @@
 use super::*;
+use async_trait::async_trait;
 use rstest::{fixture, rstest};
 use std::{
     fs,
-    io::{Cursor, Write},
+    io::{BufRead, Cursor, Write},
 };
 use tempfile::TempDir;
+use tokio::runtime::Builder;
 use wikidata_rust::{Entity, Lang, WikiId};
 
 #[derive(Debug)]
@@ -14,16 +16,21 @@ struct StubSource {
     archive: Vec<u8>,
 }
 
+#[async_trait(?Send)]
 impl DumpSource for StubSource {
     fn base_url(&self) -> &str {
         &self.base_url
     }
 
-    fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+    async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
         Ok(Box::new(Cursor::new(self.manifest.clone())))
     }
 
-    fn download_archive(&self, _url: &str, sink: &mut dyn Write) -> Result<u64, TransportError> {
+    async fn download_archive(
+        &self,
+        _url: &str,
+        sink: &mut dyn Write,
+    ) -> Result<u64, TransportError> {
         sink.write_all(&self.archive)
             .map_err(|source| TransportError::Network {
                 url: "stub".to_owned(),
@@ -32,6 +39,17 @@ impl DumpSource for StubSource {
         let length = u64::try_from(self.archive.len()).expect("archive length should fit in u64");
         Ok(length)
     }
+}
+
+fn block_on<F>(future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build Tokio runtime")
+        .block_on(future)
 }
 
 #[fixture]
@@ -85,7 +103,8 @@ fn download_pipeline_writes_file(base_url: String, manifest: Vec<u8>, archive: V
         manifest,
         archive: archive.clone(),
     };
-    let report = download_latest_dump(&source, &output, None).expect("download should succeed");
+    let report =
+        block_on(download_latest_dump(&source, &output, None)).expect("download should succeed");
     let expected_len = u64::try_from(archive.len()).expect("archive length should fit in u64");
     assert_eq!(report.bytes_written, expected_len);
     let contents = fs::read(&output).expect("dump file should be readable");
@@ -111,8 +130,8 @@ fn logs_downloads(base_url: String, manifest: Vec<u8>, archive: Vec<u8>) {
         manifest,
         archive,
     };
-    let report =
-        download_latest_dump(&source, &output, Some(&log)).expect("download should succeed");
+    let report = block_on(download_latest_dump(&source, &output, Some(&log)))
+        .expect("download should succeed");
     assert!(log.path().exists(), "log file should be created");
     let count: i64 = log
         .connection()
@@ -199,7 +218,7 @@ fn download_descriptor_detects_size_mismatch(
         size: Some(99),
         sha1: None,
     };
-    let outcome = download_descriptor(&source, descriptor, &output, None);
+    let outcome = block_on(download_descriptor(&source, descriptor, &output, None));
     assert!(matches!(
         outcome,
         Err(WikidataDumpError::SizeMismatch { .. })
@@ -214,7 +233,7 @@ fn resolve_descriptor_reports_parse_errors(base_url: String) {
         manifest,
         archive: b"irrelevant".to_vec(),
     };
-    let outcome = resolve_latest_descriptor(&source);
+    let outcome = block_on(resolve_latest_descriptor(&source));
     assert!(matches!(
         outcome,
         Err(WikidataDumpError::ParseManifest { .. })

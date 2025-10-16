@@ -13,22 +13,23 @@ use wildside_data::wikidata::dump::{
     download_descriptor, resolve_latest_descriptor,
 };
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Arguments::parse();
-    if let Err(error) = run(args) {
+    if let Err(error) = run(args).await {
         eprintln!("wikidata-etl: {error}");
         process::exit(1);
     }
 }
 
-fn run(arguments: Arguments) -> Result<(), CliError> {
+async fn run(arguments: Arguments) -> Result<(), CliError> {
     let endpoint = arguments.endpoint.clone();
     let user_agent = arguments.user_agent.clone();
     let source = HttpDumpSource::new(endpoint).with_user_agent(user_agent);
-    execute(arguments, source)
+    execute(arguments, source).await
 }
 
-fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), CliError> {
+async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), CliError> {
     let Arguments {
         output_dir,
         file_name,
@@ -37,7 +38,7 @@ fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), CliErro
         ..
     } = arguments;
 
-    let descriptor = resolve_latest_descriptor(&source)?;
+    let descriptor = resolve_latest_descriptor(&source).await?;
     let target_file = match file_name {
         Some(name) => name,
         None => descriptor.file_name.clone(),
@@ -48,7 +49,7 @@ fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), CliErro
     }
 
     let log = initialise_log(metadata_db.as_deref())?;
-    let report = download_descriptor(&source, descriptor, &output_path, log.as_ref())?;
+    let report = download_descriptor(&source, descriptor, &output_path, log.as_ref()).await?;
     println!(
         "Downloaded {} ({} bytes) to {}",
         report.descriptor.file_name,
@@ -117,12 +118,14 @@ enum CliError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
     use rstest::{fixture, rstest};
     use std::{
         fs,
         io::{BufRead, Cursor, Write},
     };
     use tempfile::TempDir;
+    use tokio::runtime::Builder;
     use wildside_data::wikidata::dump::TransportError;
 
     #[derive(Debug)]
@@ -132,16 +135,17 @@ mod tests {
         archive: Vec<u8>,
     }
 
+    #[async_trait(?Send)]
     impl DumpSource for StubSource {
         fn base_url(&self) -> &str {
             &self.base_url
         }
 
-        fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+        async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
             Ok(Box::new(Cursor::new(self.manifest.clone())))
         }
 
-        fn download_archive(
+        async fn download_archive(
             &self,
             _url: &str,
             sink: &mut dyn Write,
@@ -153,6 +157,17 @@ mod tests {
                 })?;
             Ok(self.archive.len() as u64)
         }
+    }
+
+    fn block_on<F>(future: F) -> F::Output
+    where
+        F: std::future::Future,
+    {
+        Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build Tokio runtime")
+            .block_on(future)
     }
 
     #[fixture]
@@ -258,7 +273,7 @@ mod tests {
             manifest,
             archive,
         };
-        let outcome = execute(args, source);
+        let outcome = block_on(execute(args, source));
         assert!(matches!(outcome, Err(CliError::OutputExists { path }) if path == output_file));
     }
 

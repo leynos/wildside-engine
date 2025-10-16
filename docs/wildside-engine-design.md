@@ -312,12 +312,12 @@ The first increment of the Wikidata ETL focuses on reliably acquiring and
 auditing the upstream dump artefact. The `wildside-data` crate now exposes a
 `wikidata::dump` module that encapsulates three responsibilities:
 
-- **HTTP transport:** `HttpDumpSource` wraps the blocking `reqwest` client and
-  always sends a descriptive `User-Agent` string. Requests time out
-  aggressively to surface network faults, propagate them as structured
-  `TransportError` values, and expose the manifest as a streaming reader so we
-  can parse large `dumpstatus.json` payloads without first buffering them in
-  memory.
+- **HTTP transport:** `HttpDumpSource` wraps the asynchronous `reqwest`
+  client, issues requests on the Tokio runtime, and always sends a descriptive
+  `User-Agent` string. Responses stream through `tokio-util`'s `SyncIoBridge`,
+  letting the downloader parse `dumpstatus.json` and copy the archive without
+  materialising the payload in memory while still surfacing network faults as
+  structured `TransportError` values.
 - **Manifest parsing:** `resolve_latest_descriptor` downloads
   `dumpstatus.json`, decodes it with `simd-json`, and walks the manifest to
   locate the most recent `*-all.json.bz2` artefact. The parser ignores
@@ -331,10 +331,10 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
 The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
 connects those primitives to an operator-facing CLI backed by `clap`. Users
 select an output directory, optionally override the file name, and can opt in
-to logging by passing `--metadata <path>`. Standardised flag handling now covers
-help/version output and validation, and the tool refuses to overwrite existing
-dumps unless `--overwrite` is supplied. Successful runs emit a succinct
-summary, keeping the command idempotent and easy to schedule while the
+to logging by passing `--metadata <path>`. Standardised flag handling now
+covers help/version output and validation, and the tool refuses to overwrite
+existing dumps unless `--overwrite` is supplied. Successful runs emit a
+succinct summary, keeping the command idempotent and easy to schedule while the
 downstream parsing stages are implemented.
 
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
