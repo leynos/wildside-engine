@@ -11,6 +11,7 @@ use std::{
     collections::HashMap,
     fs::{self, File},
     io::{self, BufRead, BufReader, Read, Write},
+    ops::Deref,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -23,6 +24,114 @@ pub use log::DownloadLog;
 pub const DEFAULT_USER_AGENT: &str = "wildside-wikidata-etl/0.1";
 const STATUS_PATH: &str = "/wikidatawiki/entities/dumpstatus.json";
 const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
+
+/// Base URL for the Wikidata dump endpoint.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BaseUrl(String);
+
+impl BaseUrl {
+    /// Construct a new [`BaseUrl`] from an owned or borrowed string.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    /// Consume the wrapper and return the inner [`String`].
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl From<&str> for BaseUrl {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl AsRef<str> for BaseUrl {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for BaseUrl {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// File name reported by the Wikidata dump manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DumpFileName(String);
+
+impl DumpFileName {
+    /// Construct a new [`DumpFileName`] from an owned or borrowed string.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    /// Consume the wrapper and return the inner [`String`].
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl From<&str> for DumpFileName {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl AsRef<str> for DumpFileName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for DumpFileName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Fully qualified URL pointing to a dump artefact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DumpUrl(String);
+
+impl DumpUrl {
+    /// Construct a new [`DumpUrl`] from an owned or borrowed string.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    /// Consume the wrapper and return the inner [`String`].
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl From<&str> for DumpUrl {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl AsRef<str> for DumpUrl {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for DumpUrl {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// Errors produced while preparing or downloading a Wikidata dump.
 #[derive(Debug, Error)]
@@ -86,9 +195,9 @@ pub enum TransportError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DumpDescriptor {
     /// The file name as reported by the manifest.
-    pub file_name: String,
+    pub file_name: DumpFileName,
     /// Absolute download URL.
-    pub url: String,
+    pub url: DumpUrl,
     /// Archive size in bytes (if present in the manifest).
     pub size: Option<u64>,
     /// SHA-1 checksum reported by the manifest.
@@ -96,11 +205,15 @@ pub struct DumpDescriptor {
 }
 
 impl DumpDescriptor {
-    fn from_manifest_entry(file_name: &str, entry: &DumpFile, base_url: &str) -> Option<Self> {
+    fn from_manifest_entry(
+        file_name: &str,
+        entry: &DumpFile,
+        base_url: &BaseUrl,
+    ) -> Option<Self> {
         let relative = entry.url.as_deref()?;
         let url = normalise_url(base_url, relative);
         Some(Self {
-            file_name: file_name.to_owned(),
+            file_name: DumpFileName::from(file_name),
             url,
             size: entry.size,
             sha1: entry.sha1.clone(),
@@ -123,7 +236,7 @@ pub struct DownloadReport {
 #[async_trait(?Send)]
 pub trait DumpSource {
     /// Base URL of the dump endpoint.
-    fn base_url(&self) -> &str;
+    fn base_url(&self) -> &BaseUrl;
     /// Fetch the dump status manifest.
     async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError>;
     /// Stream the archive identified by `url` into `sink`.
@@ -138,7 +251,7 @@ pub trait DumpSource {
 #[derive(Debug)]
 pub struct HttpDumpSource {
     client: Client,
-    base_url: String,
+    base_url: BaseUrl,
     user_agent: String,
 }
 
@@ -153,7 +266,7 @@ impl HttpDumpSource {
             .expect("client builder only fails with invalid configuration");
         Self {
             client,
-            base_url: sanitise_base_url(base_url.into()),
+            base_url: sanitise_base_url(base_url),
             user_agent: DEFAULT_USER_AGENT.to_owned(),
         }
     }
@@ -164,8 +277,8 @@ impl HttpDumpSource {
         self
     }
 
-    fn status_url(&self) -> String {
-        format!("{}{}", self.base_url, STATUS_PATH)
+    fn status_url(&self) -> DumpUrl {
+        DumpUrl::new(format!("{}{}", self.base_url.as_ref(), STATUS_PATH))
     }
 
     async fn call(&self, url: &str) -> Result<Response, TransportError> {
@@ -182,13 +295,13 @@ impl HttpDumpSource {
 
 #[async_trait(?Send)]
 impl DumpSource for HttpDumpSource {
-    fn base_url(&self) -> &str {
+    fn base_url(&self) -> &BaseUrl {
         &self.base_url
     }
 
     async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
         let url = self.status_url();
-        let response = self.call(&url).await?;
+        let response = self.call(url.as_ref()).await?;
         Ok(to_blocking_reader(response))
     }
 
@@ -307,7 +420,7 @@ pub async fn resolve_latest_descriptor<S: DumpSource + ?Sized>(
 
 fn select_dump(
     manifest_reader: &mut dyn BufRead,
-    base_url: &str,
+    base_url: &BaseUrl,
 ) -> Result<DumpDescriptor, WikidataDumpError> {
     let status: DumpStatus = from_reader(manifest_reader)
         .map_err(|source| WikidataDumpError::ParseManifest { source })?;
@@ -326,22 +439,23 @@ fn select_dump(
         .ok_or(WikidataDumpError::MissingDump)
 }
 
-fn sanitise_base_url(url: String) -> String {
-    let trimmed = url.trim_end_matches('/');
+fn sanitise_base_url(url: impl Into<String>) -> BaseUrl {
+    let raw = url.into();
+    let trimmed = raw.trim_end_matches('/');
     if trimmed.is_empty() {
-        "https://dumps.wikimedia.org".to_owned()
+        BaseUrl::from("https://dumps.wikimedia.org")
     } else {
-        trimmed.to_owned()
+        BaseUrl::new(trimmed.to_owned())
     }
 }
 
-fn normalise_url(base_url: &str, relative: &str) -> String {
+fn normalise_url(base_url: &BaseUrl, relative: &str) -> DumpUrl {
     if relative.starts_with("http://") || relative.starts_with("https://") {
-        relative.to_owned()
+        DumpUrl::from(relative)
     } else if relative.starts_with('/') {
-        format!("{}{}", base_url, relative)
+        DumpUrl::new(format!("{}{}", base_url.as_ref(), relative))
     } else {
-        format!("{}/{relative}", base_url)
+        DumpUrl::new(format!("{}/{relative}", base_url.as_ref()))
     }
 }
 

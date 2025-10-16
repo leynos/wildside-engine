@@ -9,8 +9,8 @@ use std::{
 };
 use thiserror::Error;
 use wildside_data::wikidata::dump::{
-    DEFAULT_USER_AGENT, DownloadLog, DumpSource, HttpDumpSource, WikidataDumpError,
-    download_descriptor, resolve_latest_descriptor,
+    download_descriptor, resolve_latest_descriptor, DEFAULT_USER_AGENT, DownloadLog,
+    DumpSource, HttpDumpSource, WikidataDumpError,
 };
 
 #[tokio::main]
@@ -39,10 +39,7 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     } = arguments;
 
     let descriptor = resolve_latest_descriptor(&source).await?;
-    let target_file = match file_name {
-        Some(name) => name,
-        None => descriptor.file_name.clone(),
-    };
+    let target_file = file_name.unwrap_or_else(|| descriptor.file_name.clone().into_inner());
     let output_path = output_dir.join(&target_file);
     if output_path.exists() && !overwrite {
         return Err(CliError::OutputExists { path: output_path });
@@ -52,7 +49,7 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     let report = download_descriptor(&source, descriptor, &output_path, log.as_ref()).await?;
     println!(
         "Downloaded {} ({} bytes) to {}",
-        report.descriptor.file_name,
+        report.descriptor.file_name.as_ref(),
         report.bytes_written,
         report.output_path.display()
     );
@@ -126,18 +123,18 @@ mod tests {
     };
     use tempfile::TempDir;
     use tokio::runtime::Builder;
-    use wildside_data::wikidata::dump::TransportError;
+    use wildside_data::wikidata::dump::{BaseUrl, TransportError};
 
     #[derive(Debug)]
     struct StubSource {
-        base_url: String,
+        base_url: BaseUrl,
         manifest: Vec<u8>,
         archive: Vec<u8>,
     }
 
     #[async_trait(?Send)]
     impl DumpSource for StubSource {
-        fn base_url(&self) -> &str {
+        fn base_url(&self) -> &BaseUrl {
             &self.base_url
         }
 
@@ -171,8 +168,8 @@ mod tests {
     }
 
     #[fixture]
-    fn base_url() -> String {
-        "https://example.org".to_owned()
+    fn base_url() -> BaseUrl {
+        BaseUrl::from("https://example.org")
     }
 
     #[fixture]
@@ -252,7 +249,7 @@ mod tests {
     #[rstest]
     fn execute_errors_when_output_exists(
         tmp: TempDir,
-        base_url: String,
+        base_url: BaseUrl,
         manifest: Vec<u8>,
         archive: Vec<u8>,
     ) {
@@ -264,7 +261,7 @@ mod tests {
             output_dir: output_dir.clone(),
             file_name: None,
             metadata_db: None,
-            endpoint: base_url.clone(),
+            endpoint: base_url.clone().into_inner(),
             user_agent: DEFAULT_USER_AGENT.to_owned(),
             overwrite: false,
         };

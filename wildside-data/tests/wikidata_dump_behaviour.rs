@@ -12,8 +12,8 @@ use std::{
 use tempfile::TempDir;
 use tokio::runtime::Builder;
 use wildside_data::wikidata::dump::{
-    DownloadLog, DownloadReport, DumpSource, TransportError, WikidataDumpError,
-    download_latest_dump,
+    download_latest_dump, BaseUrl, DownloadLog, DownloadReport, DumpSource, TransportError,
+    WikidataDumpError,
 };
 
 const BASE_URL: &str = "https://example.org";
@@ -21,7 +21,7 @@ const SAMPLE_ARCHIVE: &[u8] = b"sample";
 
 #[derive(Debug)]
 struct StubSource {
-    base_url: String,
+    base_url: BaseUrl,
     manifest: Vec<u8>,
     archive: Vec<u8>,
 }
@@ -29,7 +29,7 @@ struct StubSource {
 impl StubSource {
     fn with_manifest(manifest: Vec<u8>, archive: Vec<u8>) -> Self {
         Self {
-            base_url: BASE_URL.to_owned(),
+            base_url: BaseUrl::from(BASE_URL),
             manifest,
             archive,
         }
@@ -42,7 +42,7 @@ impl StubSource {
 
 #[async_trait(?Send)]
 impl DumpSource for StubSource {
-    fn base_url(&self) -> &str {
+    fn base_url(&self) -> &BaseUrl {
         &self.base_url
     }
 

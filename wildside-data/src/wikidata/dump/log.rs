@@ -85,8 +85,8 @@ impl DownloadLog {
                     downloaded_at
                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
-                    &report.descriptor.file_name,
-                    &report.descriptor.url,
+                    report.descriptor.file_name.as_ref(),
+                    report.descriptor.url.as_ref(),
                     sha1,
                     size,
                     bytes,

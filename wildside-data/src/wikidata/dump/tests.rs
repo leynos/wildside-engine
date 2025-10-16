@@ -11,14 +11,14 @@ use wikidata_rust::{Entity, Lang, WikiId};
 
 #[derive(Debug)]
 struct StubSource {
-    base_url: String,
+    base_url: BaseUrl,
     manifest: Vec<u8>,
     archive: Vec<u8>,
 }
 
 #[async_trait(?Send)]
 impl DumpSource for StubSource {
-    fn base_url(&self) -> &str {
+    fn base_url(&self) -> &BaseUrl {
         &self.base_url
     }
 
@@ -53,8 +53,8 @@ where
 }
 
 #[fixture]
-fn base_url() -> String {
-    "https://example.org".to_owned()
+fn base_url() -> BaseUrl {
+    BaseUrl::from("https://example.org")
 }
 
 #[fixture]
@@ -82,20 +82,23 @@ fn archive() -> Vec<u8> {
 }
 
 #[rstest]
-fn parses_manifest(base_url: String, manifest: Vec<u8>) {
+fn parses_manifest(base_url: BaseUrl, manifest: Vec<u8>) {
     let mut reader = Cursor::new(manifest);
     let descriptor = select_dump(&mut reader, &base_url).expect("manifest should parse");
-    assert_eq!(descriptor.file_name, "wikidatawiki-20240909-all.json.bz2");
+    assert_eq!(
+        descriptor.file_name.as_ref(),
+        "wikidatawiki-20240909-all.json.bz2"
+    );
     assert_eq!(descriptor.size, Some(5));
     assert_eq!(
-        descriptor.url,
+        descriptor.url.as_ref(),
         "https://example.org/wikidatawiki/entities/20240909/wikidatawiki-20240909-all.json.bz2",
     );
     assert_eq!(descriptor.sha1.as_deref(), Some("abc123"));
 }
 
 #[rstest]
-fn download_pipeline_writes_file(base_url: String, manifest: Vec<u8>, archive: Vec<u8>) {
+fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
     let source = StubSource {
@@ -112,7 +115,7 @@ fn download_pipeline_writes_file(base_url: String, manifest: Vec<u8>, archive: V
 }
 
 #[rstest]
-fn errors_when_manifest_missing_dump(base_url: String) {
+fn errors_when_manifest_missing_dump(base_url: BaseUrl) {
     let json = r#"{"jobs": {"json": {"status": "failed", "files": {}}}}"#;
     let mut reader = Cursor::new(json.as_bytes());
     let outcome = select_dump(&mut reader, &base_url);
@@ -120,7 +123,7 @@ fn errors_when_manifest_missing_dump(base_url: String) {
 }
 
 #[rstest]
-fn logs_downloads(base_url: String, manifest: Vec<u8>, archive: Vec<u8>) {
+fn logs_downloads(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
     let log_path = temp_dir.path().join("downloads.sqlite");
@@ -175,33 +178,43 @@ fn parses_sample_entity() {
 #[rstest]
 fn sanitises_base_urls(#[values("https://example.org/", "https://example.org")] input: &str
 ) {
-    assert_eq!(sanitise_base_url(input.to_owned()), "https://example.org");
-}
-
-#[rstest]
-fn defaults_empty_base_url() {
     assert_eq!(
-        sanitise_base_url(String::new()),
-        "https://dumps.wikimedia.org"
+        sanitise_base_url(input),
+        BaseUrl::from("https://example.org")
     );
 }
 
 #[rstest]
-fn normalises_relative_urls(base_url: String) {
-    let relative = "entities/20240909/file.json";
-    let absolute = normalise_url(&base_url, relative);
-    assert_eq!(absolute, format!("{base_url}/{relative}"));
+fn defaults_empty_base_url() {
+    assert_eq!(sanitise_base_url(""), BaseUrl::from("https://dumps.wikimedia.org"));
 }
 
 #[rstest]
-fn normalises_root_relative_urls(base_url: String) {
+fn normalises_relative_urls(base_url: BaseUrl) {
+    let relative = "entities/20240909/file.json";
+    let absolute = normalise_url(&base_url, relative);
+    assert_eq!(
+        absolute,
+        DumpUrl::new(format!("{}/{}", base_url.as_ref(), relative))
+    );
+}
+
+#[rstest]
+fn normalises_root_relative_urls(base_url: BaseUrl) {
     let absolute = normalise_url(&base_url, "/entities/20240909/file.json");
-    assert_eq!(absolute, format!("{base_url}/entities/20240909/file.json"));
+    assert_eq!(
+        absolute,
+        DumpUrl::new(format!(
+            "{}{}",
+            base_url.as_ref(),
+            "/entities/20240909/file.json"
+        ))
+    );
 }
 
 #[rstest]
 fn download_descriptor_detects_size_mismatch(
-    base_url: String,
+    base_url: BaseUrl,
     manifest: Vec<u8>,
     archive: Vec<u8>,
 ) {
@@ -213,8 +226,8 @@ fn download_descriptor_detects_size_mismatch(
         archive,
     };
     let descriptor = DumpDescriptor {
-        file_name: "dump.json.bz2".to_owned(),
-        url: format!("{base_url}/dump.json.bz2"),
+        file_name: DumpFileName::from("dump.json.bz2"),
+        url: DumpUrl::new(format!("{}/dump.json.bz2", base_url.as_ref())),
         size: Some(99),
         sha1: None,
     };
@@ -226,7 +239,7 @@ fn download_descriptor_detects_size_mismatch(
 }
 
 #[rstest]
-fn resolve_descriptor_reports_parse_errors(base_url: String) {
+fn resolve_descriptor_reports_parse_errors(base_url: BaseUrl) {
     let manifest = b"not json".to_vec();
     let source = StubSource {
         base_url,
