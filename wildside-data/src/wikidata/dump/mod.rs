@@ -361,17 +361,17 @@ fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
 ///
 /// # Examples
 /// ```no_run
-/// # use std::path::PathBuf;
+/// # use std::path::Path;
 /// # use wildside_data::wikidata::dump::{
-/// #     download_latest_dump, HttpDumpSource, WikidataDumpError,
+/// #     download_latest_dump, DownloadLog, HttpDumpSource, WikidataDumpError,
 /// # };
-/// # fn example() -> Result<(), WikidataDumpError> {
+/// # fn example(log_path: &Path, output_path: &Path) -> Result<(), WikidataDumpError> {
 /// let source = HttpDumpSource::new("https://dumps.wikimedia.org");
-/// let output = PathBuf::from("wikidata-latest.json.bz2");
+/// let log = DownloadLog::initialise(log_path)?;
 /// tokio::runtime::Runtime::new()
 ///     .expect("create Tokio runtime")
-///     .block_on(async move {
-///         download_latest_dump(&source, &output, None).await?;
+///     .block_on(async {
+///         download_latest_dump(&source, output_path, Some(&log)).await?;
 ///         Ok::<(), WikidataDumpError>(())
 ///     })?;
 /// # Ok(())
@@ -390,12 +390,12 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 ///
 /// # Examples
 /// ```no_run
-/// # use std::path::PathBuf;
+/// # use std::path::Path;
 /// # use wildside_data::wikidata::dump::{
-/// #     download_descriptor, DumpDescriptor, DumpFileName, DumpUrl, HttpDumpSource,
-/// #     WikidataDumpError,
+/// #     download_descriptor, DownloadLog, DumpDescriptor, DumpFileName, DumpUrl,
+/// #     HttpDumpSource, WikidataDumpError,
 /// # };
-/// # fn example() -> Result<(), WikidataDumpError> {
+/// # fn example(log_path: &Path, output_path: &Path) -> Result<(), WikidataDumpError> {
 /// let descriptor = DumpDescriptor {
 ///     file_name: DumpFileName::new("wikidata.json.bz2"),
 ///     url: DumpUrl::new("https://example.test/wikidata.json.bz2"),
@@ -403,11 +403,11 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 ///     sha1: None,
 /// };
 /// let source = HttpDumpSource::new("https://dumps.wikimedia.org");
-/// let output = PathBuf::from("wikidata.json.bz2");
+/// let log = DownloadLog::initialise(log_path)?;
 /// tokio::runtime::Runtime::new()
 ///     .expect("create Tokio runtime")
 ///     .block_on(async move {
-///         download_descriptor(&source, descriptor, &output, None).await?;
+///         download_descriptor(&source, descriptor, output_path, Some(&log)).await?;
 ///         Ok::<(), WikidataDumpError>(())
 ///     })?;
 /// # Ok(())

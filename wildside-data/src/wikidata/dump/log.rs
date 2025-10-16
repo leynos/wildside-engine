@@ -21,10 +21,24 @@ impl DownloadLog {
     /// # Examples
     /// ```no_run
     /// # use std::path::Path;
-    /// # use wildside_data::wikidata::dump::{DownloadLog, WikidataDumpError};
-    /// # fn demo(path: &Path) -> Result<(), WikidataDumpError> {
+    /// # use wildside_data::wikidata::dump::{
+    /// #     DownloadLog, DownloadReport, DumpDescriptor, DumpFileName, DumpUrl,
+    /// #     WikidataDumpError,
+    /// # };
+    /// # fn demo(path: &Path, output: &Path) -> Result<(), WikidataDumpError> {
     /// let log = DownloadLog::initialise(path)?;
-    /// assert!(log.path().exists());
+    /// let descriptor = DumpDescriptor {
+    ///     file_name: DumpFileName::new("wikidata.json.bz2"),
+    ///     url: DumpUrl::new("https://example.test/wikidata.json.bz2"),
+    ///     size: Some(128),
+    ///     sha1: None,
+    /// };
+    /// let report = DownloadReport {
+    ///     descriptor,
+    ///     bytes_written: 128,
+    ///     output_path: output.to_path_buf(),
+    /// };
+    /// log.record(&report)?;
     /// # Ok(())
     /// # }
     /// ```
