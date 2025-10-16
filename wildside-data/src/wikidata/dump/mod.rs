@@ -358,6 +358,25 @@ fn convert_reqwest_error(error: reqwest::Error, url: &str) -> TransportError {
 }
 
 /// Download the latest Wikidata dump using the supplied source.
+///
+/// # Examples
+/// ```no_run
+/// # use std::path::PathBuf;
+/// # use wildside_data::wikidata::dump::{
+/// #     download_latest_dump, HttpDumpSource, WikidataDumpError,
+/// # };
+/// # fn example() -> Result<(), WikidataDumpError> {
+/// let source = HttpDumpSource::new("https://dumps.wikimedia.org");
+/// let output = PathBuf::from("wikidata-latest.json.bz2");
+/// tokio::runtime::Runtime::new()
+///     .expect("create Tokio runtime")
+///     .block_on(async move {
+///         download_latest_dump(&source, &output, None).await?;
+///         Ok::<(), WikidataDumpError>(())
+///     })?;
+/// # Ok(())
+/// # }
+/// ```
 pub async fn download_latest_dump<S: DumpSource + ?Sized>(
     source: &S,
     output_path: &Path,
@@ -368,6 +387,32 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 }
 
 /// Download a specific dump described by `descriptor`.
+///
+/// # Examples
+/// ```no_run
+/// # use std::path::PathBuf;
+/// # use wildside_data::wikidata::dump::{
+/// #     download_descriptor, DumpDescriptor, DumpFileName, DumpUrl, HttpDumpSource,
+/// #     WikidataDumpError,
+/// # };
+/// # fn example() -> Result<(), WikidataDumpError> {
+/// let descriptor = DumpDescriptor {
+///     file_name: DumpFileName::new("wikidata.json.bz2"),
+///     url: DumpUrl::new("https://example.test/wikidata.json.bz2"),
+///     size: None,
+///     sha1: None,
+/// };
+/// let source = HttpDumpSource::new("https://dumps.wikimedia.org");
+/// let output = PathBuf::from("wikidata.json.bz2");
+/// tokio::runtime::Runtime::new()
+///     .expect("create Tokio runtime")
+///     .block_on(async move {
+///         download_descriptor(&source, descriptor, &output, None).await?;
+///         Ok::<(), WikidataDumpError>(())
+///     })?;
+/// # Ok(())
+/// # }
+/// ```
 pub async fn download_descriptor<S: DumpSource + ?Sized>(
     source: &S,
     descriptor: DumpDescriptor,
@@ -413,6 +458,21 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
 }
 
 /// Resolve the descriptor describing the latest available dump archive.
+///
+/// # Examples
+/// ```no_run
+/// # use wildside_data::wikidata::dump::{
+/// #     resolve_latest_descriptor, HttpDumpSource, WikidataDumpError,
+/// # };
+/// # fn example() -> Result<(), WikidataDumpError> {
+/// let source = HttpDumpSource::new("https://dumps.wikimedia.org");
+/// let descriptor = tokio::runtime::Runtime::new()
+///     .expect("create Tokio runtime")
+///     .block_on(async move { resolve_latest_descriptor(&source).await })?;
+/// assert!(descriptor.file_name.as_ref().ends_with(".bz2"));
+/// # Ok(())
+/// # }
+/// ```
 pub async fn resolve_latest_descriptor<S: DumpSource + ?Sized>(
     source: &S,
 ) -> Result<DumpDescriptor, WikidataDumpError> {
