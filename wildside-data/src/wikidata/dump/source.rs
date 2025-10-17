@@ -37,7 +37,6 @@ impl HttpDumpSource {
     pub fn new(base_url: impl Into<String>) -> Self {
         let client = Client::builder()
             .connect_timeout(std::time::Duration::from_secs(30))
-            .timeout(std::time::Duration::from_secs(120))
             .build()
             .expect("client builder only fails with invalid configuration");
         Self {
@@ -76,8 +75,19 @@ impl DumpSource for HttpDumpSource {
     }
 
     async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
+        use std::time::Duration;
+
         let url = self.status_url();
-        let response = self.call(url.as_ref()).await?;
+        let response = self
+            .client
+            .get(url.as_ref())
+            .timeout(Duration::from_secs(15))
+            .header(USER_AGENT, self.user_agent.as_str())
+            .send()
+            .await
+            .map_err(|err| convert_reqwest_error(err, url.as_ref()))?
+            .error_for_status()
+            .map_err(|err| convert_reqwest_error(err, url.as_ref()))?;
         Ok(to_blocking_reader(response))
     }
 

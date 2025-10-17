@@ -295,8 +295,8 @@ For storage, the
 `wd2sql` tool provides an excellent template: it uses `simd-json` for
 high-speed parsing and loads the data into a queryable SQLite database. This
 strategy can be replicated or adapted, potentially using a higher-performance
-key-value store like RocksDB (for which Rust has mature bindings like
-`librocksdb-sys` ) to create custom indices tailored specifically to the
+key-value store like RocksDB (for which Rust has mature bindings such as
+`librocksdb-sys`) to create custom indices tailored specifically to the
 properties required for POI scoring.
 
 The primary advantage of this approach is extremely low query latency, as all
@@ -316,7 +316,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
   client, issues requests on the Tokio runtime, and always sends a descriptive
   `User-Agent` string. Responses stream through `tokio-util`'s `SyncIoBridge`,
   letting the downloader parse `dumpstatus.json` and copy the archive without
-  materializing the payload in memory while still surfacing network faults as
+  materialising the payload in memory while still surfacing network faults as
   structured `TransportError` values.
 - **Manifest parsing:** `resolve_latest_descriptor` downloads
   `dumpstatus.json`, decodes it with `simd-json`, and walks the manifest to
@@ -325,7 +325,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
   `WikidataDumpError::MissingDump` when no suitable entry is found.
 - **Download logging:** `DownloadLog` stores a durable audit trail in SQLite
   via `rusqlite`. The crate is compiled with the `bundled` feature, so CI and
-  developer workstations link against the same SQLite release. Initialization
+  developer workstations link against the same SQLite release. Initialisation
   seeds uniqueness and timestamp indexes. It records the selected file name,
   URL, checksums, and byte counts. This metadata primes future reconciliation
   jobs that will import claims into `pois.db`.
@@ -333,7 +333,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
 The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
 connects those primitives to an operator-facing CLI backed by `clap`. Users
 select an output directory, optionally override the file name, and can opt in
-to logging by passing `--metadata <path>`. Standardised flag handling now
+to logging by passing `--metadata <path>`. Standardized flag handling now
 covers help/version output and validation, and the tool refuses to overwrite
 existing dumps unless `--overwrite` is supplied. Successful runs emit a
 succinct summary, keeping the command idempotent and easy to schedule whilst

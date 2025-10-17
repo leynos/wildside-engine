@@ -174,21 +174,17 @@ fn archive_written(
 
 #[then("the download log records an entry")]
 fn log_records_entry(#[from(log_handle)] log_cell: &RefCell<Option<DownloadLog>>) {
-    use rusqlite::Connection;
-
     let log_borrow = log_cell.borrow();
     let log = log_borrow
         .as_ref()
         .unwrap_or_else(|| panic!("download log should be initialised"));
-    let connection = match Connection::open(log.path()) {
-        Ok(conn) => conn,
-        Err(err) => panic!("failed to open download log: {err}"),
+    let count: i64 = match log
+        .connection()
+        .query_row("SELECT COUNT(*) FROM downloads", [], |row| row.get(0))
+    {
+        Ok(value) => value,
+        Err(err) => panic!("failed to query download log: {err}"),
     };
-    let count: i64 =
-        match connection.query_row("SELECT COUNT(*) FROM downloads", [], |row| row.get(0)) {
-            Ok(value) => value,
-            Err(err) => panic!("failed to query download log: {err}"),
-        };
     assert_eq!(count, 1);
 }
 

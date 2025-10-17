@@ -24,6 +24,7 @@ pub struct BaseUrl(String);
 
 impl BaseUrl {
     /// Construct a new [`BaseUrl`] from an owned or borrowed string.
+    #[must_use]
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
@@ -73,6 +74,7 @@ pub struct DumpFileName(String);
 
 impl DumpFileName {
     /// Construct a new [`DumpFileName`] from an owned or borrowed string.
+    #[must_use]
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
@@ -122,6 +124,7 @@ pub struct DumpUrl(String);
 
 impl DumpUrl {
     /// Construct a new [`DumpUrl`] from an owned or borrowed string.
+    #[must_use]
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }

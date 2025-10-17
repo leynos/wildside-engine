@@ -150,4 +150,14 @@ fn normalises_relative_urls(base_url: BaseUrl) {
     assert_eq!(absolute, expected);
 }
 
+#[rstest]
+fn normalises_root_relative_urls(base_url: BaseUrl) {
+    let absolute =
+        normalise_url(&base_url, "/entities/20240909/file.json").expect("URL should normalise");
+    let expected =
+        DumpUrl::try_from(format!("{}/entities/20240909/file.json", base_url.as_ref()).as_str())
+            .expect("expected URL should parse");
+    assert_eq!(absolute, expected);
+}
+
 mod behaviour;
