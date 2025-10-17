@@ -46,14 +46,13 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     }
 
     let log = initialise_log(metadata_db.as_deref())?;
-    let options = {
-        let base = DownloadOptions::new(output_path.as_path());
-        let with_log = match log.as_ref() {
-            Some(log) => base.with_log(log),
-            None => base,
-        };
-        with_log.with_overwrite(overwrite)
-    };
+    let options = log
+        .as_ref()
+        .map_or_else(
+            || DownloadOptions::new(output_path.as_path()),
+            |entry| DownloadOptions::new(output_path.as_path()).with_log(entry),
+        )
+        .with_overwrite(overwrite);
     let report = download_descriptor(&source, descriptor, options).await?;
     println!(
         "Downloaded {} ({} bytes) to {}",
@@ -133,8 +132,10 @@ mod tests {
     use tokio::runtime::Builder;
     use wildside_data::wikidata::dump::{BaseUrl, TransportError};
 
-    // The library's shared stub lives behind `cfg(any(test, doc))`, so this
-    // binary keeps its own lightweight fixture to exercise CLI-specific logic.
+    // The library's shared stub lives behind `cfg(any(test, doc))`, meaning
+    // workspace crates that depend on `wildside_data` during their own tests
+    // cannot reach it. We therefore keep a lightweight local fixture focused on
+    // CLI semantics instead of introducing a dev-only support crate.
     #[derive(Debug)]
     struct StubSource {
         base_url: BaseUrl,

@@ -2,10 +2,11 @@
 
 use simd_json::serde::from_reader;
 use std::{
-    fs::{self, OpenOptions},
-    io::{BufRead, Write},
+    fs,
+    io::{self, BufRead, Write},
     path::Path,
 };
+use tempfile::Builder;
 use url::Url;
 
 use super::source::DumpSource;
@@ -70,14 +71,12 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
     overwrite: bool,
 ) -> Result<DownloadReport, WikidataDumpError> {
     let descriptor = resolve_latest_descriptor(source).await?;
-    let options = {
-        let base = DownloadOptions::new(output_path);
-        let with_log = match log {
-            Some(log) => base.with_log(log),
-            None => base,
-        };
-        with_log.with_overwrite(overwrite)
-    };
+    let options = log
+        .map_or_else(
+            || DownloadOptions::new(output_path),
+            |entry| DownloadOptions::new(output_path).with_log(entry),
+        )
+        .with_overwrite(overwrite);
     download_descriptor(source, descriptor, options).await
 }
 
@@ -149,26 +148,44 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
             path: parent.to_path_buf(),
         })?;
     }
-    let mut builder = OpenOptions::new();
-    builder.write(true);
-    if overwrite {
-        builder.create(true).truncate(true);
-    } else {
-        builder.create_new(true);
+    if !overwrite && output_path.exists() {
+        return Err(WikidataDumpError::WriteDump {
+            source: io::Error::new(io::ErrorKind::AlreadyExists, "output file exists"),
+            path: output_path.to_path_buf(),
+        });
     }
-    let mut file = builder
-        .open(output_path)
+    let parent_dir = output_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut temp_file = Builder::new()
+        .prefix("wikidata-etl-")
+        .tempfile_in(parent_dir)
         .map_err(|source| WikidataDumpError::WriteDump {
             source,
             path: output_path.to_path_buf(),
         })?;
     let bytes_written = source
-        .download_archive(&descriptor.url, &mut file)
+        .download_archive(&descriptor.url, temp_file.as_file_mut())
         .await
         .map_err(|source| WikidataDumpError::Download { source })?;
-    file.flush()
+    temp_file
+        .as_file_mut()
+        .flush()
         .map_err(|source| WikidataDumpError::WriteDump {
             source,
+            path: output_path.to_path_buf(),
+        })?;
+    if overwrite && output_path.exists() {
+        fs::remove_file(output_path).map_err(|source| WikidataDumpError::WriteDump {
+            source,
+            path: output_path.to_path_buf(),
+        })?;
+    }
+    temp_file
+        .persist(output_path)
+        .map_err(|error| WikidataDumpError::WriteDump {
+            source: error.error,
             path: output_path.to_path_buf(),
         })?;
     if let Some(expected) = descriptor.size
@@ -259,14 +276,11 @@ pub(crate) fn normalise_url(
     base_url: &BaseUrl,
     relative: &str,
 ) -> Result<DumpUrl, url::ParseError> {
-    let absolute = if relative.starts_with("http://") || relative.starts_with("https://") {
-        relative.to_owned()
-    } else if relative.starts_with('/') {
-        format!("{}{}", base_url.as_ref(), relative)
-    } else {
-        format!("{}/{}", base_url.as_ref(), relative)
-    };
-    Url::parse(&absolute).map(Into::into)
+    if relative.starts_with("http://") || relative.starts_with("https://") {
+        return Url::parse(relative).map(Into::into);
+    }
+    let base = Url::parse(base_url.as_ref())?;
+    base.join(relative).map(Into::into)
 }
 
 #[derive(Debug, serde::Deserialize)]

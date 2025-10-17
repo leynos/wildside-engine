@@ -316,7 +316,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
   client, issues requests on the Tokio runtime, and always sends a descriptive
   `User-Agent` string. Responses stream through `tokio-util`'s `SyncIoBridge`,
   letting the downloader parse `dumpstatus.json` and copy the archive without
-  materialising the payload in memory while still surfacing network faults as
+  materializing the payload in memory while still surfacing network faults as
   structured `TransportError` values.
 - **Manifest parsing:** `resolve_latest_descriptor` downloads
   `dumpstatus.json`, decodes it with `simd-json`, and walks the manifest to
@@ -326,7 +326,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
 - **Download logging:** `DownloadLog` stores a durable audit trail in
   SQLite via `rusqlite`. The crate is compiled with the `bundled` feature, so
   CI and developer workstations link against the same SQLite release.
-  Initialisation seeds uniqueness and timestamp indexes. It records the
+  Initialization seeds uniqueness and timestamp indexes. It records the
   selected file name, URL, checksums, and byte counts. This metadata primes
   future reconciliation jobs that will import claims into `pois.db`.
 
