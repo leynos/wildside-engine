@@ -1,4 +1,9 @@
-use std::{ops::Deref, path::PathBuf};
+//! Domain wrappers for Wikidata dump endpoints, file names, and descriptors.
+//! Provides small, typed newtypes with ergonomic trait impls and Rustdoc examples.
+
+use std::{fmt, ops::Deref, path::PathBuf};
+
+use url::Url;
 
 /// Base URL for the Wikidata dump endpoint.
 ///
@@ -40,6 +45,12 @@ impl Deref for BaseUrl {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl fmt::Display for BaseUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -86,6 +97,12 @@ impl Deref for DumpFileName {
     }
 }
 
+impl fmt::Display for DumpFileName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// Fully qualified URL pointing to a dump artefact.
 ///
 /// # Examples
@@ -109,12 +126,6 @@ impl DumpUrl {
     }
 }
 
-impl From<&str> for DumpUrl {
-    fn from(value: &str) -> Self {
-        Self::new(value)
-    }
-}
-
 impl AsRef<str> for DumpUrl {
     fn as_ref(&self) -> &str {
         &self.0
@@ -126,6 +137,26 @@ impl Deref for DumpUrl {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl fmt::Display for DumpUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<Url> for DumpUrl {
+    fn from(value: Url) -> Self {
+        Self(value.into())
+    }
+}
+
+impl TryFrom<&str> for DumpUrl {
+    type Error = url::ParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Url::parse(value).map(Into::into)
     }
 }
 

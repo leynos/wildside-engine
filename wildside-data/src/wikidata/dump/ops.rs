@@ -1,12 +1,10 @@
+use simd_json::serde::from_reader;
 use std::{
-    fs::{self, File},
-    io::{self, BufRead, BufReader, Read, Write},
+    fs::{self, OpenOptions},
+    io::{BufRead, Write},
     path::Path,
 };
-
-use futures_util::TryStreamExt;
-use simd_json::serde::from_reader;
-use tokio_util::io::{StreamReader, SyncIoBridge};
+use url::Url;
 
 use super::source::DumpSource;
 use super::{
@@ -18,7 +16,8 @@ const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
 /// Download the latest Wikidata dump using the supplied source.
 ///
 /// Provide a [`DownloadLog`] to persist audit entries; pass `None` to skip
-/// logging when durability is unnecessary.
+/// logging when durability is unnecessary. Enable `overwrite` to truncate any
+/// existing archive at `output_path` before writing new bytes.
 ///
 /// # Examples
 /// ```
@@ -54,7 +53,7 @@ const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
 /// let report = tokio::runtime::Runtime::new()
 ///     .expect("create Tokio runtime")
 ///     .block_on(async {
-///         download_latest_dump(&source, output_path.as_path(), Some(&log)).await
+///         download_latest_dump(&source, output_path.as_path(), Some(&log), false).await
 ///     })?;
 /// assert_eq!(report.bytes_written, expected_bytes);
 /// assert_eq!(report.output_path, output_path);
@@ -65,15 +64,17 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
     source: &S,
     output_path: &Path,
     log: Option<&DownloadLog>,
+    overwrite: bool,
 ) -> Result<DownloadReport, WikidataDumpError> {
     let descriptor = resolve_latest_descriptor(source).await?;
-    download_descriptor(source, descriptor, output_path, log).await
+    download_descriptor(source, descriptor, output_path, log, overwrite).await
 }
 
 /// Download a specific dump described by `descriptor`.
 ///
 /// Supplying a [`DownloadLog`] captures a durable record of the download while
-/// allowing callers to opt out by passing `None`.
+/// allowing callers to opt out by passing `None`. Enable `overwrite` to allow
+/// truncating an existing file when refreshing a dump.
 ///
 /// # Examples
 /// ```
@@ -115,7 +116,14 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 /// let report = tokio::runtime::Runtime::new()
 ///     .expect("create Tokio runtime")
 ///     .block_on(async move {
-///         download_descriptor(&source, descriptor.clone(), output_path.as_path(), Some(&log)).await
+///         download_descriptor(
+///             &source,
+///             descriptor.clone(),
+///             output_path.as_path(),
+///             Some(&log),
+///             false,
+///         )
+///         .await
 ///     })?;
 /// assert_eq!(report.bytes_written, expected_bytes);
 /// assert_eq!(report.output_path, output_path);
@@ -128,6 +136,7 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
     descriptor: DumpDescriptor,
     output_path: &Path,
     log: Option<&DownloadLog>,
+    overwrite: bool,
 ) -> Result<DownloadReport, WikidataDumpError> {
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|source| WikidataDumpError::CreateDir {
@@ -135,10 +144,19 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
             path: parent.to_path_buf(),
         })?;
     }
-    let mut file = File::create(output_path).map_err(|source| WikidataDumpError::WriteDump {
-        source,
-        path: output_path.to_path_buf(),
-    })?;
+    let mut builder = OpenOptions::new();
+    builder.write(true);
+    if overwrite {
+        builder.create(true).truncate(true);
+    } else {
+        builder.create_new(true);
+    }
+    let mut file = builder
+        .open(output_path)
+        .map_err(|source| WikidataDumpError::WriteDump {
+            source,
+            path: output_path.to_path_buf(),
+        })?;
     let bytes_written = source
         .download_archive(&descriptor.url, &mut file)
         .await
@@ -234,14 +252,18 @@ pub(crate) fn select_dump(
         .ok_or(WikidataDumpError::MissingDump)
 }
 
-pub(crate) fn normalise_url(base_url: &BaseUrl, relative: &str) -> DumpUrl {
-    if relative.starts_with("http://") || relative.starts_with("https://") {
-        DumpUrl::from(relative)
+pub(crate) fn normalise_url(
+    base_url: &BaseUrl,
+    relative: &str,
+) -> Result<DumpUrl, url::ParseError> {
+    let absolute = if relative.starts_with("http://") || relative.starts_with("https://") {
+        relative.to_owned()
     } else if relative.starts_with('/') {
-        DumpUrl::new(format!("{}{}", base_url.as_ref(), relative))
+        format!("{}{}", base_url.as_ref(), relative)
     } else {
-        DumpUrl::new(format!("{}/{}", base_url.as_ref(), relative))
-    }
+        format!("{}/{}", base_url.as_ref(), relative)
+    };
+    Url::parse(&absolute).map(Into::into)
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -278,7 +300,7 @@ struct DumpFile {
 impl DumpDescriptor {
     fn from_manifest_entry(file_name: &str, entry: &DumpFile, base_url: &BaseUrl) -> Option<Self> {
         let relative = entry.url.as_deref()?;
-        let url = normalise_url(base_url, relative);
+        let url = normalise_url(base_url, relative).ok()?;
         Some(Self {
             file_name: DumpFileName::from(file_name),
             url,
@@ -286,27 +308,4 @@ impl DumpDescriptor {
             sha1: entry.sha1.clone(),
         })
     }
-}
-
-pub(crate) fn sanitise_base_url(url: impl Into<String>) -> BaseUrl {
-    let raw = url.into();
-    let trimmed = raw.trim_end_matches('/');
-    if trimmed.is_empty() {
-        BaseUrl::from("https://dumps.wikimedia.org")
-    } else {
-        BaseUrl::new(trimmed.to_owned())
-    }
-}
-
-pub(crate) fn to_blocking_reader(response: reqwest::Response) -> Box<dyn BufRead + Send> {
-    Box::new(BufReader::new(into_blocking_stream(response)))
-}
-
-pub(crate) fn to_sync_reader(response: reqwest::Response) -> Box<dyn Read + Send> {
-    Box::new(into_blocking_stream(response))
-}
-
-fn into_blocking_stream(response: reqwest::Response) -> impl Read + Send {
-    let stream = response.bytes_stream().map_err(io::Error::other);
-    SyncIoBridge::new(StreamReader::new(stream))
 }

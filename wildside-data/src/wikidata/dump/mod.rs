@@ -6,6 +6,7 @@ mod log;
 mod ops;
 mod source;
 mod types;
+mod util;
 
 #[cfg(any(test, doc))]
 mod test_support;

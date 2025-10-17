@@ -334,10 +334,10 @@ The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
 connects those primitives to an operator-facing CLI backed by `clap`. Users
 select an output directory, optionally override the file name, and can opt in
 to logging by passing `--metadata <path>`. Standardised flag handling now
-  covers help/version output and validation, and the tool refuses to overwrite
-  existing dumps unless `--overwrite` is supplied. Successful runs emit a
-  succinct summary, keeping the command idempotent and easy to schedule whilst the
-downstream parsing stages are implemented.
+covers help/version output and validation, and the tool refuses to overwrite
+existing dumps unless `--overwrite` is supplied. Successful runs emit a
+succinct summary, keeping the command idempotent and easy to schedule whilst
+the downstream parsing stages are implemented.
 
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 

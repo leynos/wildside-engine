@@ -132,7 +132,7 @@ fn download_latest(
     };
     let log_borrow = log_cell.borrow();
     let log_ref = log_borrow.as_ref();
-    let outcome = block_on_for_tests(download_latest_dump(stub, &output_path, log_ref));
+    let outcome = block_on_for_tests(download_latest_dump(stub, &output_path, log_ref, false));
     *result_cell.borrow_mut() = Some(outcome);
 }
 

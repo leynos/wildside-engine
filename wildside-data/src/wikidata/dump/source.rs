@@ -3,7 +3,7 @@ use reqwest::header::USER_AGENT;
 use reqwest::{Client, Response};
 use std::io::{self, BufRead, Write};
 
-use super::ops::{sanitise_base_url, to_blocking_reader, to_sync_reader};
+use super::util::{sanitise_base_url, to_blocking_reader, to_sync_reader};
 use super::{BaseUrl, DumpUrl, TransportError};
 
 pub const DEFAULT_USER_AGENT: &str = "wildside-wikidata-etl/0.1";

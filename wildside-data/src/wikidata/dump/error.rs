@@ -1,9 +1,12 @@
+//! Error types produced by the Wikidata dump helpers.
+
 use std::{error::Error as StdError, io, path::PathBuf};
 
 use thiserror::Error;
 
 /// Errors produced while preparing or downloading a Wikidata dump.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum WikidataDumpError {
     /// The dump status manifest could not be fetched.
     #[error("failed to fetch dump status: {source}")]
@@ -47,6 +50,7 @@ pub enum WikidataDumpError {
 
 /// Transport-level errors encountered while issuing HTTP requests.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum TransportError {
     /// The server returned an HTTP error status.
     #[error("request to {url} failed with status {status}: {message}")]

@@ -46,7 +46,8 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     }
 
     let log = initialise_log(metadata_db.as_deref())?;
-    let report = download_descriptor(&source, descriptor, &output_path, log.as_ref()).await?;
+    let report =
+        download_descriptor(&source, descriptor, &output_path, log.as_ref(), overwrite).await?;
     println!(
         "Downloaded {} ({} bytes) to {}",
         report.descriptor.file_name.as_ref(),

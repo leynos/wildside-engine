@@ -1,5 +1,6 @@
-use super::ops::{normalise_url, sanitise_base_url, select_dump};
+use super::ops::{normalise_url, select_dump};
 use super::test_support::StubSource;
+use super::util::sanitise_base_url;
 use super::{
     BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, block_on_for_tests, download_latest_dump,
 };
@@ -58,7 +59,7 @@ fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: 
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
     let source = StubSource::new(base_url, manifest, archive.clone());
-    let report = block_on_for_tests(download_latest_dump(&source, &output, None))
+    let report = block_on_for_tests(download_latest_dump(&source, &output, None, false))
         .expect("download should succeed");
     let expected_len = u64::try_from(archive.len()).expect("archive length should fit in u64");
     assert_eq!(report.bytes_written, expected_len);
@@ -81,7 +82,7 @@ fn logs_downloads(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let log_path = temp_dir.path().join("downloads.sqlite");
     let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
     let source = StubSource::new(base_url, manifest, archive);
-    let report = block_on_for_tests(download_latest_dump(&source, &output, Some(&log)))
+    let report = block_on_for_tests(download_latest_dump(&source, &output, Some(&log), false))
         .expect("download should succeed");
     assert!(log.path().exists(), "log file should be created");
     let count: i64 = log
@@ -143,11 +144,10 @@ fn defaults_empty_base_url() {
 #[rstest]
 fn normalises_relative_urls(base_url: BaseUrl) {
     let relative = "entities/20240909/file.json";
-    let absolute = normalise_url(&base_url, relative);
-    assert_eq!(
-        absolute,
-        DumpUrl::new(format!("{}/{}", base_url.as_ref(), relative))
-    );
+    let absolute = normalise_url(&base_url, relative).expect("URL should normalise");
+    let raw = format!("{}/{}", base_url.as_ref(), relative);
+    let expected = DumpUrl::try_from(raw.as_str()).expect("expected URL should parse");
+    assert_eq!(absolute, expected);
 }
 
 mod behaviour;
