@@ -67,9 +67,9 @@ core data structures of the engine.
 
 - **Build Wikidata ETL Pipeline**
 
-  - [ ] In `wildside-data`, add `wikidata-rust`, `simd-json`, and
+  - [x] In `wildside-data`, add `wikidata-rust`, `simd-json`, and
         `rusqlite` dependencies.
-  - [ ] Write a script that downloads the latest Wikidata JSON dump.
+  - [x] Write a script that downloads the latest Wikidata JSON dump.
   - [ ] Implement a parser that iterates through the dump, filters for entities
         linked from the ingested OSM data, and extracts relevant claims (e.g.,
         `P1435` for heritage status).

@@ -14,6 +14,7 @@
 //! - No global mutable state.
 
 mod ingest;
+pub mod wikidata;
 
 pub use crate::ingest::{
     OsmIngestError, OsmIngestReport, OsmIngestSummary, ingest_osm_pbf, ingest_osm_pbf_report,
