@@ -339,6 +339,27 @@ existing dumps unless `--overwrite` is supplied. Successful runs emit a
 succinct summary, keeping the command idempotent and easy to schedule whilst
 the downstream parsing stages are implemented.
 
+#### 1.2.2. Linked entity extraction implementation
+
+The second increment introduces a streaming parser that connects the Wikidata
+dump to the POIs discovered during OSM ingestion. The `PoiEntityLinks`
+structure scans the ingested POIs, normalises `wikidata=*` tag values (handling
+common variants such as full URLs), and records the mapping from Wikidata
+entity identifiers to OSM ids. The parser accepts any `Read` implementation and
+wraps it in a `BufReader` so the huge JSON dump is never materialised in
+memory. Each line is trimmed, commas that separate JSON entries are removed,
+and the payload is deserialised via `simd-json` into a lightweight
+representation containing just the entity id and claims.
+
+Only entities referenced by the `PoiEntityLinks` set are processed further. For
+those entities the parser extracts `P1435` heritage designation claims by
+inspecting the `mainsnak` data, filtering for `value` snaks, and collecting the
+target entity ids. Both the linked POI ids and the designation ids are sorted
+and deduplicated to keep the downstream SQLite schema deterministic. Errors are
+surfaced with line numbers so operators can diagnose malformed dump entries
+without re-running the entire pipeline, while unrelated entities are skipped in
+constant time.
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |

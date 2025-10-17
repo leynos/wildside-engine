@@ -6,3 +6,4 @@
 //! fixtures.
 
 pub mod dump;
+pub mod etl;
