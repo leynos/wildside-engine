@@ -1,26 +1,15 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
+use crate::wikidata::dump::test_support::StubSource;
+use crate::wikidata::dump::{
+    DownloadLog, DownloadReport, WikidataDumpError, block_on_for_tests, download_latest_dump,
+};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{cell::RefCell, fs, path::PathBuf};
 use tempfile::TempDir;
-use tokio::runtime::Builder;
-use wildside_data::wikidata::dump::{
-    DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump, test_support::StubSource,
-};
 
 const SAMPLE_ARCHIVE: &[u8] = b"sample";
-
-fn block_on<F>(future: F) -> F::Output
-where
-    F: std::future::Future,
-{
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build Tokio runtime")
-        .block_on(future)
-}
 
 #[fixture]
 fn stub_source() -> RefCell<Option<StubSource>> {
@@ -143,7 +132,7 @@ fn download_latest(
     };
     let log_borrow = log_cell.borrow();
     let log_ref = log_borrow.as_ref();
-    let outcome = block_on(download_latest_dump(stub, &output_path, log_ref));
+    let outcome = block_on_for_tests(download_latest_dump(stub, &output_path, log_ref));
     *result_cell.borrow_mut() = Some(outcome);
 }
 

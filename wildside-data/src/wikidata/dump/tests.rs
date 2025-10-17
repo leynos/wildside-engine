@@ -1,22 +1,12 @@
-use super::*;
+use super::ops::{normalise_url, sanitise_base_url, select_dump};
+use super::test_support::StubSource;
+use super::{
+    BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, block_on_for_tests, download_latest_dump,
+};
 use rstest::{fixture, rstest};
 use std::{fs, io::Cursor};
 use tempfile::TempDir;
-use tokio::runtime::Builder;
 use wikidata_rust::{Entity, Lang, WikiId};
-
-use super::test_support::StubSource;
-
-fn block_on<F>(future: F) -> F::Output
-where
-    F: std::future::Future,
-{
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build Tokio runtime")
-        .block_on(future)
-}
 
 #[fixture]
 fn base_url() -> BaseUrl {
@@ -68,8 +58,8 @@ fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: 
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
     let source = StubSource::new(base_url, manifest, archive.clone());
-    let report =
-        block_on(download_latest_dump(&source, &output, None)).expect("download should succeed");
+    let report = block_on_for_tests(download_latest_dump(&source, &output, None))
+        .expect("download should succeed");
     let expected_len = u64::try_from(archive.len()).expect("archive length should fit in u64");
     assert_eq!(report.bytes_written, expected_len);
     let contents = fs::read(&output).expect("dump file should be readable");
@@ -91,7 +81,7 @@ fn logs_downloads(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let log_path = temp_dir.path().join("downloads.sqlite");
     let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
     let source = StubSource::new(base_url, manifest, archive);
-    let report = block_on(download_latest_dump(&source, &output, Some(&log)))
+    let report = block_on_for_tests(download_latest_dump(&source, &output, Some(&log)))
         .expect("download should succeed");
     assert!(log.path().exists(), "log file should be created");
     let count: i64 = log
@@ -160,89 +150,4 @@ fn normalises_relative_urls(base_url: BaseUrl) {
     );
 }
 
-#[rstest]
-fn normalises_root_relative_urls(base_url: BaseUrl) {
-    let absolute = normalise_url(&base_url, "/entities/20240909/file.json");
-    assert_eq!(
-        absolute,
-        DumpUrl::new(format!(
-            "{}{}",
-            base_url.as_ref(),
-            "/entities/20240909/file.json"
-        ))
-    );
-}
-
-#[rstest]
-fn download_descriptor_detects_size_mismatch(
-    base_url: BaseUrl,
-    manifest: Vec<u8>,
-    archive: Vec<u8>,
-) {
-    let temp_dir = TempDir::new().expect("failed to create temporary directory");
-    let output = temp_dir.path().join("dump.json.bz2");
-    let source = StubSource::new(base_url.clone(), manifest, archive);
-    let descriptor = DumpDescriptor {
-        file_name: DumpFileName::from("dump.json.bz2"),
-        url: DumpUrl::new(format!("{}/dump.json.bz2", base_url.as_ref())),
-        size: Some(99),
-        sha1: None,
-    };
-    let outcome = block_on(download_descriptor(&source, descriptor, &output, None));
-    assert!(matches!(
-        outcome,
-        Err(WikidataDumpError::SizeMismatch { .. })
-    ));
-}
-
-#[rstest]
-fn resolve_descriptor_reports_parse_errors(base_url: BaseUrl) {
-    let manifest = b"not json".to_vec();
-    let source = StubSource::new(base_url, manifest, b"irrelevant".to_vec());
-    let outcome = block_on(resolve_latest_descriptor(&source));
-    assert!(matches!(
-        outcome,
-        Err(WikidataDumpError::ParseManifest { .. })
-    ));
-}
-
-#[rstest]
-fn record_rejects_duplicate_rows(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
-    let temp_dir = TempDir::new().expect("failed to create temporary directory");
-    let log_path = temp_dir.path().join("downloads.sqlite");
-    let output = temp_dir.path().join("dump.json.bz2");
-    let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
-    let source = StubSource::new(base_url, manifest, archive);
-    let report = block_on(download_latest_dump(&source, &output, Some(&log)))
-        .expect("download should succeed");
-    let duplicate = log.record(&report);
-    assert!(matches!(
-        duplicate,
-        Err(WikidataDumpError::RecordLogSql { .. })
-    ));
-}
-
-#[rstest]
-fn record_reports_value_conversion_failures() {
-    let temp_dir = TempDir::new().expect("failed to create temporary directory");
-    let log_path = temp_dir.path().join("downloads.sqlite");
-    let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
-    let descriptor = DumpDescriptor {
-        file_name: DumpFileName::new("wikidata.json.bz2"),
-        url: DumpUrl::new("https://example.test/wikidata.json.bz2"),
-        size: None,
-        sha1: None,
-    };
-    let report = DownloadReport {
-        descriptor,
-        bytes_written: u64::MAX,
-        output_path: temp_dir.path().join("wikidata.json.bz2"),
-    };
-    let outcome = log.record(&report);
-    match outcome.expect_err("conversion should fail") {
-        WikidataDumpError::RecordLogValue { what, .. } => {
-            assert_eq!(what, "bytes written");
-        }
-        other => panic!("expected RecordLogValue error, got {other:?}"),
-    }
-}
+mod behaviour;

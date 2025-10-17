@@ -2,8 +2,22 @@
 use std::io::{BufRead, Cursor, Write};
 
 use async_trait::async_trait;
+use tokio::runtime::Builder;
 
-use super::{BaseUrl, DumpSource, TransportError};
+use super::source::DumpSource;
+use super::{BaseUrl, TransportError};
+
+/// Block on an async future using a current-thread Tokio runtime.
+pub fn block_on_for_tests<F>(future: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build Tokio runtime")
+        .block_on(future)
+}
 
 /// Stub [`DumpSource`] implementation backed by in-memory data.
 #[derive(Debug, Clone)]
