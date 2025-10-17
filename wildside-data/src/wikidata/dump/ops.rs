@@ -6,7 +6,7 @@ use std::{
     io::{self, BufRead, Write},
     path::Path,
 };
-use tempfile::Builder;
+use tempfile::{Builder, NamedTempFile};
 use url::Url;
 
 use super::source::DumpSource;
@@ -142,6 +142,15 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
     let output_path = options.output_path;
     let log = options.log;
     let overwrite = options.overwrite;
+    prepare_output_location(output_path, overwrite)?;
+    let parent_dir = determine_parent_dir(output_path);
+    let mut temp_file = create_temp_file(parent_dir, output_path)?;
+    let bytes_written = perform_download(source, &descriptor, output_path, &mut temp_file).await?;
+    finalize_download(temp_file, output_path, overwrite)?;
+    validate_and_record(descriptor, bytes_written, output_path, log)
+}
+
+fn prepare_output_location(output_path: &Path, overwrite: bool) -> Result<(), WikidataDumpError> {
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|source| WikidataDumpError::CreateDir {
             source,
@@ -154,17 +163,35 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
             path: output_path.to_path_buf(),
         });
     }
-    let parent_dir = output_path
+    Ok(())
+}
+
+fn determine_parent_dir(output_path: &Path) -> &Path {
+    output_path
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let mut temp_file = Builder::new()
+        .unwrap_or_else(|| Path::new("."))
+}
+
+fn create_temp_file(
+    parent_dir: &Path,
+    output_path: &Path,
+) -> Result<NamedTempFile, WikidataDumpError> {
+    Builder::new()
         .prefix("wikidata-etl-")
         .tempfile_in(parent_dir)
         .map_err(|source| WikidataDumpError::WriteDump {
             source,
             path: output_path.to_path_buf(),
-        })?;
+        })
+}
+
+async fn perform_download<S: DumpSource + ?Sized>(
+    source: &S,
+    descriptor: &DumpDescriptor,
+    output_path: &Path,
+    temp_file: &mut NamedTempFile,
+) -> Result<u64, WikidataDumpError> {
     let bytes_written = source
         .download_archive(&descriptor.url, temp_file.as_file_mut())
         .await
@@ -176,6 +203,14 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
             source,
             path: output_path.to_path_buf(),
         })?;
+    Ok(bytes_written)
+}
+
+fn finalize_download(
+    temp_file: NamedTempFile,
+    output_path: &Path,
+    overwrite: bool,
+) -> Result<(), WikidataDumpError> {
     if overwrite && output_path.exists() {
         fs::remove_file(output_path).map_err(|source| WikidataDumpError::WriteDump {
             source,
@@ -188,6 +223,15 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
             source: error.error,
             path: output_path.to_path_buf(),
         })?;
+    Ok(())
+}
+
+fn validate_and_record(
+    descriptor: DumpDescriptor,
+    bytes_written: u64,
+    output_path: &Path,
+    log: Option<&DownloadLog>,
+) -> Result<DownloadReport, WikidataDumpError> {
     if let Some(expected) = descriptor.size
         && expected != bytes_written
     {
