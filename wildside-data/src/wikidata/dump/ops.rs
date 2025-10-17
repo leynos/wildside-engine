@@ -149,7 +149,7 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
     prepare_output_location(output_path, overwrite)?;
     let parent_dir = determine_parent_dir(output_path);
     let mut temp_file = create_temp_file(parent_dir, output_path)?;
-    let bytes_written = perform_download(source, &descriptor, output_path, &mut temp_file).await?;
+    let bytes_written = perform_download(source, &descriptor, &mut temp_file).await?;
     finalize_download(temp_file, output_path, overwrite)?;
     validate_and_record(descriptor, bytes_written, output_path, log)
 }
@@ -193,7 +193,6 @@ fn create_temp_file(
 async fn perform_download<S: DumpSource + ?Sized>(
     source: &S,
     descriptor: &DumpDescriptor,
-    output_path: &Path,
     temp_file: &mut NamedTempFile,
 ) -> Result<u64, WikidataDumpError> {
     let bytes_written = source
@@ -205,7 +204,7 @@ async fn perform_download<S: DumpSource + ?Sized>(
         .flush()
         .map_err(|source| WikidataDumpError::WriteDump {
             source,
-            path: output_path.to_path_buf(),
+            path: temp_file.path().to_path_buf(),
         })?;
     Ok(bytes_written)
 }
