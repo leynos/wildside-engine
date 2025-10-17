@@ -8,10 +8,8 @@ mod source;
 mod types;
 mod util;
 
-#[cfg(any(test, doc))]
-mod test_support;
-#[cfg(any(test, doc))]
-pub use test_support::{StubSource, block_on_for_tests};
+#[doc(hidden)]
+pub mod test_support;
 
 pub use error::{TransportError, WikidataDumpError};
 pub use log::DownloadLog;

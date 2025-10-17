@@ -27,7 +27,11 @@ const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
 /// ```
 /// # use tempfile::tempdir;
 /// # use wildside_data::wikidata::dump::{
-/// #     download_latest_dump, BaseUrl, DownloadLog, StubSource, WikidataDumpError,
+/// #     download_latest_dump, BaseUrl, DownloadLog, WikidataDumpError,
+/// # };
+/// # use wildside_data::wikidata::dump::test_support::{
+/// #     block_on_for_tests,
+/// #     StubSource,
 /// # };
 /// # fn example() -> Result<(), WikidataDumpError> {
 /// let manifest = br#"{
@@ -54,11 +58,9 @@ const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
 /// let output_path = temp.path().join("wikidata.json.bz2");
 /// let log_path = temp.path().join("downloads.sqlite");
 /// let log = DownloadLog::initialise(log_path.as_path())?;
-/// let report = tokio::runtime::Runtime::new()
-///     .expect("create Tokio runtime")
-///     .block_on(async {
-///         download_latest_dump(&source, output_path.as_path(), Some(&log), false).await
-///     })?;
+/// let report = block_on_for_tests(async {
+///     download_latest_dump(&source, output_path.as_path(), Some(&log), false).await
+/// })?;
 /// assert_eq!(report.bytes_written, expected_bytes);
 /// assert_eq!(report.output_path, output_path);
 /// # Ok(())
@@ -90,7 +92,11 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 /// # use tempfile::tempdir;
 /// # use wildside_data::wikidata::dump::{
 /// #     download_descriptor, BaseUrl, DownloadLog, DownloadOptions, DumpDescriptor, DumpFileName,
-/// #     DumpUrl, StubSource, WikidataDumpError,
+/// #     DumpUrl, WikidataDumpError,
+/// # };
+/// # use wildside_data::wikidata::dump::test_support::{
+/// #     block_on_for_tests,
+/// #     StubSource,
 /// # };
 /// # fn example() -> Result<(), WikidataDumpError> {
 /// let manifest = br#"{
@@ -122,12 +128,10 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 /// let output_path = temp.path().join("wikidata.json.bz2");
 /// let log_path = temp.path().join("downloads.sqlite");
 /// let log = DownloadLog::initialise(log_path.as_path())?;
-/// let report = tokio::runtime::Runtime::new()
-///     .expect("create Tokio runtime")
-///     .block_on(async {
-///         let options = DownloadOptions::new(output_path.as_path()).with_log(&log);
-///         download_descriptor(&source, descriptor.clone(), options).await
-///     })?;
+/// let report = block_on_for_tests(async {
+///     let options = DownloadOptions::new(output_path.as_path()).with_log(&log);
+///     download_descriptor(&source, descriptor.clone(), options).await
+/// })?;
 /// assert_eq!(report.bytes_written, expected_bytes);
 /// assert_eq!(report.output_path, output_path);
 /// assert_eq!(report.descriptor, descriptor);
@@ -259,7 +263,11 @@ fn validate_and_record(
 /// # Examples
 /// ```
 /// # use wildside_data::wikidata::dump::{
-/// #     resolve_latest_descriptor, BaseUrl, StubSource, WikidataDumpError,
+/// #     resolve_latest_descriptor, BaseUrl, WikidataDumpError,
+/// # };
+/// # use wildside_data::wikidata::dump::test_support::{
+/// #     block_on_for_tests,
+/// #     StubSource,
 /// # };
 /// # fn example() -> Result<(), WikidataDumpError> {
 /// let manifest = br#"{
@@ -280,9 +288,7 @@ fn validate_and_record(
 ///     manifest,
 ///     b"etl".to_vec(),
 /// );
-/// let descriptor = tokio::runtime::Runtime::new()
-///     .expect("create Tokio runtime")
-///     .block_on(async move { resolve_latest_descriptor(&source).await })?;
+/// let descriptor = block_on_for_tests(async move { resolve_latest_descriptor(&source).await })?;
 /// assert_eq!(descriptor.file_name.as_ref(), "wikidata-2024-01-01-all.json.bz2");
 /// # Ok(())
 /// # }

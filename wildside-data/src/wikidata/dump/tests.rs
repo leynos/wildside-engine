@@ -1,9 +1,7 @@
 use super::ops::{normalise_url, select_dump};
-use super::test_support::StubSource;
+use super::test_support::{StubSource, block_on_for_tests};
 use super::util::sanitise_base_url;
-use super::{
-    BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, block_on_for_tests, download_latest_dump,
-};
+use super::{BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, download_latest_dump};
 use rstest::{fixture, rstest};
 use std::{fs, io::Cursor};
 use tempfile::TempDir;

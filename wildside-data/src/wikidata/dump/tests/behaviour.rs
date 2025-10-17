@@ -1,9 +1,7 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
-use crate::wikidata::dump::test_support::StubSource;
-use crate::wikidata::dump::{
-    DownloadLog, DownloadReport, WikidataDumpError, block_on_for_tests, download_latest_dump,
-};
+use crate::wikidata::dump::test_support::{StubSource, block_on_for_tests};
+use crate::wikidata::dump::{DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{cell::RefCell, fs, path::PathBuf};

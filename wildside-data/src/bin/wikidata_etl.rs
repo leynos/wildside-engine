@@ -122,61 +122,11 @@ enum CliError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
     use rstest::{fixture, rstest};
-    use std::{
-        fs,
-        io::{BufRead, Cursor, Write},
-    };
+    use std::fs;
     use tempfile::TempDir;
-    use tokio::runtime::Builder;
-    use wildside_data::wikidata::dump::{BaseUrl, TransportError};
-
-    // The library's shared stub lives behind `cfg(any(test, doc))`, meaning
-    // workspace crates that depend on `wildside_data` during their own tests
-    // cannot reach it. We therefore keep a lightweight local fixture focused on
-    // CLI semantics instead of introducing a dev-only support crate.
-    #[derive(Debug)]
-    struct StubSource {
-        base_url: BaseUrl,
-        manifest: Vec<u8>,
-        archive: Vec<u8>,
-    }
-
-    #[async_trait(?Send)]
-    impl DumpSource for StubSource {
-        fn base_url(&self) -> &BaseUrl {
-            &self.base_url
-        }
-
-        async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
-            Ok(Box::new(Cursor::new(self.manifest.clone())))
-        }
-
-        async fn download_archive(
-            &self,
-            _url: &str,
-            sink: &mut dyn Write,
-        ) -> Result<u64, TransportError> {
-            sink.write_all(&self.archive)
-                .map_err(|source| TransportError::Network {
-                    url: "stub".to_owned(),
-                    source,
-                })?;
-            Ok(self.archive.len() as u64)
-        }
-    }
-
-    fn block_on<F>(future: F) -> F::Output
-    where
-        F: std::future::Future,
-    {
-        Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build Tokio runtime")
-            .block_on(future)
-    }
+    use wildside_data::wikidata::dump::BaseUrl;
+    use wildside_data::wikidata::dump::test_support::{StubSource, block_on_for_tests};
 
     #[fixture]
     fn base_url() -> BaseUrl {
@@ -276,12 +226,8 @@ mod tests {
             user_agent: DEFAULT_USER_AGENT.to_owned(),
             overwrite: false,
         };
-        let source = StubSource {
-            base_url,
-            manifest,
-            archive,
-        };
-        let outcome = block_on(execute(args, source));
+        let source = StubSource::new(base_url, manifest, archive);
+        let outcome = block_on_for_tests(execute(args, source));
         assert!(matches!(outcome, Err(CliError::OutputExists { path }) if path == output_file));
     }
 
