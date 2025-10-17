@@ -27,6 +27,13 @@ const STATUS_PATH: &str = "/wikidatawiki/entities/dumpstatus.json";
 const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
 
 /// Base URL for the Wikidata dump endpoint.
+///
+/// # Examples
+/// ```
+/// # use wildside_data::wikidata::dump::BaseUrl;
+/// let url = BaseUrl::new("https://dumps.wikimedia.org");
+/// assert_eq!(url.as_ref(), "https://dumps.wikimedia.org");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BaseUrl(String);
 
@@ -63,6 +70,13 @@ impl Deref for BaseUrl {
 }
 
 /// File name reported by the Wikidata dump manifest.
+///
+/// # Examples
+/// ```
+/// # use wildside_data::wikidata::dump::DumpFileName;
+/// let file = DumpFileName::new("wikidata-2024-01-01-all.json.bz2");
+/// assert!(file.as_ref().ends_with(".bz2"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DumpFileName(String);
 
@@ -99,6 +113,13 @@ impl Deref for DumpFileName {
 }
 
 /// Fully qualified URL pointing to a dump artefact.
+///
+/// # Examples
+/// ```
+/// # use wildside_data::wikidata::dump::DumpUrl;
+/// let url = DumpUrl::new("https://example.test/wikidata.json.bz2");
+/// assert!(url.as_ref().starts_with("https://"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DumpUrl(String);
 
