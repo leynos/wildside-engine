@@ -1,7 +1,7 @@
 //! Transport abstractions and HTTP client for retrieving Wikidata dumps.
 
 use async_trait::async_trait;
-use reqwest::{Client, Response};
+use reqwest::{Client, Response, header::USER_AGENT};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
@@ -30,16 +30,19 @@ pub trait DumpSource {
 pub struct HttpDumpSource {
     client: Client,
     base_url: BaseUrl,
+    user_agent: String,
 }
 
 impl HttpDumpSource {
     /// Construct an HTTP-backed dump source.
     #[must_use]
     pub fn new(base_url: impl Into<String>) -> Self {
-        let client = Self::build_client(DEFAULT_USER_AGENT);
+        let user_agent = DEFAULT_USER_AGENT.to_string();
+        let client = Self::build_client(&user_agent);
         Self {
             client,
             base_url: sanitise_base_url(base_url),
+            user_agent,
         }
     }
 
@@ -47,6 +50,7 @@ impl HttpDumpSource {
     pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
         let user_agent = user_agent.into();
         self.client = Self::build_client(&user_agent);
+        self.user_agent = user_agent;
         self
     }
 
@@ -57,6 +61,7 @@ impl HttpDumpSource {
     async fn call(&self, url: &str) -> Result<Response, TransportError> {
         self.client
             .get(url)
+            .header(USER_AGENT, self.user_agent.as_str())
             .send()
             .await
             .map_err(|err| convert_reqwest_error(err, url))?
@@ -85,6 +90,7 @@ impl DumpSource for HttpDumpSource {
             .client
             .get(url.as_ref())
             .timeout(Duration::from_secs(15))
+            .header(USER_AGENT, self.user_agent.as_str())
             .send()
             .await
             .map_err(|err| convert_reqwest_error(err, url.as_ref()))?
