@@ -306,6 +306,39 @@ public endpoint outages. The nature of the Wildside scoring algorithm, which
 requires checking multiple properties for thousands of candidate POIs per
 request, makes this offline approach the only viable long-term solution.
 
+#### 1.2.1. Initial dump acquisition implementation
+
+The first increment of the Wikidata ETL focuses on reliably acquiring and
+auditing the upstream dump artefact. The `wildside-data` crate now exposes a
+`wikidata::dump` module that encapsulates three responsibilities:
+
+- **HTTP transport:** `HttpDumpSource` wraps the asynchronous `reqwest`
+  client, issues requests on the Tokio runtime, and always sends a descriptive
+  `User-Agent` string. Responses stream through `tokio-util`'s `SyncIoBridge`,
+  letting the downloader parse `dumpstatus.json` and copy the archive without
+  materialising the payload in memory while still surfacing network faults as
+  structured `TransportError` values.
+- **Manifest parsing:** `resolve_latest_descriptor` downloads
+  `dumpstatus.json`, decodes it with `simd-json`, and walks the manifest to
+  locate the most recent `*-all.json.bz2` artefact. The parser ignores
+  unrelated jobs and tolerates missing optional fields, surfacing
+  `WikidataDumpError::MissingDump` when no suitable entry is found.
+- **Download logging:** `DownloadLog` stores a durable audit trail in SQLite
+  via `rusqlite`. The crate is compiled with the `bundled` feature so CI and
+  developer workstations link against the same SQLite release. Initialisation
+  seeds uniqueness and timestamp indexes. It records the selected file name,
+  URL, checksums, and byte counts. This metadata primes future reconciliation
+  jobs that will import claims into `pois.db`.
+
+The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
+connects those primitives to an operator-facing CLI backed by `clap`. Users
+select an output directory, optionally override the file name, and can opt in
+to logging by passing `--metadata <path>`. Standardised flag handling now
+covers help/version output and validation, and the tool refuses to overwrite
+existing dumps unless `--overwrite` is supplied. Successful runs emit a
+succinct summary, keeping the command idempotent and easy to schedule while the
+downstream parsing stages are implemented.
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
