@@ -14,7 +14,7 @@ wikidata-rust = { package = "wikidata", version = "1.1.0" }
 simd-json = { version = "0.17.0", features = ["serde"] }
 # Use the vendored SQLite build to guarantee consistent behaviour across CI
 # and developer machines.
-rusqlite = { version = "0.31.0", features = ["bundled"] }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "stream"] }
 serde = { version = "^1.0", features = ["derive"] }
 clap = { version = "4.5.49", features = ["derive"] }
