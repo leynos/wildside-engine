@@ -8,7 +8,8 @@ use url::Url;
 
 use super::source::DumpSource;
 use super::{
-    BaseUrl, DownloadLog, DownloadReport, DumpDescriptor, DumpFileName, DumpUrl, WikidataDumpError,
+    BaseUrl, DownloadLog, DownloadOptions, DownloadReport, DumpDescriptor, DumpFileName, DumpUrl,
+    WikidataDumpError,
 };
 
 const JSON_DUMP_SUFFIX: &str = "-all.json.bz2";
@@ -67,21 +68,28 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
     overwrite: bool,
 ) -> Result<DownloadReport, WikidataDumpError> {
     let descriptor = resolve_latest_descriptor(source).await?;
-    download_descriptor(source, descriptor, output_path, log, overwrite).await
+    let options = {
+        let base = DownloadOptions::new(output_path);
+        let with_log = match log {
+            Some(log) => base.with_log(log),
+            None => base,
+        };
+        with_log.with_overwrite(overwrite)
+    };
+    download_descriptor(source, descriptor, options).await
 }
 
 /// Download a specific dump described by `descriptor`.
 ///
-/// Supplying a [`DownloadLog`] captures a durable record of the download while
-/// allowing callers to opt out by passing `None`. Enable `overwrite` to allow
-/// truncating an existing file when refreshing a dump.
+/// Supplying a [`DownloadOptions`] instance captures logging and overwrite
+/// preferences while keeping call sites free of positional argument overload.
 ///
 /// # Examples
 /// ```
 /// # use tempfile::tempdir;
 /// # use wildside_data::wikidata::dump::{
-/// #     download_descriptor, BaseUrl, DownloadLog, DumpDescriptor, DumpFileName, DumpUrl,
-/// #     StubSource, WikidataDumpError,
+/// #     download_descriptor, BaseUrl, DownloadLog, DownloadOptions, DumpDescriptor, DumpFileName,
+/// #     DumpUrl, StubSource, WikidataDumpError,
 /// # };
 /// # fn example() -> Result<(), WikidataDumpError> {
 /// let manifest = br#"{
@@ -115,15 +123,9 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 /// let log = DownloadLog::initialise(log_path.as_path())?;
 /// let report = tokio::runtime::Runtime::new()
 ///     .expect("create Tokio runtime")
-///     .block_on(async move {
-///         download_descriptor(
-///             &source,
-///             descriptor.clone(),
-///             output_path.as_path(),
-///             Some(&log),
-///             false,
-///         )
-///         .await
+///     .block_on(async {
+///         let options = DownloadOptions::new(output_path.as_path()).with_log(&log);
+///         download_descriptor(&source, descriptor.clone(), options).await
 ///     })?;
 /// assert_eq!(report.bytes_written, expected_bytes);
 /// assert_eq!(report.output_path, output_path);
@@ -134,10 +136,11 @@ pub async fn download_latest_dump<S: DumpSource + ?Sized>(
 pub async fn download_descriptor<S: DumpSource + ?Sized>(
     source: &S,
     descriptor: DumpDescriptor,
-    output_path: &Path,
-    log: Option<&DownloadLog>,
-    overwrite: bool,
+    options: DownloadOptions<'_>,
 ) -> Result<DownloadReport, WikidataDumpError> {
+    let output_path = options.output_path;
+    let log = options.log;
+    let overwrite = options.overwrite;
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent).map_err(|source| WikidataDumpError::CreateDir {
             source,

@@ -9,8 +9,8 @@ use std::{
 };
 use thiserror::Error;
 use wildside_data::wikidata::dump::{
-    DEFAULT_USER_AGENT, DownloadLog, DumpSource, HttpDumpSource, WikidataDumpError,
-    download_descriptor, resolve_latest_descriptor,
+    DEFAULT_USER_AGENT, DownloadLog, DownloadOptions, DumpSource, HttpDumpSource,
+    WikidataDumpError, download_descriptor, resolve_latest_descriptor,
 };
 
 #[tokio::main]
@@ -46,8 +46,15 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     }
 
     let log = initialise_log(metadata_db.as_deref())?;
-    let report =
-        download_descriptor(&source, descriptor, &output_path, log.as_ref(), overwrite).await?;
+    let options = {
+        let base = DownloadOptions::new(output_path.as_path());
+        let with_log = match log.as_ref() {
+            Some(log) => base.with_log(log),
+            None => base,
+        };
+        with_log.with_overwrite(overwrite)
+    };
+    let report = download_descriptor(&source, descriptor, options).await?;
     println!(
         "Downloaded {} ({} bytes) to {}",
         report.descriptor.file_name.as_ref(),

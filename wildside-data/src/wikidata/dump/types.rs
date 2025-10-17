@@ -1,9 +1,15 @@
 //! Domain wrappers for Wikidata dump endpoints, file names, and descriptors.
 //! Provides small, typed newtypes with ergonomic trait impls and Rustdoc examples.
 
-use std::{fmt, ops::Deref, path::PathBuf};
+use std::{
+    fmt,
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
 use url::Url;
+
+use super::log::DownloadLog;
 
 /// Base URL for the Wikidata dump endpoint.
 ///
@@ -182,4 +188,62 @@ pub struct DownloadReport {
     pub bytes_written: u64,
     /// Final location of the archive.
     pub output_path: PathBuf,
+}
+
+/// Options controlling how a dump is materialised on disk.
+///
+/// Builder helpers provide an ergonomic way to opt into logging and overwriting
+/// existing archives without assembling several positional arguments.
+///
+/// # Examples
+/// ```
+/// # use tempfile::tempdir;
+/// # use wildside_data::wikidata::dump::{DownloadLog, DownloadOptions};
+/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let temp = tempdir()?;
+/// let output = temp.path().join("wikidata.json.bz2");
+/// let log_path = temp.path().join("downloads.sqlite");
+/// let log = DownloadLog::initialise(log_path.as_path())?;
+/// let options = DownloadOptions::new(output.as_path())
+///     .with_log(&log)
+///     .with_overwrite(true);
+/// assert!(options.log.is_some());
+/// assert!(options.overwrite);
+/// assert_eq!(options.output_path, output.as_path());
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct DownloadOptions<'a> {
+    /// Destination path for the downloaded artefact.
+    pub output_path: &'a Path,
+    /// Optional download log used for persistence.
+    pub log: Option<&'a DownloadLog>,
+    /// Whether an existing file should be overwritten.
+    pub overwrite: bool,
+}
+
+impl<'a> DownloadOptions<'a> {
+    /// Construct options targeting `output_path` with default settings.
+    pub fn new(output_path: &'a Path) -> Self {
+        Self {
+            output_path,
+            log: None,
+            overwrite: false,
+        }
+    }
+
+    /// Attach a download log used to persist audit entries.
+    #[must_use]
+    pub fn with_log(mut self, log: &'a DownloadLog) -> Self {
+        self.log = Some(log);
+        self
+    }
+
+    /// Toggle whether the download should overwrite existing files.
+    #[must_use]
+    pub fn with_overwrite(mut self, overwrite: bool) -> Self {
+        self.overwrite = overwrite;
+        self
+    }
 }

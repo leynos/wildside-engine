@@ -17,7 +17,7 @@ pub use error::{TransportError, WikidataDumpError};
 pub use log::DownloadLog;
 pub use ops::{download_descriptor, download_latest_dump, resolve_latest_descriptor};
 pub use source::{DEFAULT_USER_AGENT, DumpSource, HttpDumpSource};
-pub use types::{BaseUrl, DownloadReport, DumpDescriptor, DumpFileName, DumpUrl};
+pub use types::{BaseUrl, DownloadOptions, DownloadReport, DumpDescriptor, DumpFileName, DumpUrl};
 
 #[cfg(test)]
 mod tests;
