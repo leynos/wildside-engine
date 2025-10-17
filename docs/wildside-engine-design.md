@@ -360,6 +360,46 @@ surfaced with line numbers so operators can diagnose malformed dump entries
 without re-running the entire pipeline, while unrelated entities are skipped in
 constant time.
 
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant extract_linked_entity_claims
+    participant BufReader
+    participant JSONParser as simd-json Parser
+    participant PoiEntityLinks as PoiEntityLinks Filter
+
+    Caller->>extract_linked_entity_claims: Call with reader & links
+
+    loop For each line in dump
+        extract_linked_entity_claims->>BufReader: Read next line
+        BufReader-->>extract_linked_entity_claims: Line data or EOF
+
+        alt Line read successfully
+            extract_linked_entity_claims->>JSONParser: Deserialise JSON
+            alt JSON valid
+                JSONParser-->>extract_linked_entity_claims: RawEntity
+                extract_linked_entity_claims->>PoiEntityLinks: Check entity exists in links
+                alt Entity in links
+                    PoiEntityLinks-->>extract_linked_entity_claims: Linked POI IDs
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Extract P1435 heritage claims
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Sort & deduplicate designations
+                    extract_linked_entity_claims-->>extract_linked_entity_claims: Create EntityClaims
+                else Entity not in links
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Skip (constant time)
+                end
+            else JSON invalid
+                JSONParser-->>extract_linked_entity_claims: ParseError + line number
+                extract_linked_entity_claims-->>Caller: Err(WikidataEtlError::ParseEntity)
+            end
+        else Line read failed
+            BufReader-->>extract_linked_entity_claims: ReadError + line number
+            extract_linked_entity_claims-->>Caller: Err(WikidataEtlError::ReadLine)
+        end
+    end
+
+    extract_linked_entity_claims-->>Caller: Ok(Vec<EntityClaims>)
+```
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
