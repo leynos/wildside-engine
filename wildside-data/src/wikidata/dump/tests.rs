@@ -55,6 +55,38 @@ fn parses_manifest(base_url: BaseUrl, manifest: Vec<u8>) {
 }
 
 #[rstest]
+fn selects_latest_dump_from_manifest(base_url: BaseUrl) {
+    let manifest = r#"{
+        "jobs": {
+            "json": {
+                "status": "done",
+                "files": {
+                    "wikidatawiki-20240908-all.json.bz2": {
+                        "url": "/wikidatawiki/entities/20240908/wikidatawiki-20240908-all.json.bz2",
+                        "size": 5
+                    },
+                    "wikidatawiki-20240910-all.json.bz2": {
+                        "url": "/wikidatawiki/entities/20240910/wikidatawiki-20240910-all.json.bz2",
+                        "size": 7
+                    }
+                }
+            }
+        }
+    }"#;
+    let mut reader = Cursor::new(manifest.as_bytes());
+    let descriptor = select_dump(&mut reader, &base_url).expect("manifest should parse");
+    assert_eq!(
+        descriptor.file_name.as_ref(),
+        "wikidatawiki-20240910-all.json.bz2"
+    );
+    assert_eq!(descriptor.size, Some(7));
+    assert_eq!(
+        descriptor.url.as_ref(),
+        "https://example.org/wikidatawiki/entities/20240910/wikidatawiki-20240910-all.json.bz2",
+    );
+}
+
+#[rstest]
 fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");

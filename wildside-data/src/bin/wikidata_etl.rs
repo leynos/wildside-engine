@@ -133,6 +133,8 @@ mod tests {
     use tokio::runtime::Builder;
     use wildside_data::wikidata::dump::{BaseUrl, TransportError};
 
+    // The library's shared stub lives behind `cfg(any(test, doc))`, so this
+    // binary keeps its own lightweight fixture to exercise CLI-specific logic.
     #[derive(Debug)]
     struct StubSource {
         base_url: BaseUrl,

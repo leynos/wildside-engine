@@ -1,3 +1,5 @@
+//! High-level operations for selecting and downloading Wikidata dumps.
+
 use simd_json::serde::from_reader;
 use std::{
     fs::{self, OpenOptions},
@@ -245,13 +247,11 @@ pub(crate) fn select_dump(
         .values()
         .filter(|job| job.is_done())
         .flat_map(|job| job.files.iter())
-        .find_map(|(file_name, entry)| {
-            if file_name.ends_with(JSON_DUMP_SUFFIX) {
-                DumpDescriptor::from_manifest_entry(file_name, entry, base_url)
-            } else {
-                None
-            }
+        .filter(|(file_name, _)| file_name.ends_with(JSON_DUMP_SUFFIX))
+        .filter_map(|(file_name, entry)| {
+            DumpDescriptor::from_manifest_entry(file_name, entry, base_url)
         })
+        .max_by(|left, right| left.file_name.as_ref().cmp(right.file_name.as_ref()))
         .ok_or(WikidataDumpError::MissingDump)
 }
 

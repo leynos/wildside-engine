@@ -1,7 +1,9 @@
+//! Transport abstractions and HTTP client for retrieving Wikidata dumps.
+
 use async_trait::async_trait;
-use reqwest::header::USER_AGENT;
 use reqwest::{Client, Response};
 use std::io::{self, BufRead, Write};
+use std::time::Duration;
 
 use super::util::{sanitise_base_url, to_blocking_reader, to_sync_reader};
 use super::{BaseUrl, DumpUrl, TransportError};
@@ -28,27 +30,23 @@ pub trait DumpSource {
 pub struct HttpDumpSource {
     client: Client,
     base_url: BaseUrl,
-    user_agent: String,
 }
 
 impl HttpDumpSource {
     /// Construct an HTTP-backed dump source.
     #[must_use]
     pub fn new(base_url: impl Into<String>) -> Self {
-        let client = Client::builder()
-            .connect_timeout(std::time::Duration::from_secs(30))
-            .build()
-            .expect("client builder only fails with invalid configuration");
+        let client = Self::build_client(DEFAULT_USER_AGENT);
         Self {
             client,
             base_url: sanitise_base_url(base_url),
-            user_agent: DEFAULT_USER_AGENT.to_owned(),
         }
     }
 
-    /// Override the default user agent string.
+    /// Override the default user agent string by rebuilding the HTTP client.
     pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
-        self.user_agent = user_agent.into();
+        let user_agent = user_agent.into();
+        self.client = Self::build_client(&user_agent);
         self
     }
 
@@ -59,12 +57,19 @@ impl HttpDumpSource {
     async fn call(&self, url: &str) -> Result<Response, TransportError> {
         self.client
             .get(url)
-            .header(USER_AGENT, self.user_agent.as_str())
             .send()
             .await
             .map_err(|err| convert_reqwest_error(err, url))?
             .error_for_status()
             .map_err(|err| convert_reqwest_error(err, url))
+    }
+
+    fn build_client(user_agent: &str) -> Client {
+        Client::builder()
+            .user_agent(user_agent)
+            .connect_timeout(Duration::from_secs(30))
+            .build()
+            .expect("client builder only fails with invalid configuration")
     }
 }
 
@@ -75,14 +80,11 @@ impl DumpSource for HttpDumpSource {
     }
 
     async fn fetch_status(&self) -> Result<Box<dyn BufRead + Send>, TransportError> {
-        use std::time::Duration;
-
         let url = self.status_url();
         let response = self
             .client
             .get(url.as_ref())
             .timeout(Duration::from_secs(15))
-            .header(USER_AGENT, self.user_agent.as_str())
             .send()
             .await
             .map_err(|err| convert_reqwest_error(err, url.as_ref()))?

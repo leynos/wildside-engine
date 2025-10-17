@@ -29,8 +29,8 @@ pub enum WikidataDumpError {
     /// The downloaded archive size did not match the manifest metadata.
     #[error("downloaded size {actual} did not match manifest size {expected}")]
     SizeMismatch { expected: u64, actual: u64 },
-    /// Initialising the download log failed.
-    #[error("failed to initialise download log at {path:?}: {source}")]
+    /// Initializing the download log failed.
+    #[error("failed to initialize download log at {path:?}: {source}")]
     InitialiseLog {
         source: rusqlite::Error,
         path: PathBuf,
@@ -38,10 +38,10 @@ pub enum WikidataDumpError {
     /// Recording metadata failed when interacting with SQLite.
     #[error("failed to record download metadata: {source}")]
     RecordLogSql { source: rusqlite::Error },
-    /// Serialising metadata into SQLite-compatible values failed.
+    /// Serializing metadata into SQLite-compatible values failed.
     #[error("failed to prepare download metadata for persistence ({what}): {source}")]
     RecordLogValue {
-        /// Description of the value that failed to serialise.
+        /// Description of the value that failed to serialize.
         what: String,
         /// Underlying conversion error.
         source: Box<dyn StdError + Send + Sync>,

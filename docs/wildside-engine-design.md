@@ -323,12 +323,12 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
   locate the most recent `*-all.json.bz2` artefact. The parser ignores
   unrelated jobs and tolerates missing optional fields, surfacing
   `WikidataDumpError::MissingDump` when no suitable entry is found.
-- **Download logging:** `DownloadLog` stores a durable audit trail in SQLite
-  via `rusqlite`. The crate is compiled with the `bundled` feature, so CI and
-  developer workstations link against the same SQLite release. Initialisation
-  seeds uniqueness and timestamp indexes. It records the selected file name,
-  URL, checksums, and byte counts. This metadata primes future reconciliation
-  jobs that will import claims into `pois.db`.
+- **Download logging:** `DownloadLog` stores a durable audit trail in
+  SQLite via `rusqlite`. The crate is compiled with the `bundled` feature, so
+  CI and developer workstations link against the same SQLite release.
+  Initialisation seeds uniqueness and timestamp indexes. It records the
+  selected file name, URL, checksums, and byte counts. This metadata primes
+  future reconciliation jobs that will import claims into `pois.db`.
 
 The binary entry point (`cargo run -p wildside-data --bin wikidata_etl`)
 connects those primitives to an operator-facing CLI backed by `clap`. Users
