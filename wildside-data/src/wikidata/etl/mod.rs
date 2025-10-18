@@ -181,50 +181,68 @@ where
             }
         }
 
-        let mut slice = line.trim();
-        if slice.is_empty() || slice == "[" || slice == "]" {
-            continue;
-        }
-        if slice.starts_with(',') {
-            slice = slice.trim_start_matches(',').trim();
-        }
-        if slice.ends_with(',') {
-            slice = slice.strip_suffix(',').unwrap().trim();
-        }
-        if slice.is_empty() || slice == "[" || slice == "]" {
-            continue;
-        }
-
-        let mut bytes = slice.as_bytes().to_vec();
-        let entity: RawEntity = simd_json::from_slice(bytes.as_mut_slice()).map_err(|source| {
-            WikidataEtlError::ParseEntity {
-                source,
-                line: line_number,
-            }
-        })?;
-        let Some(normalised_id) = normalise_wikidata_id(&entity.id) else {
+        let Some(preprocessed) = preprocess_json_line(&line) else {
             continue;
         };
-        if !links.contains(&normalised_id) {
-            continue;
+
+        if let Some(claims) = process_entity_claims(preprocessed, links, line_number)? {
+            extracted.push(claims);
         }
-        let mut heritage_designations = entity.heritage_designations();
-        heritage_designations.sort_unstable();
-        heritage_designations.dedup();
-
-        let linked_poi_ids = links
-            .linked_poi_ids(&normalised_id)
-            .map(|ids| ids.to_vec())
-            .unwrap_or_default();
-
-        extracted.push(EntityClaims::new(
-            normalised_id,
-            linked_poi_ids,
-            heritage_designations,
-        ));
     }
 
     Ok(extracted)
+}
+
+fn preprocess_json_line(line: &str) -> Option<&str> {
+    let trimmed = line.trim();
+    if is_structural_line(trimmed) {
+        return None;
+    }
+    let trimmed = trimmed.trim_start_matches(',').trim();
+    let trimmed = trimmed.strip_suffix(',').map(str::trim).unwrap_or(trimmed);
+    if trimmed.is_empty() || is_structural_line(trimmed) {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn is_structural_line(line: &str) -> bool {
+    line.is_empty() || line == "[" || line == "]"
+}
+
+fn process_entity_claims(
+    json_slice: &str,
+    links: &PoiEntityLinks,
+    line_number: usize,
+) -> Result<Option<EntityClaims>, WikidataEtlError> {
+    let mut bytes = json_slice.as_bytes().to_vec();
+    let entity: RawEntity = simd_json::from_slice(bytes.as_mut_slice()).map_err(|source| {
+        WikidataEtlError::ParseEntity {
+            source,
+            line: line_number,
+        }
+    })?;
+    let Some(normalised_id) = normalise_wikidata_id(&entity.id) else {
+        return Ok(None);
+    };
+    if !links.contains(&normalised_id) {
+        return Ok(None);
+    }
+    let mut heritage_designations = entity.heritage_designations();
+    heritage_designations.sort_unstable();
+    heritage_designations.dedup();
+
+    let linked_poi_ids = links
+        .linked_poi_ids(&normalised_id)
+        .map(|ids| ids.to_vec())
+        .unwrap_or_default();
+
+    Ok(Some(EntityClaims::new(
+        normalised_id,
+        linked_poi_ids,
+        heritage_designations,
+    )))
 }
 
 fn normalise_wikidata_id(input: &str) -> Option<String> {
