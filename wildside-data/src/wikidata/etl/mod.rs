@@ -199,7 +199,14 @@ fn preprocess_json_line(line: &str) -> Option<&str> {
         return None;
     }
     let trimmed = trimmed.trim_start_matches(',').trim();
-    let trimmed = trimmed.strip_suffix(',').map(str::trim).unwrap_or(trimmed);
+    let trimmed = if trimmed.ends_with(',') {
+        let without_comma = trimmed
+            .strip_suffix(',')
+            .expect("trimmed.ends_with(',') validated");
+        without_comma.trim()
+    } else {
+        trimmed
+    };
     if trimmed.is_empty() || is_structural_line(trimmed) {
         None
     } else {
