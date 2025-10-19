@@ -360,6 +360,10 @@ surfaced with line numbers, so operators can diagnose malformed dump entries
 without re-running the entire pipeline, while unrelated entities are skipped in
 constant time.
 
+The following sequence diagram illustrates the line-by-line processing flow,
+including entity filtering, claim extraction, and error handling with
+line-numbered reporting.
+
 ```mermaid
 sequenceDiagram
     participant Caller

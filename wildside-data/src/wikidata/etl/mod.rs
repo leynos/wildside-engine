@@ -165,6 +165,7 @@ where
     let mut line = String::new();
     let mut line_number = 0usize;
     let mut extracted = Vec::new();
+    let mut parse_buf = Vec::new();
 
     loop {
         line.clear();
@@ -185,7 +186,9 @@ where
             continue;
         };
 
-        if let Some(claims) = process_entity_claims(preprocessed, links, line_number)? {
+        if let Some(claims) =
+            process_entity_claims(preprocessed, links, line_number, &mut parse_buf)?
+        {
             extracted.push(claims);
         }
     }
@@ -201,9 +204,10 @@ fn preprocess_json_line(line: &str) -> Option<&str> {
     }
     let trimmed = trimmed.trim_start_matches(',').trim();
     let trimmed = if trimmed.ends_with(',') {
-        let without_comma = trimmed
-            .strip_suffix(',')
-            .expect("trimmed.ends_with(',') validated");
+        let without_comma = trimmed.strip_suffix(',').expect(
+            "preprocess_json_line: expected trailing comma after entity object when \
+                 trimmed.ends_with(',') was true",
+        );
         without_comma.trim()
     } else {
         trimmed
@@ -223,9 +227,11 @@ fn process_entity_claims(
     json_slice: &str,
     links: &PoiEntityLinks,
     line_number: usize,
+    parse_buf: &mut Vec<u8>,
 ) -> Result<Option<EntityClaims>, WikidataEtlError> {
-    let mut bytes = json_slice.as_bytes().to_vec();
-    let entity: RawEntity = simd_json::from_slice(bytes.as_mut_slice()).map_err(|source| {
+    parse_buf.clear();
+    parse_buf.extend_from_slice(json_slice.as_bytes());
+    let entity: RawEntity = simd_json::from_slice(parse_buf.as_mut_slice()).map_err(|source| {
         WikidataEtlError::ParseEntity {
             source,
             line: line_number,
