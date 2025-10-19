@@ -190,6 +190,7 @@ where
         }
     }
 
+    extracted.sort_unstable_by(|a, b| a.entity_id.cmp(&b.entity_id));
     Ok(extracted)
 }
 
