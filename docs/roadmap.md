@@ -70,7 +70,7 @@ core data structures of the engine.
   - [x] In `wildside-data`, add `wikidata-rust`, `simd-json`, and
         `rusqlite` dependencies.
   - [x] Write a script that downloads the latest Wikidata JSON dump.
-  - [ ] Implement a parser that iterates through the dump, filters for entities
+  - [x] Implement a parser that iterates through the dump, filters for entities
         linked from the ingested OSM data, and extracts relevant claims (e.g.,
         `P1435` for heritage status).
   - [ ] Design and create a SQLite database schema (`pois.db`) to store these

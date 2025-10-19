@@ -339,6 +339,71 @@ existing dumps unless `--overwrite` is supplied. Successful runs emit a
 succinct summary, keeping the command idempotent and easy to schedule whilst
 the downstream parsing stages are implemented.
 
+#### 1.2.2. Linked entity extraction implementation
+
+The second increment introduces a streaming parser that connects the Wikidata
+dump to the POIs discovered during OSM ingestion. The `PoiEntityLinks`
+structure scans the ingested POIs, normalizes `wikidata=*` tag values (handling
+common variants such as full URLs), and records the mapping from Wikidata
+entity identifiers to OSM ids. The parser accepts any `Read` implementation and
+wraps it in a `BufReader` so the huge JSON dump is never materialized in
+memory. Each line is trimmed, commas that separate JSON entries are removed,
+and the payload is deserialized via `simd-json` into a lightweight
+representation containing just the entity id and claims.
+
+Only entities referenced by the `PoiEntityLinks` set are processed further. For
+those entities, the parser extracts `P1435` heritage designation claims by
+inspecting the `mainsnak` data, filtering for `value` snaks, and collecting the
+target entity ids. Both the linked POI ids and the designation ids are sorted
+and deduplicated to keep the downstream SQLite schema deterministic. Errors are
+surfaced with line numbers, so operators can diagnose malformed dump entries
+without re-running the entire pipeline, while unrelated entities are skipped in
+constant time.
+
+The following sequence diagram illustrates the line-by-line processing flow,
+including entity filtering, claim extraction, and error handling with
+line-numbered reporting.
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant extract_linked_entity_claims
+    participant BufReader
+    participant JSONParser as simd-json Parser
+    participant PoiEntityLinks as PoiEntityLinks Filter
+
+    Caller->>extract_linked_entity_claims: Call with reader & links
+
+    loop For each line in dump
+        extract_linked_entity_claims->>BufReader: Read next line
+        BufReader-->>extract_linked_entity_claims: Line data or EOF
+
+        alt Line read successfully
+            extract_linked_entity_claims->>JSONParser: Deserialise JSON
+            alt JSON valid
+                JSONParser-->>extract_linked_entity_claims: RawEntity
+                extract_linked_entity_claims->>PoiEntityLinks: Check entity exists in links
+                alt Entity in links
+                    PoiEntityLinks-->>extract_linked_entity_claims: Linked POI IDs
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Extract P1435 heritage claims
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Sort & deduplicate designations
+                    extract_linked_entity_claims-->>extract_linked_entity_claims: Create EntityClaims
+                else Entity not in links
+                    extract_linked_entity_claims->>extract_linked_entity_claims: Skip (constant time)
+                end
+            else JSON invalid
+                JSONParser-->>extract_linked_entity_claims: ParseError + line number
+                extract_linked_entity_claims-->>Caller: Err(WikidataEtlError::ParseEntity)
+            end
+        else Line read failed
+            BufReader-->>extract_linked_entity_claims: ReadError + line number
+            extract_linked_entity_claims-->>Caller: Err(WikidataEtlError::ReadLine)
+        end
+    end
+
+    extract_linked_entity_claims-->>Caller: Ok(Vec<EntityClaims>)
+```
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
