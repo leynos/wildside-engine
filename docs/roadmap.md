@@ -73,7 +73,7 @@ core data structures of the engine.
   - [x] Implement a parser that iterates through the dump, filters for entities
         linked from the ingested OSM data, and extracts relevant claims (e.g.,
         `P1435` for heritage status).
-  - [ ] Design and create a SQLite database schema (`pois.db`) to store these
+  - [x] Design and create a SQLite database schema (`pois.db`) to store these
         claims in an indexed and queryable format.
 
 - **Develop Initial CLI**

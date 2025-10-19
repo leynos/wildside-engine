@@ -16,7 +16,7 @@ use serde::Deserialize;
 use thiserror::Error;
 use wildside_core::PointOfInterest;
 
-const HERITAGE_PROPERTY: &str = "P1435";
+pub(crate) const HERITAGE_PROPERTY: &str = "P1435";
 
 /// Mapping between Wikidata entity identifiers and linked POI ids.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
