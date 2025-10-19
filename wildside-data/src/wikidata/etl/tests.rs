@@ -1,5 +1,7 @@
 //! Unit tests for the Wikidata ETL parser.
 
+mod behaviour;
+
 use super::{
     EntityClaims, PoiEntityLinks, WikidataEtlError, extract_linked_entity_claims,
     normalise_wikidata_id,
@@ -23,7 +25,7 @@ fn poi_with_wikidata() -> PointOfInterest {
 
 #[rstest]
 fn builds_links_from_pois(poi_with_wikidata: PointOfInterest) {
-    let links = PoiEntityLinks::from_pois([&poi_with_wikidata]);
+    let links = PoiEntityLinks::from_pois([&poi_with_wikidata, &poi_with_wikidata]);
 
     assert!(links.contains("Q64"));
     assert_eq!(links.linked_poi_ids("Q64"), Some(&[7][..]));
@@ -102,7 +104,8 @@ fn reports_parse_errors(poi_with_wikidata: PointOfInterest) {
 
     let err = extract_linked_entity_claims(dump, &links).expect_err("parsing should fail");
 
-    let WikidataEtlError::ParseEntity { .. } = err else {
+    let WikidataEtlError::ParseEntity { line, .. } = err else {
         panic!("expected a parse error");
     };
+    assert_eq!(line, 1, "malformed JSON should be flagged on line 1");
 }
