@@ -5,12 +5,140 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rusqlite::{Connection, Error as SqliteError, OptionalExtension};
+use rusqlite::{CachedStatement, Connection, Error as SqliteError, OptionalExtension, Transaction};
 use thiserror::Error;
 
 use crate::wikidata::etl::{EntityClaims, HERITAGE_PROPERTY};
 
 use super::schema::{ClaimsSchemaError, initialise_schema};
+
+struct PreparedStatements<'conn> {
+    insert_entity: CachedStatement<'conn>,
+    insert_link: CachedStatement<'conn>,
+    insert_claim: CachedStatement<'conn>,
+    check_poi: CachedStatement<'conn>,
+}
+
+impl<'conn> PreparedStatements<'conn> {
+    fn prepare(transaction: &'conn Transaction<'conn>) -> Result<Self, PersistClaimsError> {
+        let insert_entity = transaction
+            .prepare_cached("INSERT OR IGNORE INTO wikidata_entities (entity_id) VALUES (?1)")
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "prepare insert entity",
+                source,
+            })?;
+        let insert_link = transaction
+            .prepare_cached(
+                "INSERT OR IGNORE INTO poi_wikidata_links (poi_id, entity_id) VALUES (?1, ?2)",
+            )
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "prepare link POI",
+                source,
+            })?;
+        let insert_claim = transaction
+            .prepare_cached(
+                "INSERT OR IGNORE INTO wikidata_entity_claims (
+                    entity_id,
+                    property_id,
+                    value_entity_id
+                ) VALUES (?1, ?2, ?3)",
+            )
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "prepare insert claim",
+                source,
+            })?;
+        let check_poi = transaction
+            .prepare_cached("SELECT 1 FROM pois WHERE id = ?1 LIMIT 1")
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "prepare POI lookup",
+                source,
+            })?;
+
+        Ok(Self {
+            insert_entity,
+            insert_link,
+            insert_claim,
+            check_poi,
+        })
+    }
+}
+
+fn persist_entity(
+    statement: &mut CachedStatement<'_>,
+    entity_id: &str,
+) -> Result<(), PersistClaimsError> {
+    statement
+        .execute([entity_id])
+        .map(|_| ())
+        .map_err(|source| PersistClaimsError::Sqlite {
+            operation: "insert entity",
+            source,
+        })
+}
+
+fn persist_heritage_designations(
+    statements: &mut PreparedStatements<'_>,
+    entity_id: &str,
+    designations: &[String],
+) -> Result<(), PersistClaimsError> {
+    for designation in designations {
+        persist_entity(&mut statements.insert_entity, designation.as_str()).map_err(|error| {
+            match error {
+                PersistClaimsError::Sqlite { source, .. } => PersistClaimsError::Sqlite {
+                    operation: "insert designation entity",
+                    source,
+                },
+                other => other,
+            }
+        })?;
+        statements
+            .insert_claim
+            .execute((entity_id, HERITAGE_PROPERTY, designation.as_str()))
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "insert heritage claim",
+                source,
+            })?;
+    }
+    Ok(())
+}
+
+fn persist_poi_links(
+    statements: &mut PreparedStatements<'_>,
+    entity_id: &str,
+    poi_ids: &[u64],
+    known_pois: &mut HashSet<u64>,
+) -> Result<(), PersistClaimsError> {
+    for poi_id in poi_ids {
+        let poi_id_i64 = i64::try_from(*poi_id)
+            .map_err(|_| PersistClaimsError::PoiIdOutOfRange { poi_id: *poi_id })?;
+        if !known_pois.contains(poi_id) {
+            let exists = statements
+                .check_poi
+                .query_row([poi_id_i64], |_| Ok(()))
+                .optional()
+                .map_err(|source| PersistClaimsError::Sqlite {
+                    operation: "verify POI presence",
+                    source,
+                })?
+                .is_some();
+            if !exists {
+                return Err(PersistClaimsError::MissingPoi {
+                    poi_id: *poi_id,
+                    entity_id: entity_id.to_owned(),
+                });
+            }
+            known_pois.insert(*poi_id);
+        }
+        statements
+            .insert_link
+            .execute((poi_id_i64, entity_id))
+            .map_err(|source| PersistClaimsError::Sqlite {
+                operation: "link POI to entity",
+                source,
+            })?;
+    }
+    Ok(())
+}
 
 /// Persist the supplied claims into an initialised SQLite connection.
 ///
@@ -73,95 +201,22 @@ pub fn persist_claims(
         })?;
 
     {
-        let mut insert_entity = transaction
-            .prepare_cached("INSERT OR IGNORE INTO wikidata_entities (entity_id) VALUES (?1)")
-            .map_err(|source| PersistClaimsError::Sqlite {
-                operation: "prepare insert entity",
-                source,
-            })?;
-        let mut insert_link = transaction
-            .prepare_cached(
-                "INSERT OR IGNORE INTO poi_wikidata_links (poi_id, entity_id) VALUES (?1, ?2)",
-            )
-            .map_err(|source| PersistClaimsError::Sqlite {
-                operation: "prepare link POI",
-                source,
-            })?;
-        let mut insert_claim = transaction
-            .prepare_cached(
-                "INSERT OR IGNORE INTO wikidata_entity_claims (
-                    entity_id,
-                    property_id,
-                    value_entity_id
-                ) VALUES (?1, ?2, ?3)",
-            )
-            .map_err(|source| PersistClaimsError::Sqlite {
-                operation: "prepare insert claim",
-                source,
-            })?;
-        let mut check_poi = transaction
-            .prepare_cached("SELECT 1 FROM pois WHERE id = ?1 LIMIT 1")
-            .map_err(|source| PersistClaimsError::Sqlite {
-                operation: "prepare POI lookup",
-                source,
-            })?;
-
+        let mut statements = PreparedStatements::prepare(&transaction)?;
         let mut known_pois = HashSet::new();
 
         for claim in claims {
-            insert_entity
-                .execute([claim.entity_id.as_str()])
-                .map_err(|source| PersistClaimsError::Sqlite {
-                    operation: "insert entity",
-                    source,
-                })?;
-
-            for designation in &claim.heritage_designations {
-                insert_entity
-                    .execute([designation.as_str()])
-                    .map_err(|source| PersistClaimsError::Sqlite {
-                        operation: "insert designation entity",
-                        source,
-                    })?;
-                insert_claim
-                    .execute((
-                        claim.entity_id.as_str(),
-                        HERITAGE_PROPERTY,
-                        designation.as_str(),
-                    ))
-                    .map_err(|source| PersistClaimsError::Sqlite {
-                        operation: "insert heritage claim",
-                        source,
-                    })?;
-            }
-
-            for poi_id in &claim.linked_poi_ids {
-                let poi_id_i64 = i64::try_from(*poi_id)
-                    .map_err(|_| PersistClaimsError::PoiIdOutOfRange { poi_id: *poi_id })?;
-                if !known_pois.contains(poi_id) {
-                    let exists = check_poi
-                        .query_row([poi_id_i64], |_| Ok(()))
-                        .optional()
-                        .map_err(|source| PersistClaimsError::Sqlite {
-                            operation: "verify POI presence",
-                            source,
-                        })?
-                        .is_some();
-                    if !exists {
-                        return Err(PersistClaimsError::MissingPoi {
-                            poi_id: *poi_id,
-                            entity_id: claim.entity_id.clone(),
-                        });
-                    }
-                    known_pois.insert(*poi_id);
-                }
-                insert_link
-                    .execute((poi_id_i64, claim.entity_id.as_str()))
-                    .map_err(|source| PersistClaimsError::Sqlite {
-                        operation: "link POI to entity",
-                        source,
-                    })?;
-            }
+            persist_entity(&mut statements.insert_entity, claim.entity_id.as_str())?;
+            persist_heritage_designations(
+                &mut statements,
+                claim.entity_id.as_str(),
+                &claim.heritage_designations,
+            )?;
+            persist_poi_links(
+                &mut statements,
+                claim.entity_id.as_str(),
+                &claim.linked_poi_ids,
+                &mut known_pois,
+            )?;
         }
     }
 
