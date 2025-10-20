@@ -43,11 +43,18 @@ fn create_pois_schema(path: &PathBuf) {
         .expect("create pois table");
 }
 
-fn insert_poi(connection: &Connection, id: i64, lon: f64, lat: f64, tags: &str) {
+struct TestPoiData {
+    id: i64,
+    lon: f64,
+    lat: f64,
+    tags: String,
+}
+
+fn insert_poi(connection: &Connection, poi: &TestPoiData) {
     connection
         .execute(
             "INSERT INTO pois (id, lon, lat, tags) VALUES (?1, ?2, ?3, ?4)",
-            (id, lon, lat, tags),
+            (&poi.id, &poi.lon, &poi.lat, poi.tags.as_str()),
         )
         .expect("insert poi");
 }
@@ -59,10 +66,12 @@ fn sqlite_with_poi(temp_dir: &TempDir, db_path: &RefCell<Option<PathBuf>>) {
     let connection = Connection::open(&path).expect("open SQLite database");
     insert_poi(
         &connection,
-        11,
-        13.404954,
-        52.520008,
-        "{\"wikidata\":\"Q64\"}",
+        &TestPoiData {
+            id: 11,
+            lon: 13.404954,
+            lat: 52.520008,
+            tags: "{\"wikidata\":\"Q64\"}".to_string(),
+        },
     );
     *db_path.borrow_mut() = Some(path);
 }
