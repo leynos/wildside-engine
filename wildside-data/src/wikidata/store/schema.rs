@@ -1,3 +1,4 @@
+//! Wikidata claims schema: tables, indexes, views, and schema versioning.
 #![forbid(unsafe_code)]
 
 use rusqlite::{Connection, Error as SqliteError, OptionalExtension};

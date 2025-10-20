@@ -1,3 +1,5 @@
+//! Persist Wikidata entity links and heritage claims into SQLite with
+//! idempotent writes.
 #![forbid(unsafe_code)]
 
 use std::{
@@ -66,14 +68,12 @@ impl<'conn> PreparedStatements<'conn> {
 fn persist_entity(
     statement: &mut CachedStatement<'_>,
     entity_id: &str,
+    operation: &'static str,
 ) -> Result<(), PersistClaimsError> {
     statement
         .execute([entity_id])
         .map(|_| ())
-        .map_err(|source| PersistClaimsError::Sqlite {
-            operation: "insert entity",
-            source,
-        })
+        .map_err(|source| PersistClaimsError::Sqlite { operation, source })
 }
 
 fn persist_heritage_designations(
@@ -82,15 +82,11 @@ fn persist_heritage_designations(
     designations: &[String],
 ) -> Result<(), PersistClaimsError> {
     for designation in designations {
-        persist_entity(&mut statements.insert_entity, designation.as_str()).map_err(|error| {
-            match error {
-                PersistClaimsError::Sqlite { source, .. } => PersistClaimsError::Sqlite {
-                    operation: "insert designation entity",
-                    source,
-                },
-                other => other,
-            }
-        })?;
+        persist_entity(
+            &mut statements.insert_entity,
+            designation.as_str(),
+            "insert designation entity",
+        )?;
         statements
             .insert_claim
             .execute((entity_id, HERITAGE_PROPERTY, designation.as_str()))
@@ -205,7 +201,11 @@ pub fn persist_claims(
         let mut known_pois = HashSet::new();
 
         for claim in claims {
-            persist_entity(&mut statements.insert_entity, claim.entity_id.as_str())?;
+            persist_entity(
+                &mut statements.insert_entity,
+                claim.entity_id.as_str(),
+                "insert entity",
+            )?;
             persist_heritage_designations(
                 &mut statements,
                 claim.entity_id.as_str(),
