@@ -46,15 +46,31 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
             source,
         })?;
 
+    create_core_tables(&transaction)?;
+    create_indexes(&transaction)?;
+    create_views(&transaction)?;
+    ensure_schema_version(&transaction)?;
+
+    transaction
+        .commit()
+        .map_err(|source| ClaimsSchemaError::Migration {
+            step: "commit schema transaction",
+            source,
+        })?;
+
+    Ok(())
+}
+
+fn create_core_tables(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
-        &transaction,
+        transaction,
         "create wikidata_entities",
         "CREATE TABLE IF NOT EXISTS wikidata_entities (
             entity_id TEXT PRIMARY KEY CHECK (length(trim(entity_id)) > 0)
         ) WITHOUT ROWID",
     )?;
     run_migration_step(
-        &transaction,
+        transaction,
         "create poi_wikidata_links",
         "CREATE TABLE IF NOT EXISTS poi_wikidata_links (
             poi_id INTEGER NOT NULL,
@@ -65,7 +81,7 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
         ) WITHOUT ROWID",
     )?;
     run_migration_step(
-        &transaction,
+        transaction,
         "create wikidata_entity_claims",
         "CREATE TABLE IF NOT EXISTS wikidata_entity_claims (
             entity_id TEXT NOT NULL,
@@ -75,21 +91,27 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
             FOREIGN KEY (entity_id) REFERENCES wikidata_entities(entity_id) ON DELETE CASCADE,
             FOREIGN KEY (value_entity_id) REFERENCES wikidata_entities(entity_id) ON DELETE CASCADE
         ) WITHOUT ROWID",
-    )?;
+    )
+}
+
+fn create_indexes(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
-        &transaction,
+        transaction,
         "index wikidata_entity_claims",
         "CREATE INDEX IF NOT EXISTS idx_wikidata_entity_claims_property
             ON wikidata_entity_claims(property_id, value_entity_id, entity_id)",
     )?;
     run_migration_step(
-        &transaction,
+        transaction,
         "index poi_wikidata_links",
         "CREATE INDEX IF NOT EXISTS idx_poi_wikidata_links_entity
             ON poi_wikidata_links(entity_id, poi_id)",
-    )?;
+    )
+}
+
+fn create_views(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
-        &transaction,
+        transaction,
         "create poi_wikidata_claims view",
         "CREATE VIEW IF NOT EXISTS poi_wikidata_claims AS
             SELECT
@@ -100,9 +122,12 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
             FROM poi_wikidata_links AS links
             JOIN wikidata_entity_claims AS claims
                 ON claims.entity_id = links.entity_id",
-    )?;
+    )
+}
+
+fn ensure_schema_version(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
-        &transaction,
+        transaction,
         "create schema version table",
         "CREATE TABLE IF NOT EXISTS wikidata_schema_version (
             version INTEGER PRIMARY KEY CHECK (version > 0),
@@ -142,13 +167,6 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
                 })?;
         }
     }
-
-    transaction
-        .commit()
-        .map_err(|source| ClaimsSchemaError::Migration {
-            step: "commit schema transaction",
-            source,
-        })?;
 
     Ok(())
 }
