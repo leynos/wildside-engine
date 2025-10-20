@@ -1,5 +1,7 @@
-//! Persist Wikidata entity links and heritage claims into SQLite with
-//! idempotent writes.
+//! Persist Wikidata entities, POI links, and heritage claims into SQLite using
+//! a single transaction with idempotent statement execution. The helpers in
+//! this module encapsulate the cached statement lifecycle so callers can load
+//! batches of claims without duplicating insert guards or foreign key checks.
 #![forbid(unsafe_code)]
 
 use std::{

@@ -1,4 +1,8 @@
-//! Wikidata claims schema: tables, indexes, views, and schema versioning.
+//! Define and maintain the Wikidata claims schema.
+//! The module creates entity/link tables, supporting indexes and views, and the
+//! schema version record used to detect migration drift.
+//! The functions coordinate their work inside a transaction so partially
+//! applied schema changes are rolled back on failure.
 #![forbid(unsafe_code)]
 
 use rusqlite::{Connection, Error as SqliteError, OptionalExtension};
