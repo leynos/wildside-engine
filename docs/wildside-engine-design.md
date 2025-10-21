@@ -404,6 +404,30 @@ sequenceDiagram
     extract_linked_entity_claims-->>Caller: Ok(Vec<EntityClaims>)
 ```
 
+#### 1.2.3. SQLite schema for Wikidata claims
+
+The extracted claims are stored in the shared `pois.db` database via the
+`wildside_data::wikidata::store` module. Schema initialisation is handled by
+the `initialise_schema` function, which enables foreign keys and creates a
+compact set of normalised tables:
+
+- `wikidata_entities` contains every entity identifier appearing in the dump.
+- `poi_wikidata_links` maps POI ids to their linked Wikidata entities and
+  enforces referential integrity against the existing `pois` table.
+- `wikidata_entity_claims` stores statement triples for each entity, keyed by
+  `(entity_id, property_id, value_entity_id)`. The first use case captures
+  `P1435` heritage designations, but the schema supports future properties.
+
+Indexes on `poi_wikidata_links(entity_id, poi_id)` and
+`wikidata_entity_claims(property_id, value_entity_id, entity_id)` keep POI and
+property lookups fast. A view named `poi_wikidata_claims` joins both tables so
+the scoring pipeline can resolve a POI's claims without handwritten joins. A
+`wikidata_schema_version` table records the schema version (`1` initially) so
+future migrations can detect outdated installations. Claim persistence performs
+idempotent inserts and verifies that every referenced POI exists before
+linking; missing POIs raise an explicit `MissingPoi` error rather than failing
+deep in SQLite.
+
 #### Table 2: Comparative Analysis of Wikidata Interaction Strategies
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
