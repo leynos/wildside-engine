@@ -32,7 +32,7 @@ pub const SCHEMA_VERSION: i64 = 1;
 ///
 /// let version: i64 = conn
 ///     .query_row(
-///         "SELECT version FROM wikidata_schema_version LIMIT 1",
+///         "SELECT version FROM wikidata_schema_version ORDER BY version DESC LIMIT 1",
 ///         [],
 ///         |row| row.get(0),
 ///     )
@@ -142,7 +142,7 @@ fn ensure_schema_version(transaction: &Transaction<'_>) -> Result<(), ClaimsSche
 
     let existing_version: Option<i64> = transaction
         .query_row(
-            "SELECT version FROM wikidata_schema_version LIMIT 1",
+            "SELECT version FROM wikidata_schema_version ORDER BY version DESC LIMIT 1",
             [],
             |row| row.get(0),
         )

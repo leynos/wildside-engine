@@ -26,27 +26,32 @@ struct PreparedStatements<'conn> {
 impl<'conn> PreparedStatements<'conn> {
     fn prepare(transaction: &'conn Transaction<'conn>) -> Result<Self, PersistClaimsError> {
         let insert_entity = transaction
-            .prepare_cached("INSERT OR IGNORE INTO wikidata_entities (entity_id) VALUES (?1)")
+            .prepare_cached(concat!(
+                "INSERT INTO wikidata_entities (entity_id) VALUES (?1) ",
+                "ON CONFLICT(entity_id) DO NOTHING",
+            ))
             .map_err(|source| PersistClaimsError::Sqlite {
                 operation: "prepare insert entity",
                 source,
             })?;
         let insert_link = transaction
-            .prepare_cached(
-                "INSERT OR IGNORE INTO poi_wikidata_links (poi_id, entity_id) VALUES (?1, ?2)",
-            )
+            .prepare_cached(concat!(
+                "INSERT INTO poi_wikidata_links (poi_id, entity_id) VALUES (?1, ?2) ",
+                "ON CONFLICT(poi_id, entity_id) DO NOTHING",
+            ))
             .map_err(|source| PersistClaimsError::Sqlite {
                 operation: "prepare link POI",
                 source,
             })?;
         let insert_claim = transaction
-            .prepare_cached(
-                "INSERT OR IGNORE INTO wikidata_entity_claims (
-                    entity_id,
-                    property_id,
-                    value_entity_id
-                ) VALUES (?1, ?2, ?3)",
-            )
+            .prepare_cached(concat!(
+                "INSERT INTO wikidata_entity_claims (\n",
+                "    entity_id,\n",
+                "    property_id,\n",
+                "    value_entity_id\n",
+                ") VALUES (?1, ?2, ?3)\n",
+                "ON CONFLICT(entity_id, property_id, value_entity_id) DO NOTHING",
+            ))
             .map_err(|source| PersistClaimsError::Sqlite {
                 operation: "prepare insert claim",
                 source,
