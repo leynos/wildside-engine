@@ -5,7 +5,7 @@
 //! applied schema changes are rolled back on failure.
 #![forbid(unsafe_code)]
 
-use rusqlite::{Connection, Error as SqliteError, OptionalExtension};
+use rusqlite::{Connection, Error as SqliteError, OptionalExtension, Transaction};
 use thiserror::Error;
 
 pub const SCHEMA_VERSION: i64 = 1;
@@ -66,7 +66,7 @@ pub fn initialise_schema(connection: &mut Connection) -> Result<(), ClaimsSchema
     Ok(())
 }
 
-fn create_core_tables(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
+fn create_core_tables(transaction: &Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
         transaction,
         "create wikidata_entities",
@@ -99,7 +99,7 @@ fn create_core_tables(transaction: &rusqlite::Transaction<'_>) -> Result<(), Cla
     )
 }
 
-fn create_indexes(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
+fn create_indexes(transaction: &Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
         transaction,
         "index wikidata_entity_claims",
@@ -114,7 +114,7 @@ fn create_indexes(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsS
     )
 }
 
-fn create_views(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
+fn create_views(transaction: &Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
         transaction,
         "create poi_wikidata_claims view",
@@ -130,7 +130,7 @@ fn create_views(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSch
     )
 }
 
-fn ensure_schema_version(transaction: &rusqlite::Transaction<'_>) -> Result<(), ClaimsSchemaError> {
+fn ensure_schema_version(transaction: &Transaction<'_>) -> Result<(), ClaimsSchemaError> {
     run_migration_step(
         transaction,
         "create schema version table",
@@ -177,7 +177,7 @@ fn ensure_schema_version(transaction: &rusqlite::Transaction<'_>) -> Result<(), 
 }
 
 fn run_migration_step(
-    transaction: &rusqlite::Transaction<'_>,
+    transaction: &Transaction<'_>,
     step: &'static str,
     sql: &str,
 ) -> Result<(), ClaimsSchemaError> {
