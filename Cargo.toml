@@ -13,8 +13,8 @@ edition = "2024"
 wildside-core = { path = "wildside-core" }
 log = "0.4.22"
 rstest = "0.26.1"
-rstest-bdd = "0.1.0-alpha4"
-rstest-bdd-macros = "0.1.0-alpha4"
+rstest-bdd = "0.1.0"
+rstest-bdd-macros = "0.1.0"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

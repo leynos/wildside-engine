@@ -1,6 +1,6 @@
 # Scenario order is validated by scenario_indices_follow_feature_order in
-# osm_ingest_behaviour.rs. rstest-bdd v0.1.0-alpha4 only exposes index-based
-# bindings, so keep this order stable when editing scenarios.
+# osm_ingest_behaviour.rs. rstest-bdd v0.1.0 still binds scenarios by index, so
+# keep this order stable when editing scenarios.
 Feature: ingesting OSM PBF data
 
   Scenario: summarising a known dataset
@@ -38,4 +38,3 @@ Feature: ingesting OSM PBF data
     Given a PBF file containing only irrelevant tags
     When I ingest the PBF file
     Then no points of interest are reported
-
