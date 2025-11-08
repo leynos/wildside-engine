@@ -4,7 +4,6 @@ use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::{
     cell::{Ref, RefCell},
-    fs,
     path::{Path, PathBuf},
 };
 use tempfile::TempPath;
@@ -352,47 +351,10 @@ fn decode_error(
     );
 }
 
-#[test]
-fn scenario_indices_follow_feature_order() {
-    // rstest-bdd v0.1.0-alpha4 only exposes index-based bindings.
-    // Guard the scenario order so edits to the feature file keep indices stable.
-    let feature =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/features/ingest_osm_pbf.feature");
-    let contents = fs::read_to_string(&feature).unwrap_or_else(|err| {
-        panic!("failed to read feature file {feature:?}: {err}");
-    });
-    let titles: Vec<String> = contents
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("Scenario: "))
-        .map(|title| title.to_owned())
-        .collect();
-    let expected = [
-        "summarising a known dataset",
-        "reporting a missing file",
-        "rejecting a corrupted dataset",
-        "extracting points of interest from tagged data",
-        "filtering irrelevant features from a mixed dataset",
-        "ignoring irrelevant tags",
-    ];
-    assert_eq!(
-        titles.len(),
-        expected.len(),
-        "scenario count changed in feature file: {titles:?}"
-    );
-    for (index, expected_title) in expected.iter().enumerate() {
-        let actual = titles.get(index).map(String::as_str);
-        assert_eq!(
-            actual,
-            Some(*expected_title),
-            "scenario at index {index} does not match feature order"
-        );
-    }
-}
-
 macro_rules! register_ingest_scenario {
-    ($name:ident, $index:literal) => {
-        #[scenario(path = "tests/features/ingest_osm_pbf.feature", index = $index)]
-        fn $name(
+    ($fn_name:ident, $scenario_title:literal) => {
+        #[scenario(path = "tests/features/ingest_osm_pbf.feature", name = $scenario_title)]
+        fn $fn_name(
             fixtures_dir: PathBuf,
             target_fixture: RefCell<Option<FixtureTarget>>,
             ingestion_result: RefCell<Option<Result<OsmIngestReport, OsmIngestError>>>,
@@ -405,9 +367,15 @@ macro_rules! register_ingest_scenario {
     };
 }
 
-register_ingest_scenario!(summarising_known_dataset, 0);
-register_ingest_scenario!(reporting_missing_files, 1);
-register_ingest_scenario!(rejecting_invalid_payloads, 2);
-register_ingest_scenario!(extracting_points_of_interest, 3);
-register_ingest_scenario!(filtering_irrelevant_features_from_mixed_dataset, 4);
-register_ingest_scenario!(ignoring_irrelevant_tags, 5);
+register_ingest_scenario!(summarising_known_dataset, "summarising a known dataset");
+register_ingest_scenario!(reporting_missing_files, "reporting a missing file");
+register_ingest_scenario!(rejecting_invalid_payloads, "rejecting a corrupted dataset");
+register_ingest_scenario!(
+    extracting_points_of_interest,
+    "extracting points of interest from tagged data"
+);
+register_ingest_scenario!(
+    filtering_irrelevant_features_from_mixed_dataset,
+    "filtering irrelevant features from a mixed dataset"
+);
+register_ingest_scenario!(ignoring_irrelevant_tags, "ignoring irrelevant tags");
