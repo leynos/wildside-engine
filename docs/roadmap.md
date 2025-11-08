@@ -78,8 +78,9 @@ core data structures of the engine.
 
 - **Develop Initial CLI**
 
-  - [ ] In `wildside-cli`, use the `clap` crate to define an `ingest`
+  - [ ] In `wildside-cli`, use the `ortho-config` crate to define an `ingest`
         command with arguments for the OSM PBF and Wikidata dump file paths.
+        (see `docs/ortho-config-users-guide.md`)
   - [ ] Implement the command's handler to orchestrate the full pipeline: call
         `ingest_osm_pbf`, then the Wikidata ETL process, and finally
         `build_spatial_index`, saving the resulting `pois.db` and `pois.rstar`
