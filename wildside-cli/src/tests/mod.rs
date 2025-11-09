@@ -1,4 +1,8 @@
-#![allow(clippy::panic)]
+//! Shared test harness modules for the ingest CLI.
+#![expect(
+    clippy::panic,
+    reason = "Tests assert panic branches to surface unexpected CLI outcomes"
+)]
 
 use super::*;
 

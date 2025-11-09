@@ -1,3 +1,5 @@
+//! Focused unit tests covering ingest CLI configuration validation.
+
 use super::*;
 use rstest::rstest;
 use std::{fs, path::PathBuf};
@@ -36,9 +38,10 @@ fn converting_without_required_fields_errors(
 
 #[rstest]
 fn validate_sources_reports_missing_files() {
+    let tmp = TempDir::new().expect("tempdir");
     let config = IngestConfig {
-        osm_pbf: PathBuf::from("/tmp/missing-osm"),
-        wikidata_dump: PathBuf::from("/tmp/missing-wiki"),
+        osm_pbf: tmp.path().join("missing-osm"),
+        wikidata_dump: tmp.path().join("missing-wiki"),
     };
     let err = config.validate_sources().expect_err("expected failure");
     match err {

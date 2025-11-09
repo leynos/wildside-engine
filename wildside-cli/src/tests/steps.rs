@@ -1,3 +1,5 @@
+//! Behaviour-driven step definitions driving the ingest CLI scenarios.
+
 use super::helpers::{DatasetFiles, LayerOverrides, merge_layers};
 use super::*;
 use rstest::fixture;

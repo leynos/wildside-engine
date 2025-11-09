@@ -13,11 +13,11 @@ path = "src/main.rs"
 clap = { version = "4.5.4", features = ["derive"] }
 eyre = "0.6"
 ortho_config = "0.6.0"
-serde = { version = "1", features = ["derive"] }
-thiserror = "1"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "1.0.69"
 
 [dev-dependencies]
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
-tempfile = "3"
+tempfile = "3.23.0"

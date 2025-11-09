@@ -1,3 +1,5 @@
+//! Test helpers for composing ingest CLI datasets and layered overrides.
+
 use super::*;
 use std::{
     fs,
@@ -75,17 +77,13 @@ pub(super) fn merge_layers(
 ) -> Result<IngestConfig, CliError> {
     merge_field(
         &mut cli_args.osm_pbf,
-        env_layer.as_ref().and_then(|layer| layer.osm_pbf.clone()),
-        file_layer.as_ref().and_then(|layer| layer.osm_pbf.clone()),
+        extract_field(&env_layer, |layer| &layer.osm_pbf),
+        extract_field(&file_layer, |layer| &layer.osm_pbf),
     );
     merge_field(
         &mut cli_args.wikidata_dump,
-        env_layer
-            .as_ref()
-            .and_then(|layer| layer.wikidata_dump.clone()),
-        file_layer
-            .as_ref()
-            .and_then(|layer| layer.wikidata_dump.clone()),
+        extract_field(&env_layer, |layer| &layer.wikidata_dump),
+        extract_field(&file_layer, |layer| &layer.wikidata_dump),
     );
     run_ingest(cli_args)
 }
@@ -96,4 +94,11 @@ fn merge_field<T: Clone>(target: &mut Option<T>, env_value: Option<T>, file_valu
     {
         *target = Some(value);
     }
+}
+
+fn extract_field<T: Clone>(
+    layer: &Option<LayerOverrides>,
+    accessor: fn(&LayerOverrides) -> &Option<T>,
+) -> Option<T> {
+    layer.as_ref().and_then(|entry| accessor(entry).clone())
 }
