@@ -49,6 +49,7 @@ enum Command {
     Ingest(IngestArgs),
 }
 
+/// CLI arguments for the `ingest` subcommand.
 #[derive(Debug, Clone, Parser, Deserialize, Serialize, OrthoConfig, Default)]
 #[command(
     long_about = "Define the artefact inputs for ingestion. Paths can come \
@@ -151,6 +152,12 @@ mod tests {
     };
     use tempfile::TempDir;
 
+    #[derive(Debug, Clone, Default)]
+    struct LayerOverrides {
+        osm_pbf: Option<PathBuf>,
+        wikidata_dump: Option<PathBuf>,
+    }
+
     #[rstest]
     #[case(None, Some(PathBuf::from("wikidata.json")), ARG_OSM_PBF, ENV_OSM_PBF)]
     #[case(
@@ -212,32 +219,70 @@ mod tests {
         RefCell::new(None)
     }
 
+    #[fixture]
+    fn config_layer() -> RefCell<Option<LayerOverrides>> {
+        RefCell::new(None)
+    }
+
+    #[fixture]
+    fn env_layer() -> RefCell<Option<LayerOverrides>> {
+        RefCell::new(None)
+    }
+
     struct DatasetFiles {
         _dir: TempDir,
-        osm: PathBuf,
-        wikidata: PathBuf,
+        cli_osm: PathBuf,
+        cli_wikidata: PathBuf,
+        config_osm: PathBuf,
+        config_wikidata: PathBuf,
+        env_wikidata: PathBuf,
     }
 
     impl DatasetFiles {
         fn new() -> Self {
             let dir = TempDir::new().expect("tempdir");
-            let osm = dir.path().join("sample.osm.pbf");
-            let wikidata = dir.path().join("wikidata.json.bz2");
-            fs::write(&osm, b"osm").expect("write osm");
-            fs::write(&wikidata, b"wikidata").expect("write wikidata");
+            let cli_osm = dir.path().join("cli.osm.pbf");
+            let cli_wikidata = dir.path().join("cli.wikidata.json.bz2");
+            let config_osm = dir.path().join("config.osm.pbf");
+            let config_wikidata = dir.path().join("config.wikidata.json.bz2");
+            let env_wikidata = dir.path().join("env.wikidata.json.bz2");
+            for path in [
+                &cli_osm,
+                &cli_wikidata,
+                &config_osm,
+                &config_wikidata,
+                &env_wikidata,
+            ] {
+                fs::write(path, b"dataset contents").expect("write dataset file");
+            }
             Self {
                 _dir: dir,
-                osm,
-                wikidata,
+                cli_osm,
+                cli_wikidata,
+                config_osm,
+                config_wikidata,
+                env_wikidata,
             }
         }
 
         fn osm(&self) -> &Path {
-            &self.osm
+            &self.cli_osm
         }
 
         fn wikidata(&self) -> &Path {
-            &self.wikidata
+            &self.cli_wikidata
+        }
+
+        fn config_osm(&self) -> &Path {
+            &self.config_osm
+        }
+
+        fn config_wikidata(&self) -> &Path {
+            &self.config_wikidata
+        }
+
+        fn env_wikidata(&self) -> &Path {
+            &self.env_wikidata
         }
     }
 
@@ -259,21 +304,71 @@ mod tests {
     }
 
     #[given("I omit all dataset configuration")]
-    fn omit_configuration(#[from(cli_args)] args: &RefCell<Vec<String>>) {
+    fn omit_configuration(
+        #[from(cli_args)] args: &RefCell<Vec<String>>,
+        #[from(config_layer)] config: &RefCell<Option<LayerOverrides>>,
+        #[from(env_layer)] env_layer: &RefCell<Option<LayerOverrides>>,
+    ) {
         args.borrow_mut().clear();
+        *config.borrow_mut() = None;
+        *env_layer.borrow_mut() = None;
+    }
+
+    #[given("the dataset file paths are provided via a config file")]
+    fn provided_via_config(
+        #[from(dataset_files)] dataset: &DatasetFiles,
+        #[from(config_layer)] config: &RefCell<Option<LayerOverrides>>,
+    ) {
+        *config.borrow_mut() = Some(LayerOverrides {
+            osm_pbf: Some(dataset.config_osm().to_path_buf()),
+            wikidata_dump: Some(dataset.config_wikidata().to_path_buf()),
+        });
+    }
+
+    #[given("the Wikidata path is overridden via environment variables")]
+    fn wikidata_overridden_by_env(
+        #[from(dataset_files)] dataset: &DatasetFiles,
+        #[from(env_layer)] env_layer: &RefCell<Option<LayerOverrides>>,
+    ) {
+        *env_layer.borrow_mut() = Some(LayerOverrides {
+            wikidata_dump: Some(dataset.env_wikidata().to_path_buf()),
+            ..LayerOverrides::default()
+        });
+    }
+
+    #[given("I pass only the OSM CLI flag")]
+    fn cli_only_osm(
+        #[from(dataset_files)] dataset: &DatasetFiles,
+        #[from(cli_args)] args: &RefCell<Vec<String>>,
+    ) {
+        let mut guard = args.borrow_mut();
+        guard.extend([
+            format!("--{ARG_OSM_PBF}"),
+            dataset.osm().display().to_string(),
+        ]);
     }
 
     #[when("I configure the ingest command")]
     fn configure_ingest(
         #[from(cli_args)] args: &RefCell<Vec<String>>,
         #[from(cli_result)] result: &RefCell<Option<Result<IngestConfig, CliError>>>,
+        #[from(config_layer)] config: &RefCell<Option<LayerOverrides>>,
+        #[from(env_layer)] env_layer: &RefCell<Option<LayerOverrides>>,
     ) {
         let mut invocation = vec!["wildside".to_string(), "ingest".to_string()];
         invocation.extend(args.borrow().iter().cloned());
+        let file_layer = config.borrow().clone();
+        let env_layer = env_layer.borrow().clone();
         let outcome = Cli::try_parse_from(invocation)
             .map_err(CliError::ArgumentParsing)
             .and_then(|cli| match cli.command {
-                Command::Ingest(cmd) => run_ingest(cmd),
+                Command::Ingest(cmd) => {
+                    if file_layer.is_some() || env_layer.is_some() {
+                        merge_layers(cmd, file_layer, env_layer)
+                    } else {
+                        run_ingest(cmd)
+                    }
+                }
             });
         *result.borrow_mut() = Some(outcome);
     }
@@ -309,24 +404,72 @@ mod tests {
         }
     }
 
+    #[then("CLI and environment layers override configuration defaults")]
+    fn precedence_holds(
+        #[from(cli_result)] result: &RefCell<Option<Result<IngestConfig, CliError>>>,
+        #[from(dataset_files)] dataset: &DatasetFiles,
+    ) {
+        let borrowed = result.borrow();
+        let config = borrowed
+            .as_ref()
+            .expect("result recorded")
+            .as_ref()
+            .expect("expected success");
+        assert_eq!(config.osm_pbf, dataset.osm().to_path_buf());
+        assert_eq!(config.wikidata_dump, dataset.env_wikidata().to_path_buf());
+    }
+
     macro_rules! register_ingest_scenario {
         ($fn_name:ident, $scenario_title:literal) => {
-            #[scenario(
-                                                    path = "tests/features/ingest_command.feature",
-                                                    name = $scenario_title
-                                                )]
+            #[scenario(path = "tests/features/ingest_command.feature", name = $scenario_title)]
             fn $fn_name(
                 #[from(dataset_files)] dataset: DatasetFiles,
                 #[from(cli_args)] args: RefCell<Vec<String>>,
                 #[from(cli_result)] result: RefCell<Option<Result<IngestConfig, CliError>>>,
+                #[from(config_layer)] config: RefCell<Option<LayerOverrides>>,
+                #[from(env_layer)] env_layer: RefCell<Option<LayerOverrides>>,
             ) {
                 let _ = dataset;
                 let _ = args;
                 let _ = result;
+                let _ = config;
+                let _ = env_layer;
             }
         };
     }
 
     register_ingest_scenario!(cli_flag_selection, "selecting dataset paths via CLI flags");
     register_ingest_scenario!(rejecting_missing_args, "rejecting missing arguments");
+    register_ingest_scenario!(
+        layering_cli_config_env,
+        "layering CLI, config file, and environment values"
+    );
+
+    fn merge_layers(
+        mut cli_args: IngestArgs,
+        file_layer: Option<LayerOverrides>,
+        env_layer: Option<LayerOverrides>,
+    ) -> Result<IngestConfig, CliError> {
+        if cli_args.osm_pbf.is_none() {
+            if let Some(env) = env_layer.as_ref().and_then(|layer| layer.osm_pbf.clone()) {
+                cli_args.osm_pbf = Some(env);
+            } else if let Some(file) = file_layer.as_ref().and_then(|layer| layer.osm_pbf.clone()) {
+                cli_args.osm_pbf = Some(file);
+            }
+        }
+        if cli_args.wikidata_dump.is_none() {
+            if let Some(env) = env_layer
+                .as_ref()
+                .and_then(|layer| layer.wikidata_dump.clone())
+            {
+                cli_args.wikidata_dump = Some(env);
+            } else if let Some(file) = file_layer
+                .as_ref()
+                .and_then(|layer| layer.wikidata_dump.clone())
+            {
+                cli_args.wikidata_dump = Some(file);
+            }
+        }
+        run_ingest(cli_args)
+    }
 }
