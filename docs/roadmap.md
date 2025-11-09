@@ -78,7 +78,7 @@ core data structures of the engine.
 
 - **Develop Initial CLI**
 
-  - [ ] In `wildside-cli`, use the `ortho-config` crate to define an `ingest`
+  - [x] In `wildside-cli`, use the `ortho-config` crate to define an `ingest`
         command with arguments for the OSM PBF and Wikidata dump file paths.
         (see `docs/ortho-config-users-guide.md`)
   - [ ] Implement the command's handler to orchestrate the full pipeline: call

@@ -53,7 +53,7 @@ providing a stable vocabulary across crates.
 - `PoiStore` abstracts read-only POI access. The
   <!-- markdownlint-disable-next-line MD013 -->
   `get_pois_in_bbox(&self, bbox: &geo::Rect<f64>) -> Box<dyn Iterator<Item = PointOfInterest> + Send + '_>`
-  method returns all POIs inside an axis-aligned bounding box (WGS84;
+   method returns all POIs inside an axis-aligned bounding box (WGS84;
   `x = longitude`, `y = latitude`). The full semantics are documented in
   [`wildside_core::store::PoiStore`](../wildside-core/src/store.rs); indexing
   strategy is left to implementers.
@@ -74,7 +74,7 @@ providing a stable vocabulary across crates.
   slice of POIs via
   <!-- markdownlint-disable-next-line MD013 -->
   `get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
-  The method returns an error if called with an empty slice, ensuring callers
+   The method returns an error if called with an empty slice, ensuring callers
   validate inputs before requesting travel times.
 
 - `Scorer` converts a `PointOfInterest` and an `InterestProfile` into a `f32`
@@ -603,6 +603,15 @@ clear boundaries while allowing for atomic changes across crates when necessary.
   - `ingest`: Runs the full ETL pipeline from `wildside-data` to build
     the necessary data artefacts.
 
+    The command now uses `ortho-config` to fan in configuration sources. The
+    `--osm-pbf` and `--wikidata-dump` flags map to
+    `WILDSIDE_CMDS_INGEST_OSM_PBF` and `WILDSIDE_CMDS_INGEST_WIKIDATA_DUMP`
+    environment variables, so CI pipelines and operators can set defaults once
+    rather than repeating long paths. Until the downstream orchestration hooks
+    are implemented, the CLI validates that both files exist and surfaces clear
+    `MissingArgument` or `MissingSourceFile` errors. This keeps the UX stable
+    while further pipeline work completes.
+
   - (Planned) `score`: Triggers the batch computation of global popularity
     scores.
 
@@ -743,7 +752,7 @@ This is handled by the synchronous `TravelTimeProvider` trait defined in
 `wildside-core`. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
 `fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
-Keeping the solver synchronous preserves object safety and makes the core
+ Keeping the solver synchronous preserves object safety and makes the core
 embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an
