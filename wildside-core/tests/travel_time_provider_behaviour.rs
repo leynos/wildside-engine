@@ -110,19 +110,23 @@ fn assert_unit_matrix(matrix: &TravelTimeMatrix, expected: usize) {
         for (j, &cell) in row.iter().enumerate() {
             if i == j {
                 assert_eq!(cell, Duration::ZERO, "expected diagonal to be zero");
-            } else {
-                assert_eq!(
-                    cell,
-                    Duration::from_secs(1),
-                    "expected off-diagonal to be one second",
-                );
-                if j > i {
-                    assert_eq!(
-                        cell, matrix[j][i],
-                        "expected symmetry at ({i},{j}) and ({j},{i})",
-                    );
-                }
+                continue;
             }
+
+            assert_eq!(
+                cell,
+                Duration::from_secs(1),
+                "expected off-diagonal to be one second",
+            );
+
+            if j <= i {
+                continue;
+            }
+
+            assert_eq!(
+                cell, matrix[j][i],
+                "expected symmetry at ({i},{j}) and ({j},{i})",
+            );
         }
     }
 }
