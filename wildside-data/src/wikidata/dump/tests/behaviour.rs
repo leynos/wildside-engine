@@ -9,15 +9,7 @@ use tempfile::TempDir;
 
 const SAMPLE_ARCHIVE: &[u8] = b"sample";
 
-#[fixture]
-fn stub_source() -> RefCell<Option<StubSource>> {
-    RefCell::new(None)
-}
-
-#[fixture]
-fn download_result() -> RefCell<Option<Result<DownloadReport, WikidataDumpError>>> {
-    RefCell::new(None)
-}
+type DownloadResultCell = RefCell<Option<Result<DownloadReport, WikidataDumpError>>>;
 
 #[fixture]
 fn working_dir() -> TempDir {
@@ -27,14 +19,35 @@ fn working_dir() -> TempDir {
     }
 }
 
-#[fixture]
-fn output_path() -> RefCell<Option<PathBuf>> {
-    RefCell::new(None)
+#[derive(Default)]
+struct DumpScenarioContext {
+    stub_source: RefCell<Option<StubSource>>,
+    download_result: DownloadResultCell,
+    output_path: RefCell<Option<PathBuf>>,
+    log_handle: RefCell<Option<DownloadLog>>,
+}
+
+impl DumpScenarioContext {
+    fn stub_source(&self) -> &RefCell<Option<StubSource>> {
+        &self.stub_source
+    }
+
+    fn download_result(&self) -> &DownloadResultCell {
+        &self.download_result
+    }
+
+    fn output_path(&self) -> &RefCell<Option<PathBuf>> {
+        &self.output_path
+    }
+
+    fn log_handle(&self) -> &RefCell<Option<DownloadLog>> {
+        &self.log_handle
+    }
 }
 
 #[fixture]
-fn log_handle() -> RefCell<Option<DownloadLog>> {
-    RefCell::new(None)
+fn dump_context() -> DumpScenarioContext {
+    DumpScenarioContext::default()
 }
 
 fn build_manifest_with_dump() -> Vec<u8> {
@@ -72,16 +85,16 @@ fn build_manifest_without_dump() -> Vec<u8> {
 }
 
 #[given("a dump status manifest containing a JSON dump")]
-fn manifest_with_dump(#[from(stub_source)] source: &RefCell<Option<StubSource>>) {
-    *source.borrow_mut() = Some(StubSource::with_manifest(
+fn manifest_with_dump(#[from(dump_context)] ctx: &DumpScenarioContext) {
+    *ctx.stub_source().borrow_mut() = Some(StubSource::with_manifest(
         build_manifest_with_dump(),
         SAMPLE_ARCHIVE.to_vec(),
     ));
 }
 
 #[given("a dump status manifest missing the JSON dump")]
-fn manifest_without_dump(#[from(stub_source)] source: &RefCell<Option<StubSource>>) {
-    *source.borrow_mut() = Some(StubSource::with_manifest(
+fn manifest_without_dump(#[from(dump_context)] ctx: &DumpScenarioContext) {
+    *ctx.stub_source().borrow_mut() = Some(StubSource::with_manifest(
         build_manifest_without_dump(),
         SAMPLE_ARCHIVE.to_vec(),
     ));
@@ -90,64 +103,54 @@ fn manifest_without_dump(#[from(stub_source)] source: &RefCell<Option<StubSource
 #[given("a writable output directory")]
 fn writable_output(
     #[from(working_dir)] dir: &TempDir,
-    #[from(output_path)] target: &RefCell<Option<PathBuf>>,
+    #[from(dump_context)] ctx: &DumpScenarioContext,
 ) {
-    *target.borrow_mut() = Some(dir.path().join("wikidata-latest.json.bz2"));
+    *ctx.output_path().borrow_mut() = Some(dir.path().join("wikidata-latest.json.bz2"));
 }
 
 #[given("a download log target")]
 fn download_log_target(
     #[from(working_dir)] dir: &TempDir,
-    #[from(log_handle)] log_cell: &RefCell<Option<DownloadLog>>,
+    #[from(dump_context)] ctx: &DumpScenarioContext,
 ) {
     let path = dir.path().join("downloads.sqlite");
     let log = match DownloadLog::initialise(&path) {
         Ok(log) => log,
         Err(err) => panic!("log initialisation failed: {err}"),
     };
-    *log_cell.borrow_mut() = Some(log);
+    *ctx.log_handle().borrow_mut() = Some(log);
 }
 
 #[when("I download the latest dump")]
 fn download_latest(
-    #[from(stub_source)] source_cell: &RefCell<Option<StubSource>>,
-    #[from(output_path)] output_cell: &RefCell<Option<PathBuf>>,
-    #[from(log_handle)] log_cell: &RefCell<Option<DownloadLog>>,
-    #[from(download_result)] result_cell: &RefCell<
-        Option<Result<DownloadReport, WikidataDumpError>>,
-    >,
+    #[from(dump_context)] ctx: &DumpScenarioContext,
+    #[from(working_dir)] _dir: &TempDir,
 ) {
-    let source_borrow = source_cell.borrow();
+    let source_borrow = ctx.stub_source().borrow();
     let stub = source_borrow
         .as_ref()
         .unwrap_or_else(|| panic!("stub source must be initialised"));
     let output_path = {
-        let borrowed = output_cell.borrow();
+        let borrowed = ctx.output_path().borrow();
         borrowed
             .as_ref()
             .cloned()
             .unwrap_or_else(|| panic!("output path must be prepared"))
     };
-    let log_borrow = log_cell.borrow();
+    let log_borrow = ctx.log_handle().borrow();
     let log_ref = log_borrow.as_ref();
     let outcome = block_on_for_tests(download_latest_dump(stub, &output_path, log_ref, false));
-    *result_cell.borrow_mut() = Some(outcome);
+    *ctx.download_result().borrow_mut() = Some(outcome);
 }
 
 #[then("the archive is written to disk")]
-fn archive_written(
-    #[from(stub_source)] source_cell: &RefCell<Option<StubSource>>,
-    #[from(output_path)] output_cell: &RefCell<Option<PathBuf>>,
-    #[from(download_result)] result_cell: &RefCell<
-        Option<Result<DownloadReport, WikidataDumpError>>,
-    >,
-) {
-    let source_borrow = source_cell.borrow();
+fn archive_written(#[from(dump_context)] ctx: &DumpScenarioContext) {
+    let source_borrow = ctx.stub_source().borrow();
     let expected = source_borrow
         .as_ref()
         .map(StubSource::archive)
         .unwrap_or_else(|| panic!("stub source must be initialised"));
-    let result_borrow = result_cell.borrow();
+    let result_borrow = ctx.download_result().borrow();
     let outcome = result_borrow
         .as_ref()
         .unwrap_or_else(|| panic!("download result must be captured"));
@@ -155,13 +158,12 @@ fn archive_written(
         Ok(report) => report,
         Err(err) => panic!("download should succeed: {err}"),
     };
-    let output_path = {
-        let borrowed = output_cell.borrow();
-        borrowed
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| panic!("output path must be prepared"))
-    };
+    let output_path = ctx
+        .output_path()
+        .borrow()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| panic!("output path must be prepared"));
     let contents = match fs::read(&output_path) {
         Ok(bytes) => bytes,
         Err(err) => panic!("failed to read downloaded archive: {err}"),
@@ -171,8 +173,8 @@ fn archive_written(
 }
 
 #[then("the download log records an entry")]
-fn log_records_entry(#[from(log_handle)] log_cell: &RefCell<Option<DownloadLog>>) {
-    let log_borrow = log_cell.borrow();
+fn log_records_entry(#[from(dump_context)] ctx: &DumpScenarioContext) {
+    let log_borrow = ctx.log_handle().borrow();
     let log = log_borrow
         .as_ref()
         .unwrap_or_else(|| panic!("download log should be initialised"));
@@ -187,12 +189,8 @@ fn log_records_entry(#[from(log_handle)] log_cell: &RefCell<Option<DownloadLog>>
 }
 
 #[then("an error about the missing dump is returned")]
-fn missing_dump_error(
-    #[from(download_result)] result_cell: &RefCell<
-        Option<Result<DownloadReport, WikidataDumpError>>,
-    >,
-) {
-    let result_borrow = result_cell.borrow();
+fn missing_dump_error(#[from(dump_context)] ctx: &DumpScenarioContext) {
+    let result_borrow = ctx.download_result().borrow();
     let outcome = result_borrow
         .as_ref()
         .unwrap_or_else(|| panic!("download result must be captured"));
@@ -238,20 +236,8 @@ fn scenario_indices_follow_feature_order() {
 macro_rules! register_scenario {
     ($name:ident, $index:literal) => {
         #[scenario(path = "tests/features/download_wikidata_dump.feature", index = $index)]
-        fn $name(
-            stub_source: RefCell<Option<StubSource>>,
-            download_result: RefCell<Option<Result<DownloadReport, WikidataDumpError>>>,
-            working_dir: TempDir,
-            output_path: RefCell<Option<PathBuf>>,
-            log_handle: RefCell<Option<DownloadLog>>,
-        ) {
-            let _ = (
-                stub_source,
-                download_result,
-                working_dir,
-                output_path,
-                log_handle,
-            );
+        fn $name(#[from(dump_context)] context: DumpScenarioContext, working_dir: TempDir) {
+            let _ = (context, working_dir);
         }
     };
 }
