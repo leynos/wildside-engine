@@ -3,7 +3,7 @@
 APP ?= wildside-engine
 CARGO ?= cargo
 BUILD_JOBS ?=
-CLIPPY_FLAGS ?= --all-targets --all-features -- -D warnings
+CLIPPY_FLAGS ?= --workspace --all-targets --all-features -- -D warnings
 MDLINT ?= markdownlint
 NIXIE ?= nixie
 
