@@ -13,6 +13,7 @@ use wildside_core::{
 
 /// Provides shared state for SQLite store scenarios so functions keep a small
 /// and readable argument surface.
+#[derive(Debug)]
 struct PoiStoreWorld {
     temp_dir: TempDir,
     dataset: RefCell<Vec<PointOfInterest>>,

@@ -8,6 +8,7 @@ use std::cell::RefCell;
 
 /// Aggregates ingest CLI scenario state so each step only needs a single world
 /// argument, keeping clippy's arity checks satisfied and the fixtures readable.
+#[derive(Debug)]
 struct IngestWorld {
     dataset_files: DatasetFiles,
     cli_args: RefCell<Vec<String>>,

@@ -19,7 +19,7 @@ fn working_dir() -> TempDir {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DumpScenarioContext {
     stub_source: RefCell<Option<StubSource>>,
     download_result: DownloadResultCell,
