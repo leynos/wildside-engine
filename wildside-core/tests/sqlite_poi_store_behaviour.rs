@@ -135,6 +135,7 @@ fn open_store(world: &PoiStoreWorld) {
 }
 
 fn query_bbox_helper(world: &PoiStoreWorld, coords: (f64, f64, f64, f64)) {
+    assert_no_store_error(world);
     let (x1, y1, x2, y2) = coords;
     let bbox = bbox(x1, y1, x2, y2);
     let results = {
