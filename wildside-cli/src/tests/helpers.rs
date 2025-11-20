@@ -13,6 +13,7 @@ pub(super) struct LayerOverrides {
     pub(super) wikidata_dump: Option<PathBuf>,
 }
 
+#[derive(Debug)]
 pub(super) struct DatasetFiles {
     _dir: TempDir,
     cli_osm: PathBuf,

@@ -30,12 +30,16 @@ pub(super) struct OsmPoiAccumulator {
 impl OsmPoiAccumulator {
     pub(super) fn process_element(&mut self, element: Element<'_>) {
         match element {
-            Element::Node(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
-            }
-            Element::DenseNode(node) => {
-                self.process_node(node.id(), node.lon(), node.lat(), node.tags())
-            }
+            Element::Node(node) => self.process_node(
+                node.id(),
+                RawCoordinate::new(node.lon(), node.lat()),
+                node.tags(),
+            ),
+            Element::DenseNode(node) => self.process_node(
+                node.id(),
+                RawCoordinate::new(node.lon(), node.lat()),
+                node.tags(),
+            ),
             Element::Way(way) => self.process_way(way),
             Element::Relation(relation) => {
                 self.summary.record_relation();
@@ -45,11 +49,11 @@ impl OsmPoiAccumulator {
         }
     }
 
-    fn process_node<'a, T>(&mut self, raw_id: i64, lon: f64, lat: f64, tags_iter: T)
+    fn process_node<'a, T>(&mut self, raw_id: i64, coordinate: RawCoordinate, tags_iter: T)
     where
         T: IntoIterator<Item = (&'a str, &'a str)>,
     {
-        self.summary.record_node(lon, lat);
+        self.summary.record_node(coordinate.lon, coordinate.lat);
         let Some(encoded_id) = encode_element_id(OsmElementKind::Node, raw_id) else {
             return;
         };
@@ -65,20 +69,18 @@ impl OsmPoiAccumulator {
                     .as_mut()
                     .expect("relevant nodes initialise tag collection")
                     .insert(key.to_owned(), value.to_owned());
-            } else if is_relevant_key(key) {
+                continue;
+            }
+
+            if is_relevant_key(key) {
                 is_relevant = true;
-                let mut tags = PoiTags::new();
-                for (stored_key, stored_value) in staged.drain(..) {
-                    tags.insert(stored_key.to_owned(), stored_value.to_owned());
-                }
-                tags.insert(key.to_owned(), value.to_owned());
-                collected = Some(tags);
+                collected = Some(collect_relevant_tags(&mut staged, key, value));
             } else {
                 staged.push((key, value));
             }
         }
 
-        let Some(location) = validated_coord(lon, lat) else {
+        let Some(location) = validated_coord(coordinate.lon, coordinate.lat) else {
             if was_pending {
                 self.pending_way_nodes.remove(&encoded_id);
             }
@@ -194,6 +196,31 @@ struct WayCandidate {
     tags: PoiTags,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct RawCoordinate {
+    lon: f64,
+    lat: f64,
+}
+
+impl RawCoordinate {
+    const fn new(lon: f64, lat: f64) -> Self {
+        Self { lon, lat }
+    }
+}
+
+fn collect_relevant_tags<'a>(
+    staged: &mut Vec<(&'a str, &'a str)>,
+    key: &'a str,
+    value: &'a str,
+) -> PoiTags {
+    let mut tags = PoiTags::new();
+    for (stored_key, stored_value) in staged.drain(..) {
+        tags.insert(stored_key.to_owned(), stored_value.to_owned());
+    }
+    tags.insert(key.to_owned(), value.to_owned());
+    tags
+}
+
 pub(super) fn validated_coord(lon: f64, lat: f64) -> Option<Coord<f64>> {
     (lon.is_finite()
         && lat.is_finite()
@@ -221,7 +248,7 @@ mod tests {
         mut accumulator: OsmPoiAccumulator,
         #[case] tags: Vec<(&'static str, &'static str)>,
     ) {
-        accumulator.process_node(1, 13.4, 52.5, tags.iter().copied());
+        accumulator.process_node(1, RawCoordinate::new(13.4, 52.5), tags.iter().copied());
 
         let poi = accumulator
             .node_pois
@@ -243,7 +270,7 @@ mod tests {
         let encoded = encode_element_id(OsmElementKind::Node, 2).expect("id should encode");
         accumulator.pending_way_nodes.insert(encoded);
 
-        accumulator.process_node(2, 0.5, -0.5, tags.iter().copied());
+        accumulator.process_node(2, RawCoordinate::new(0.5, -0.5), tags.iter().copied());
 
         assert!(accumulator.nodes.contains_key(&encoded));
         assert!(accumulator.node_pois.is_empty());
@@ -261,7 +288,7 @@ mod tests {
         let encoded = encode_element_id(OsmElementKind::Node, 3).expect("id should encode");
         accumulator.pending_way_nodes.insert(encoded);
 
-        accumulator.process_node(3, lon, lat, [("tourism", "attraction")]);
+        accumulator.process_node(3, RawCoordinate::new(lon, lat), [("tourism", "attraction")]);
 
         assert!(!accumulator.nodes.contains_key(&encoded));
         assert!(accumulator.node_pois.is_empty());
