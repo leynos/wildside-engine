@@ -69,6 +69,15 @@ fn bbox(x1: f64, y1: f64, x2: f64, y2: f64) -> Rect<f64> {
     Rect::new(Coord { x: x1, y: y1 }, Coord { x: x2, y: y2 })
 }
 
+fn persist_dataset(world: &PoiStoreWorld, pois: Vec<PointOfInterest>) {
+    let db_path = world.temp_dir().path().join("pois.db");
+    let index_path = world.temp_dir().path().join("pois.rstar");
+    write_sqlite_database(&db_path, &pois).expect("persist database");
+    write_sqlite_spatial_index(&index_path, &pois).expect("persist index");
+    world.paths().replace(Some((db_path, index_path)));
+    world.dataset().replace(pois);
+}
+
 #[given("a temporary directory for SQLite artefacts")]
 fn given_temp_dir(world: &PoiStoreWorld) {
     let _ = world.temp_dir();
@@ -77,12 +86,7 @@ fn given_temp_dir(world: &PoiStoreWorld) {
 #[given("a SQLite POI dataset containing a point at the origin")]
 fn given_dataset(world: &PoiStoreWorld) {
     let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
-    let db_path = world.temp_dir().path().join("pois.db");
-    let index_path = world.temp_dir().path().join("pois.rstar");
-    write_sqlite_database(&db_path, std::slice::from_ref(&poi)).expect("persist database");
-    write_sqlite_spatial_index(&index_path, std::slice::from_ref(&poi)).expect("persist index");
-    world.paths().replace(Some((db_path, index_path)));
-    world.dataset().replace(vec![poi]);
+    persist_dataset(world, vec![poi]);
 }
 
 #[given("a SQLite POI dataset containing multiple points near the origin")]
@@ -92,12 +96,7 @@ fn given_multi_poi_dataset(world: &PoiStoreWorld) {
         PointOfInterest::with_empty_tags(2, Coord { x: 0.4, y: 0.4 }),
         PointOfInterest::with_empty_tags(3, Coord { x: 2.0, y: 2.0 }),
     ];
-    let db_path = world.temp_dir().path().join("pois.db");
-    let index_path = world.temp_dir().path().join("pois.rstar");
-    write_sqlite_database(&db_path, &pois).expect("persist database");
-    write_sqlite_spatial_index(&index_path, &pois).expect("persist index");
-    world.paths().replace(Some((db_path, index_path)));
-    world.dataset().replace(pois);
+    persist_dataset(world, pois);
 }
 
 #[given("a SQLite dataset whose index references a missing POI")]

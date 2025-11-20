@@ -56,7 +56,15 @@ fn world() -> IngestWorld {
 
 #[given("dataset files exist on disk")]
 fn dataset_exists(#[from(world)] world: &IngestWorld) {
-    let _ = world.dataset_files();
+    let dataset = world.dataset_files();
+    assert!(
+        dataset.osm().exists(),
+        "expected dataset files to exist on disk",
+    );
+    assert!(
+        dataset.wikidata().exists(),
+        "expected dataset files to exist on disk",
+    );
 }
 
 #[given("I pass the dataset file paths with CLI flags")]
