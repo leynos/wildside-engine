@@ -58,6 +58,14 @@ impl PoiStoreWorld {
     fn paths(&self) -> &RefCell<Option<(PathBuf, PathBuf)>> {
         &self.paths
     }
+
+    fn expect_paths(&self) -> (PathBuf, PathBuf) {
+        self.paths()
+            .borrow()
+            .as_ref()
+            .cloned()
+            .expect("paths should be initialised before opening the store")
+    }
 }
 
 #[fixture]
@@ -113,14 +121,7 @@ fn given_inconsistent_dataset(world: &PoiStoreWorld) {
 
 #[when("I open the SQLite POI store")]
 fn open_store(world: &PoiStoreWorld) {
-    let (db_path, index_path) = {
-        world
-            .paths()
-            .borrow()
-            .as_ref()
-            .cloned()
-            .expect("paths should be initialised before opening the store")
-    };
+    let (db_path, index_path) = world.expect_paths();
     match SqlitePoiStore::open(&db_path, &index_path) {
         Ok(store) => {
             world.store_holder().replace(Some(store));
@@ -146,6 +147,13 @@ fn query_bbox_helper(world: &PoiStoreWorld, coords: (f64, f64, f64, f64)) {
     world.query_results().replace(results);
 }
 
+fn assert_no_store_error(world: &PoiStoreWorld) {
+    assert!(
+        world.store_error().borrow().is_none(),
+        "unexpected store error",
+    );
+}
+
 #[when("I query the bbox covering the origin")]
 fn query_origin(world: &PoiStoreWorld) {
     query_bbox_helper(world, (-0.5, -0.5, 0.5, 0.5));
@@ -163,10 +171,7 @@ fn query_outside(world: &PoiStoreWorld) {
 
 #[then("one POI is returned from the SQLite store")]
 fn then_one_result(world: &PoiStoreWorld) {
-    assert!(
-        world.store_error().borrow().is_none(),
-        "unexpected store error"
-    );
+    assert_no_store_error(world);
     let expected = world.dataset().borrow();
     let results = world.query_results().borrow();
     assert_eq!(results.len(), 1, "expected exactly one POI");
@@ -175,10 +180,7 @@ fn then_one_result(world: &PoiStoreWorld) {
 
 #[then("no POIs are returned from the SQLite store")]
 fn then_no_results(world: &PoiStoreWorld) {
-    assert!(
-        world.store_error().borrow().is_none(),
-        "unexpected store error"
-    );
+    assert_no_store_error(world);
     assert!(
         world.query_results().borrow().is_empty(),
         "expected no POIs"
@@ -187,10 +189,7 @@ fn then_no_results(world: &PoiStoreWorld) {
 
 #[then("exactly two POIs are returned from the SQLite store")]
 fn then_two_results(world: &PoiStoreWorld) {
-    assert!(
-        world.store_error().borrow().is_none(),
-        "unexpected store error"
-    );
+    assert_no_store_error(world);
     let results = world.query_results().borrow();
     assert_eq!(results.len(), 2, "expected exactly two POIs");
     let ids: Vec<_> = results.iter().map(|poi| poi.id).collect();
