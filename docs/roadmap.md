@@ -75,6 +75,13 @@ core data structures of the engine.
         `P1435` for heritage status).
   - [x] Design and create a SQLite database schema (`pois.db`) to store these
         claims in an indexed and queryable format.
+  - [ ] Emit progress and metrics during ETL runs (entities scanned, matched,
+        inserted) and persist a summary log artefact.
+  - [ ] Record dump provenance (download timestamp, checksum, source URL) in
+        `pois.db` metadata tables and surface it via the CLI.
+  - [ ] Add a Postgres load step that migrates schema changes and bulk-loads
+        the enriched Wikidata attributes into `pois` (JSONB column or
+        auxiliary tables) from `pois.db`.
 
 - **Develop Initial CLI**
 

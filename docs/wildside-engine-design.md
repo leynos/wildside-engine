@@ -285,7 +285,9 @@ warnings so operators can investigate fixture gaps early.
 The `wikidata=*` tag is the "critical conduit" that transforms raw OSM data
 into rich, queryable knowledge. The most robust architecture for accessing this
 information is to create a local, high-performance copy of the necessary
-Wikidata information via an offline ETL (Extract, Transform, Load) pipeline.
+Wikidata information via an offline ETL (Extract, Transform, Load) pipeline. A
+detailed technical design for this ETL lives in
+`docs/wikidata-etl-pipeline-technical-design.md`.
 
 This approach involves periodically downloading the complete Wikidata JSON dump
 and loading it into a local, indexed database. A fast, parallel parser is
