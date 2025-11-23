@@ -92,6 +92,7 @@ fn provided_via_config(#[from(world)] world: &IngestWorld) {
     *world.config_layer().borrow_mut() = Some(LayerOverrides {
         osm_pbf: Some(dataset.config_osm().to_path_buf()),
         wikidata_dump: Some(dataset.config_wikidata().to_path_buf()),
+        ..LayerOverrides::default()
     });
 }
 
@@ -127,7 +128,7 @@ fn configure_ingest(#[from(world)] world: &IngestWorld) {
                 if file_layer.is_some() || env_layer.is_some() {
                     merge_layers(cmd, file_layer, env_layer)
                 } else {
-                    run_ingest(cmd)
+                    resolve_ingest_config(cmd)
                 }
             }
         });

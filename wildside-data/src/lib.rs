@@ -17,7 +17,8 @@ mod ingest;
 pub mod wikidata;
 
 pub use crate::ingest::{
-    OsmIngestError, OsmIngestReport, OsmIngestSummary, ingest_osm_pbf, ingest_osm_pbf_report,
+    OsmIngestError, OsmIngestReport, OsmIngestSummary, PersistPoisError, ingest_osm_pbf,
+    ingest_osm_pbf_report, persist_pois_to_sqlite,
 };
 
 #[cfg(test)]

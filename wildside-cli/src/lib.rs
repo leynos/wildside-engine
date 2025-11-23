@@ -1,17 +1,33 @@
 //! Command-line interface for Wildside's offline tooling.
 #![forbid(unsafe_code)]
 
+use bzip2::read::MultiBzDecoder;
 use clap::{Parser, Subcommand};
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
 use std::{
+    fs::File,
+    io::{BufReader, Read},
     path::{Path, PathBuf},
     sync::Arc,
 };
 use thiserror::Error;
+use wildside_core::{
+    PointOfInterest, build_spatial_index,
+    store::{SpatialIndexWriteError, write_spatial_index},
+};
+use wildside_data::wikidata::etl::{
+    EntityClaims, PoiEntityLinks, WikidataEtlError, extract_linked_entity_claims,
+};
+use wildside_data::wikidata::store::{PersistClaimsError, persist_claims_to_path};
+use wildside_data::{
+    OsmIngestError, OsmIngestSummary, PersistPoisError, ingest_osm_pbf_report,
+    persist_pois_to_sqlite,
+};
 
 const ARG_OSM_PBF: &str = "osm-pbf";
 const ARG_WIKIDATA_DUMP: &str = "wikidata-dump";
+const ARG_OUTPUT_DIR: &str = "output-dir";
 const ENV_OSM_PBF: &str = "WILDSIDE_CMDS_INGEST_OSM_PBF";
 const ENV_WIKIDATA_DUMP: &str = "WILDSIDE_CMDS_INGEST_WIKIDATA_DUMP";
 
@@ -20,17 +36,90 @@ pub fn run() -> Result<(), CliError> {
     let cli = Cli::try_parse().map_err(CliError::ArgumentParsing)?;
     match cli.command {
         Command::Ingest(args) => {
-            // Pipeline wiring pending; validation succeeds but result unused for now.
-            let _config = run_ingest(args)?;
+            let _outcome = run_ingest(args)?;
         }
     }
     Ok(())
 }
 
-fn run_ingest(args: IngestArgs) -> Result<IngestConfig, CliError> {
+fn run_ingest(args: IngestArgs) -> Result<IngestOutcome, CliError> {
+    let config = resolve_ingest_config(args)?;
+    execute_ingest(&config)
+}
+
+fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {
     let config = args.into_config()?;
     config.validate_sources()?;
     Ok(config)
+}
+
+fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
+    let artefacts = config.artefact_paths();
+    let report = ingest_osm_pbf_report(config.osm_pbf())?;
+
+    persist_pois_to_sqlite(artefacts.pois_db(), &report.pois).map_err(|source| {
+        CliError::PersistPois {
+            path: artefacts.pois_db().to_path_buf(),
+            source,
+        }
+    })?;
+
+    let claims = ingest_wikidata_claims(config, &report.pois)?;
+    persist_claims_to_path(artefacts.pois_db(), &claims).map_err(|source| {
+        CliError::PersistClaims {
+            path: artefacts.pois_db().to_path_buf(),
+            source,
+        }
+    })?;
+
+    let index = build_spatial_index(report.pois.iter().cloned());
+    let poi_count = report.pois.len();
+    let claims_count = claims.len();
+    write_spatial_index(artefacts.spatial_index(), &report.pois).map_err(|source| {
+        CliError::WriteSpatialIndex {
+            path: artefacts.spatial_index().to_path_buf(),
+            source,
+        }
+    })?;
+
+    Ok(IngestOutcome {
+        artefacts,
+        poi_count,
+        claims_count,
+        summary: report.summary,
+        index_size: index.len(),
+    })
+}
+
+fn ingest_wikidata_claims(
+    config: &IngestConfig,
+    pois: &[PointOfInterest],
+) -> Result<Vec<EntityClaims>, CliError> {
+    let links = PoiEntityLinks::from_pois(pois.iter());
+    if links.is_empty() {
+        return Ok(Vec::new());
+    }
+    let reader = open_wikidata_dump(config.wikidata_dump())?;
+    extract_linked_entity_claims(reader, &links).map_err(CliError::WikidataEtl)
+}
+
+fn open_wikidata_dump(path: &Path) -> Result<Box<dyn Read>, CliError> {
+    let file = File::open(path).map_err(|source| CliError::OpenWikidataDump {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if is_bz2(path) {
+        Ok(Box::new(MultiBzDecoder::new(file)))
+    } else {
+        Ok(Box::new(BufReader::new(file)))
+    }
+}
+
+fn is_bz2(path: &Path) -> bool {
+    path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("bz2"))
 }
 
 #[derive(Debug, Parser)]
@@ -68,6 +157,10 @@ struct IngestArgs {
     #[arg(long = ARG_WIKIDATA_DUMP, value_name = "path")]
     #[serde(default)]
     wikidata_dump: Option<PathBuf>,
+    /// Directory to write the generated artefacts.
+    #[arg(long = ARG_OUTPUT_DIR, value_name = "dir")]
+    #[serde(default)]
+    output_dir: Option<PathBuf>,
 }
 
 impl IngestArgs {
@@ -81,13 +174,34 @@ impl IngestArgs {
 struct IngestConfig {
     osm_pbf: PathBuf,
     wikidata_dump: PathBuf,
+    output_dir: PathBuf,
 }
 
 impl IngestConfig {
     fn validate_sources(&self) -> Result<(), CliError> {
         Self::require_existing(&self.osm_pbf, ARG_OSM_PBF)?;
         Self::require_existing(&self.wikidata_dump, ARG_WIKIDATA_DUMP)?;
+        if self.output_dir.exists() && !self.output_dir.is_dir() {
+            return Err(CliError::OutputDirectoryNotDirectory {
+                path: self.output_dir.clone(),
+            });
+        }
         Ok(())
+    }
+
+    fn artefact_paths(&self) -> ArtefactPaths {
+        ArtefactPaths::new(
+            self.output_dir.join("pois.db"),
+            self.output_dir.join("pois.rstar"),
+        )
+    }
+
+    fn osm_pbf(&self) -> &Path {
+        &self.osm_pbf
+    }
+
+    fn wikidata_dump(&self) -> &Path {
+        &self.wikidata_dump
     }
 
     fn require_existing(path: &Path, field: &'static str) -> Result<(), CliError> {
@@ -114,10 +228,61 @@ impl TryFrom<IngestArgs> for IngestConfig {
             field: ARG_WIKIDATA_DUMP,
             env: ENV_WIKIDATA_DUMP,
         })?;
+        let output_dir = args.output_dir.unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             osm_pbf,
             wikidata_dump,
+            output_dir,
         })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ArtefactPaths {
+    pois_db: PathBuf,
+    spatial_index: PathBuf,
+}
+
+impl ArtefactPaths {
+    fn new(pois_db: PathBuf, spatial_index: PathBuf) -> Self {
+        Self {
+            pois_db,
+            spatial_index,
+        }
+    }
+
+    fn pois_db(&self) -> &Path {
+        &self.pois_db
+    }
+
+    fn spatial_index(&self) -> &Path {
+        &self.spatial_index
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct IngestOutcome {
+    artefacts: ArtefactPaths,
+    poi_count: usize,
+    claims_count: usize,
+    summary: OsmIngestSummary,
+    index_size: usize,
+}
+
+impl IngestOutcome {
+    #[cfg(test)]
+    fn artefacts(&self) -> &ArtefactPaths {
+        &self.artefacts
+    }
+
+    #[cfg(test)]
+    fn poi_count(&self) -> usize {
+        self.poi_count
+    }
+
+    #[cfg(test)]
+    fn index_size(&self) -> usize {
+        self.index_size
     }
 }
 
@@ -139,6 +304,40 @@ pub enum CliError {
     /// A referenced input path does not exist on disk.
     #[error("{field} path {path:?} does not exist")]
     MissingSourceFile { field: &'static str, path: PathBuf },
+    /// The output directory exists but is not a directory.
+    #[error("output directory {path:?} is not a directory")]
+    OutputDirectoryNotDirectory { path: PathBuf },
+    /// OSM ingestion failed.
+    #[error("failed to ingest OSM data: {0}")]
+    OsmIngest(#[from] OsmIngestError),
+    /// Persisting POIs to SQLite failed.
+    #[error("failed to persist POIs to {path:?}: {source}")]
+    PersistPois {
+        path: PathBuf,
+        source: PersistPoisError,
+    },
+    /// Opening the Wikidata dump failed.
+    #[error("failed to open Wikidata dump at {path:?}")]
+    OpenWikidataDump {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    /// Extracting linked claims from the Wikidata dump failed.
+    #[error("failed to extract Wikidata claims: {0}")]
+    WikidataEtl(#[from] WikidataEtlError),
+    /// Persisting Wikidata claims to SQLite failed.
+    #[error("failed to persist Wikidata claims into {path:?}: {source}")]
+    PersistClaims {
+        path: PathBuf,
+        source: PersistClaimsError,
+    },
+    /// Writing the spatial index artefact failed.
+    #[error("failed to write spatial index to {path:?}: {source}")]
+    WriteSpatialIndex {
+        path: PathBuf,
+        source: SpatialIndexWriteError,
+    },
 }
 
 #[cfg(test)]

@@ -18,7 +18,10 @@ use wildside_core::PointOfInterest;
 
 mod accumulator;
 mod ids;
+mod sqlite;
 mod tags;
+
+pub use sqlite::{PersistPoisError, persist_pois_to_sqlite};
 
 use accumulator::OsmPoiAccumulator;
 

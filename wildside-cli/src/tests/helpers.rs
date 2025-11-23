@@ -1,6 +1,7 @@
 //! Test helpers for composing ingest CLI datasets and layered overrides.
 
 use super::*;
+use base64::{Engine as _, engine::general_purpose};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -11,6 +12,7 @@ use tempfile::TempDir;
 pub(super) struct LayerOverrides {
     pub(super) osm_pbf: Option<PathBuf>,
     pub(super) wikidata_dump: Option<PathBuf>,
+    pub(super) output_dir: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -86,7 +88,12 @@ pub(super) fn merge_layers(
         extract_field(&env_layer, |layer| &layer.wikidata_dump),
         extract_field(&file_layer, |layer| &layer.wikidata_dump),
     );
-    run_ingest(cli_args)
+    merge_field(
+        &mut cli_args.output_dir,
+        extract_field(&env_layer, |layer| &layer.output_dir),
+        extract_field(&file_layer, |layer| &layer.output_dir),
+    );
+    resolve_ingest_config(cli_args)
 }
 
 fn merge_field<T: Clone>(target: &mut Option<T>, env_value: Option<T>, file_value: Option<T>) {
@@ -102,4 +109,33 @@ fn extract_field<T: Clone>(
     accessor: fn(&LayerOverrides) -> &Option<T>,
 ) -> Option<T> {
     layer.as_ref().and_then(|entry| accessor(entry).clone())
+}
+
+pub(super) fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/tests/fixtures")
+}
+
+pub(super) fn decode_pbf_fixture(dest_dir: &Path, stem: &str) -> PathBuf {
+    let encoded_path = fixtures_dir().join(format!("{stem}.osm.pbf.b64"));
+    let encoded = fs::read_to_string(&encoded_path).expect("read base64 fixture");
+    let cleaned: String = encoded
+        .chars()
+        .filter(|ch| !ch.is_ascii_whitespace())
+        .collect();
+    let decoded = general_purpose::STANDARD
+        .decode(cleaned.as_bytes())
+        .expect("decode base64 fixture");
+    let output_path = dest_dir.join(format!("{stem}.osm.pbf"));
+    fs::write(&output_path, decoded).expect("write decoded fixture");
+    output_path
+}
+
+pub(super) fn write_wikidata_dump(dir: &Path) -> PathBuf {
+    let dump_path = dir.join("wikidata.json");
+    let payload = r#"[
+{"id":"Q64","claims":{"P1435":[{"mainsnak":{"snaktype":"value","datavalue":{"type":"wikibase-entityid","value":{"id":"Q9259"}}}}]}},
+{"id":"Q42","claims":{}}
+]"#;
+    fs::write(&dump_path, payload).expect("write wikidata dump");
+    dump_path
 }

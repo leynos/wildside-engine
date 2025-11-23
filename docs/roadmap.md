@@ -88,7 +88,7 @@ core data structures of the engine.
   - [x] In `wildside-cli`, use the `ortho-config` crate to define an `ingest`
         command with arguments for the OSM PBF and Wikidata dump file paths.
         (see `docs/ortho-config-users-guide.md`)
-  - [ ] Implement the command's handler to orchestrate the full pipeline: call
+  - [x] Implement the command's handler to orchestrate the full pipeline: call
         `ingest_osm_pbf`, then the Wikidata ETL process, and finally
         `build_spatial_index`, saving the resulting `pois.db` and `pois.rstar`
         files.
@@ -184,19 +184,19 @@ This phase ensures the engine is robust, reliable, and ready for integration.
   - [ ] Forward feature flags from member crates using `[features]` and
         `dep:`-scoped entries to ensure a single source of truth.
 
-        ```toml
-        # In the root Cargo.toml
-        [dependencies]
-        wildside-solver-vrp = { version = "0.1", optional = true, default-features = false }
-        wildside-solver-ortools = { version = "0.1", optional = true, default-features = false }
-        wildside-data = { version = "0.1", optional = true, default-features = false }
-      
-        [features]
-        solver-vrp = ["dep:wildside-solver-vrp"]
-        solver-ortools = ["dep:wildside-solver-ortools"]
-        # Enable the optional dependency and forward its `sqlite` feature
-        store-sqlite = ["dep:wildside-data", "wildside-data/sqlite"]
-        ```
+    ```toml
+    # In the root Cargo.toml
+    [dependencies]
+    wildside-solver-vrp = { version = "0.1", optional = true, default-features = false }
+    wildside-solver-ortools = { version = "0.1", optional = true, default-features = false }
+    wildside-data = { version = "0.1", optional = true, default-features = false }
+
+    [features]
+    solver-vrp = ["dep:wildside-solver-vrp"]
+    solver-ortools = ["dep:wildside-solver-ortools"]
+    # Enable the optional dependency and forward its `sqlite` feature
+    store-sqlite = ["dep:wildside-data", "wildside-data/sqlite"]
+    ```
 
   - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
         different solver and store implementations.

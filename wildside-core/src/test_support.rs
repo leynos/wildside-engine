@@ -17,7 +17,7 @@ use crate::{
     TravelTimeProvider,
 };
 #[cfg(any(test, feature = "test-support"))]
-use crate::{Scorer, Theme, store::SpatialIndexWriteError, store::write_index};
+use crate::{Scorer, Theme, store::SpatialIndexWriteError, store::write_spatial_index};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -93,7 +93,7 @@ pub fn write_sqlite_spatial_index(
     path: &Path,
     pois: &[PointOfInterest],
 ) -> Result<(), SpatialIndexWriteError> {
-    write_index(path, pois)
+    write_spatial_index(path, pois)
 }
 
 /// Deterministic `TravelTimeProvider` returning one-second edges.

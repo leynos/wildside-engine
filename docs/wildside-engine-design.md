@@ -675,6 +675,14 @@ for performance and scalability.
     popularity scores. The structure remains stable across 0.x releases; bump
     the artefact header version per §3.4.1 when making breaking changes.
 
+The `wildside` CLI now wires these stages together: the `ingest` command
+validates input paths, streams the PBF to derive POIs, writes `pois.db`
+(creating parent directories when required), extracts linked claims from plain
+JSON or `.bz2` Wikidata dumps, and serialises the R\*-tree to `pois.rstar`.
+When no POIs carry a `wikidata` tag the ETL is skipped but the claims schema is
+still initialised to keep artefact shapes stable. Output paths default to the
+current working directory and can be overridden via `--output-dir`.
+
 #### 3.4.1. Artefact versioning and migration
 
 Embed a fixed header: 4-byte ASCII magic "WSPI", u16 major, u16 minor, u8

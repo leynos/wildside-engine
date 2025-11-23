@@ -7,5 +7,7 @@
 use super::*;
 
 mod helpers;
+mod pipeline;
+mod pipeline_steps;
 mod steps;
 mod unit;
