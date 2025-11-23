@@ -18,6 +18,8 @@ thiserror = "1.0.69"
 bzip2 = "0.4"
 wildside-core = { workspace = true }
 wildside-data = { workspace = true }
+camino = { workspace = true }
+cap-std = { workspace = true }
 
 [dev-dependencies]
 base64 = "0.22"

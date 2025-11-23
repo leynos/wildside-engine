@@ -232,6 +232,9 @@ name = "camino"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276a59bf2b2c967788139340c9f0c5b12d7fd6630315c15c217e559de85d2609"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "cap-primitives"
@@ -3209,6 +3212,8 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "bzip2",
+ "camino",
+ "cap-std",
  "clap",
  "eyre",
  "geo",
@@ -3246,6 +3251,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
+ "camino",
+ "cap-std",
  "clap",
  "futures-util",
  "geo",

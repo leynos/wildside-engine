@@ -1,11 +1,8 @@
 //! SQLite persistence for points of interest derived from OSM ingestion.
 #![forbid(unsafe_code)]
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
-
+use camino::{Utf8Path, Utf8PathBuf};
+use cap_std::{ambient_authority, fs_utf8};
 use rusqlite::{Connection, Error as SqliteError, Transaction};
 use serde_json::to_string;
 use thiserror::Error;
@@ -18,7 +15,7 @@ pub enum PersistPoisError {
     #[error("failed to create parent directory {path:?}")]
     CreateDirectory {
         /// Path of the directory that could not be created.
-        path: PathBuf,
+        path: Utf8PathBuf,
         /// Underlying I/O error.
         #[source]
         source: std::io::Error,
@@ -27,7 +24,7 @@ pub enum PersistPoisError {
     #[error("failed to open SQLite database at {path:?}")]
     Open {
         /// Destination database path.
-        path: PathBuf,
+        path: Utf8PathBuf,
         /// Source error returned by `rusqlite`.
         #[source]
         source: SqliteError,
@@ -99,14 +96,15 @@ pub enum PersistPoisError {
 /// exist. Parent directories are created automatically, and the `pois` table
 /// is initialised if missing. Tags are serialised to JSON strings.
 pub fn persist_pois_to_sqlite(
-    path: &Path,
+    path: &Utf8Path,
     pois: &[PointOfInterest],
 ) -> Result<(), PersistPoisError> {
     ensure_parent_dir(path)?;
-    let mut connection = Connection::open(path).map_err(|source| PersistPoisError::Open {
-        path: path.to_path_buf(),
-        source,
-    })?;
+    let mut connection =
+        Connection::open(path.as_std_path()).map_err(|source| PersistPoisError::Open {
+            path: path.to_path_buf(),
+            source,
+        })?;
     connection
         .pragma_update(None, "foreign_keys", true)
         .map_err(|source| PersistPoisError::ForeignKeys { source })?;
@@ -124,14 +122,36 @@ pub fn persist_pois_to_sqlite(
     Ok(())
 }
 
-fn ensure_parent_dir(path: &Path) -> Result<(), PersistPoisError> {
+fn ensure_parent_dir(path: &Utf8Path) -> Result<(), PersistPoisError> {
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {
-        fs::create_dir_all(parent).map_err(|source| PersistPoisError::CreateDirectory {
-            path: parent.to_path_buf(),
-            source,
-        })?;
+        let (anchor, target) = if parent.is_absolute() {
+            let relative = parent.strip_prefix("/").unwrap_or(parent).to_path_buf();
+            let dir =
+                fs_utf8::Dir::open_ambient_dir("/", ambient_authority()).map_err(|source| {
+                    PersistPoisError::CreateDirectory {
+                        path: parent.to_path_buf(),
+                        source,
+                    }
+                })?;
+            (dir, relative)
+        } else {
+            let dir =
+                fs_utf8::Dir::open_ambient_dir(".", ambient_authority()).map_err(|source| {
+                    PersistPoisError::CreateDirectory {
+                        path: parent.to_path_buf(),
+                        source,
+                    }
+                })?;
+            (dir, parent.to_path_buf())
+        };
+        anchor
+            .create_dir_all(&target)
+            .map_err(|source| PersistPoisError::CreateDirectory {
+                path: parent.to_path_buf(),
+                source,
+            })?;
     }
     Ok(())
 }
@@ -184,6 +204,7 @@ fn persist_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use camino::Utf8PathBuf;
     use geo::Coord;
     use rstest::{fixture, rstest};
     use rusqlite::Connection;
@@ -206,12 +227,12 @@ mod tests {
 
     #[rstest]
     fn persists_pois(temp_dir: TempDir, poi: PointOfInterest) {
-        let db_path = temp_dir.path().join("pois.db");
+        let db_path =
+            Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db")).expect("utf-8 path");
 
-        persist_pois_to_sqlite(&db_path, std::slice::from_ref(&poi))
-            .expect("persist POIs");
+        persist_pois_to_sqlite(&db_path, std::slice::from_ref(&poi)).expect("persist POIs");
 
-        let conn = Connection::open(&db_path).expect("open database");
+        let conn = Connection::open(db_path.as_std_path()).expect("open database");
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM pois", [], |row| row.get(0))
             .expect("count rows");
@@ -230,7 +251,8 @@ mod tests {
 
     #[rstest]
     fn creates_parent_directory(temp_dir: TempDir, poi: PointOfInterest) {
-        let nested = temp_dir.path().join("nested/pois.db");
+        let nested =
+            Utf8PathBuf::from_path_buf(temp_dir.path().join("nested/pois.db")).expect("utf-8 path");
 
         persist_pois_to_sqlite(&nested, &[poi]).expect("persist POIs into nested path");
 
@@ -239,7 +261,8 @@ mod tests {
 
     #[rstest]
     fn rejects_out_of_range_id(temp_dir: TempDir) {
-        let db_path = temp_dir.path().join("pois.db");
+        let db_path =
+            Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db")).expect("utf-8 path");
         let poi = PointOfInterest::with_empty_tags(u64::MAX, Coord { x: 0.0, y: 0.0 });
 
         let err =

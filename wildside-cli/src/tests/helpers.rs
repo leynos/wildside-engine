@@ -2,37 +2,63 @@
 
 use super::*;
 use base64::{Engine as _, engine::general_purpose};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use camino::{Utf8Path, Utf8PathBuf};
+use cap_std::{ambient_authority, fs_utf8};
 use tempfile::TempDir;
+
+fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
+    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
+    let file_name = path
+        .file_name()
+        .expect("write target should include a file name");
+    fs_utf8::Dir::open_ambient_dir(parent, ambient_authority())
+        .expect("open ambient dir")
+        .write(file_name, contents.as_ref())
+        .expect("write file");
+}
+
+fn read_utf8(path: &Utf8Path) -> String {
+    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
+    let file_name = path
+        .file_name()
+        .expect("read target should include a file name");
+    fs_utf8::Dir::open_ambient_dir(parent, ambient_authority())
+        .expect("open ambient dir")
+        .read_to_string(file_name)
+        .expect("read file")
+}
 
 #[derive(Debug, Clone, Default)]
 pub(super) struct LayerOverrides {
-    pub(super) osm_pbf: Option<PathBuf>,
-    pub(super) wikidata_dump: Option<PathBuf>,
-    pub(super) output_dir: Option<PathBuf>,
+    pub(super) osm_pbf: Option<Utf8PathBuf>,
+    pub(super) wikidata_dump: Option<Utf8PathBuf>,
+    pub(super) output_dir: Option<Utf8PathBuf>,
 }
 
 #[derive(Debug)]
 pub(super) struct DatasetFiles {
     _dir: TempDir,
-    cli_osm: PathBuf,
-    cli_wikidata: PathBuf,
-    config_osm: PathBuf,
-    config_wikidata: PathBuf,
-    env_wikidata: PathBuf,
+    cli_osm: Utf8PathBuf,
+    cli_wikidata: Utf8PathBuf,
+    config_osm: Utf8PathBuf,
+    config_wikidata: Utf8PathBuf,
+    env_wikidata: Utf8PathBuf,
 }
 
 impl DatasetFiles {
     pub(super) fn new() -> Self {
         let dir = TempDir::new().expect("tempdir");
-        let cli_osm = dir.path().join("cli.osm.pbf");
-        let cli_wikidata = dir.path().join("cli.wikidata.json.bz2");
-        let config_osm = dir.path().join("config.osm.pbf");
-        let config_wikidata = dir.path().join("config.wikidata.json.bz2");
-        let env_wikidata = dir.path().join("env.wikidata.json.bz2");
+        let cli_osm =
+            Utf8PathBuf::from_path_buf(dir.path().join("cli.osm.pbf")).expect("utf-8 path");
+        let cli_wikidata = Utf8PathBuf::from_path_buf(dir.path().join("cli.wikidata.json.bz2"))
+            .expect("utf-8 path");
+        let config_osm =
+            Utf8PathBuf::from_path_buf(dir.path().join("config.osm.pbf")).expect("utf-8 path");
+        let config_wikidata =
+            Utf8PathBuf::from_path_buf(dir.path().join("config.wikidata.json.bz2"))
+                .expect("utf-8 path");
+        let env_wikidata = Utf8PathBuf::from_path_buf(dir.path().join("env.wikidata.json.bz2"))
+            .expect("utf-8 path");
         for path in [
             &cli_osm,
             &cli_wikidata,
@@ -40,7 +66,7 @@ impl DatasetFiles {
             &config_wikidata,
             &env_wikidata,
         ] {
-            fs::write(path, b"dataset contents").expect("write dataset file");
+            write_utf8(path, b"dataset contents");
         }
         Self {
             _dir: dir,
@@ -52,23 +78,23 @@ impl DatasetFiles {
         }
     }
 
-    pub(super) fn osm(&self) -> &Path {
+    pub(super) fn osm(&self) -> &Utf8Path {
         &self.cli_osm
     }
 
-    pub(super) fn wikidata(&self) -> &Path {
+    pub(super) fn wikidata(&self) -> &Utf8Path {
         &self.cli_wikidata
     }
 
-    pub(super) fn config_osm(&self) -> &Path {
+    pub(super) fn config_osm(&self) -> &Utf8Path {
         &self.config_osm
     }
 
-    pub(super) fn config_wikidata(&self) -> &Path {
+    pub(super) fn config_wikidata(&self) -> &Utf8Path {
         &self.config_wikidata
     }
 
-    pub(super) fn env_wikidata(&self) -> &Path {
+    pub(super) fn env_wikidata(&self) -> &Utf8Path {
         &self.env_wikidata
     }
 }
@@ -111,13 +137,13 @@ fn extract_field<T: Clone>(
     layer.as_ref().and_then(|entry| accessor(entry).clone())
 }
 
-pub(super) fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/tests/fixtures")
+pub(super) fn fixtures_dir() -> Utf8PathBuf {
+    Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/tests/fixtures")
 }
 
-pub(super) fn decode_pbf_fixture(dest_dir: &Path, stem: &str) -> PathBuf {
+pub(super) fn decode_pbf_fixture(dest_dir: &Utf8Path, stem: &str) -> Utf8PathBuf {
     let encoded_path = fixtures_dir().join(format!("{stem}.osm.pbf.b64"));
-    let encoded = fs::read_to_string(&encoded_path).expect("read base64 fixture");
+    let encoded = read_utf8(&encoded_path);
     let cleaned: String = encoded
         .chars()
         .filter(|ch| !ch.is_ascii_whitespace())
@@ -126,16 +152,16 @@ pub(super) fn decode_pbf_fixture(dest_dir: &Path, stem: &str) -> PathBuf {
         .decode(cleaned.as_bytes())
         .expect("decode base64 fixture");
     let output_path = dest_dir.join(format!("{stem}.osm.pbf"));
-    fs::write(&output_path, decoded).expect("write decoded fixture");
+    write_utf8(&output_path, decoded);
     output_path
 }
 
-pub(super) fn write_wikidata_dump(dir: &Path) -> PathBuf {
+pub(super) fn write_wikidata_dump(dir: &Utf8Path) -> Utf8PathBuf {
     let dump_path = dir.join("wikidata.json");
     let payload = r#"[
 {"id":"Q64","claims":{"P1435":[{"mainsnak":{"snaktype":"value","datavalue":{"type":"wikibase-entityid","value":{"id":"Q9259"}}}}]}},
 {"id":"Q42","claims":{}}
 ]"#;
-    fs::write(&dump_path, payload).expect("write wikidata dump");
+    write_utf8(&dump_path, payload);
     dump_path
 }

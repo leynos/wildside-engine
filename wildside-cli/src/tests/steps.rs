@@ -73,9 +73,9 @@ fn cli_provides_paths(#[from(world)] world: &IngestWorld) {
     let mut guard = world.cli_args().borrow_mut();
     guard.extend([
         format!("--{ARG_OSM_PBF}"),
-        dataset.osm().display().to_string(),
+        dataset.osm().as_str().to_string(),
         format!("--{ARG_WIKIDATA_DUMP}"),
-        dataset.wikidata().display().to_string(),
+        dataset.wikidata().as_str().to_string(),
     ]);
 }
 
@@ -111,7 +111,7 @@ fn cli_only_osm(#[from(world)] world: &IngestWorld) {
     let mut guard = world.cli_args().borrow_mut();
     guard.extend([
         format!("--{ARG_OSM_PBF}"),
-        dataset.osm().display().to_string(),
+        dataset.osm().as_str().to_string(),
     ]);
 }
 

@@ -2,6 +2,7 @@
 
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
+use camino::Utf8PathBuf;
 use geo::{Coord, Rect};
 use rstest::rstest;
 use tempfile::TempDir;
@@ -10,9 +11,11 @@ use wildside_core::{PoiStore, SqlitePoiStore, Tags};
 #[rstest]
 fn ingest_pipeline_creates_artefacts() {
     let working = TempDir::new().expect("temp dir");
-    let osm_path = decode_pbf_fixture(working.path(), "poi_tags");
-    let wikidata_path = write_wikidata_dump(working.path());
-    let output_dir = working.path().join("artefacts");
+    let workspace =
+        Utf8PathBuf::from_path_buf(working.path().to_path_buf()).expect("utf-8 workspace path");
+    let osm_path = decode_pbf_fixture(&workspace, "poi_tags");
+    let wikidata_path = write_wikidata_dump(&workspace);
+    let output_dir = workspace.join("artefacts");
 
     let args = IngestArgs {
         osm_pbf: Some(osm_path),
@@ -29,8 +32,11 @@ fn ingest_pipeline_creates_artefacts() {
     );
     assert_eq!(outcome.poi_count(), outcome.index_size());
 
-    let store = SqlitePoiStore::open(artefacts.pois_db(), artefacts.spatial_index())
-        .expect("open SQLite POI store");
+    let store = SqlitePoiStore::open(
+        artefacts.pois_db().as_std_path(),
+        artefacts.spatial_index().as_std_path(),
+    )
+    .expect("open SQLite POI store");
     let bbox = Rect::new(
         Coord {
             x: -180.0,
@@ -45,13 +51,15 @@ fn ingest_pipeline_creates_artefacts() {
 #[rstest]
 fn ingest_errors_when_wikidata_missing() {
     let working = TempDir::new().expect("temp dir");
-    let osm_path = decode_pbf_fixture(working.path(), "poi_tags");
-    let missing_wikidata = working.path().join("absent.json");
+    let workspace =
+        Utf8PathBuf::from_path_buf(working.path().to_path_buf()).expect("utf-8 workspace path");
+    let osm_path = decode_pbf_fixture(&workspace, "poi_tags");
+    let missing_wikidata = workspace.join("absent.json");
 
     let args = IngestArgs {
         osm_pbf: Some(osm_path),
         wikidata_dump: Some(missing_wikidata),
-        output_dir: Some(working.path().join("artefacts")),
+        output_dir: Some(workspace.join("artefacts")),
     };
 
     let err = run_ingest(args).expect_err("missing dump should fail");
@@ -64,11 +72,13 @@ fn ingest_errors_when_wikidata_missing() {
 #[rstest]
 fn wikidata_claims_are_extracted_for_linked_entities() {
     let working = TempDir::new().expect("temp dir");
-    let wikidata_path = write_wikidata_dump(working.path());
+    let workspace =
+        Utf8PathBuf::from_path_buf(working.path().to_path_buf()).expect("utf-8 workspace path");
+    let wikidata_path = write_wikidata_dump(&workspace);
     let config = IngestConfig {
-        osm_pbf: working.path().join("dummy.osm.pbf"),
+        osm_pbf: workspace.join("dummy.osm.pbf"),
         wikidata_dump: wikidata_path,
-        output_dir: working.path().to_path_buf(),
+        output_dir: workspace.clone(),
     };
     let poi = PointOfInterest::new(
         7,

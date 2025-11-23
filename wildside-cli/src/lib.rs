@@ -2,15 +2,13 @@
 #![forbid(unsafe_code)]
 
 use bzip2::read::MultiBzDecoder;
+use camino::{Utf8Path, Utf8PathBuf};
+use cap_std::{ambient_authority, fs_utf8::File};
 use clap::{Parser, Subcommand};
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::io::BufReader;
+use std::sync::Arc;
 use thiserror::Error;
 use wildside_core::{
     PointOfInterest, build_spatial_index,
@@ -55,7 +53,7 @@ fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {
 
 fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
     let artefacts = config.artefact_paths();
-    let report = ingest_osm_pbf_report(config.osm_pbf())?;
+    let report = ingest_osm_pbf_report(config.osm_pbf().as_std_path())?;
 
     persist_pois_to_sqlite(artefacts.pois_db(), &report.pois).map_err(|source| {
         CliError::PersistPois {
@@ -65,7 +63,7 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
     })?;
 
     let claims = ingest_wikidata_claims(config, &report.pois)?;
-    persist_claims_to_path(artefacts.pois_db(), &claims).map_err(|source| {
+    persist_claims_to_path(artefacts.pois_db().as_std_path(), &claims).map_err(|source| {
         CliError::PersistClaims {
             path: artefacts.pois_db().to_path_buf(),
             source,
@@ -73,19 +71,17 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
     })?;
 
     let index = build_spatial_index(report.pois.iter().cloned());
-    let poi_count = report.pois.len();
-    let claims_count = claims.len();
-    write_spatial_index(artefacts.spatial_index(), &report.pois).map_err(|source| {
-        CliError::WriteSpatialIndex {
+    write_spatial_index(artefacts.spatial_index().as_std_path(), &report.pois).map_err(
+        |source| CliError::WriteSpatialIndex {
             path: artefacts.spatial_index().to_path_buf(),
             source,
-        }
-    })?;
+        },
+    )?;
 
     Ok(IngestOutcome {
         artefacts,
-        poi_count,
-        claims_count,
+        poi_count: report.pois.len(),
+        claims_count: claims.len(),
         summary: report.summary,
         index_size: index.len(),
     })
@@ -103,10 +99,12 @@ fn ingest_wikidata_claims(
     extract_linked_entity_claims(reader, &links).map_err(CliError::WikidataEtl)
 }
 
-fn open_wikidata_dump(path: &Path) -> Result<Box<dyn Read>, CliError> {
-    let file = File::open(path).map_err(|source| CliError::OpenWikidataDump {
-        path: path.to_path_buf(),
-        source,
+fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliError> {
+    let file = File::open_ambient(path, ambient_authority()).map_err(|source| {
+        CliError::OpenWikidataDump {
+            path: path.to_path_buf(),
+            source,
+        }
     })?;
     if is_bz2(path) {
         Ok(Box::new(MultiBzDecoder::new(file)))
@@ -115,11 +113,10 @@ fn open_wikidata_dump(path: &Path) -> Result<Box<dyn Read>, CliError> {
     }
 }
 
-fn is_bz2(path: &Path) -> bool {
-    path
-        .extension()
-        .and_then(std::ffi::OsStr::to_str)
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("bz2"))
+fn is_bz2(path: &Utf8Path) -> bool {
+    path.extension()
+        .map(|ext| ext.eq_ignore_ascii_case("bz2"))
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Parser)]
@@ -152,15 +149,15 @@ struct IngestArgs {
     /// Path to the OpenStreetMap PBF file.
     #[arg(long = ARG_OSM_PBF, value_name = "path")]
     #[serde(default)]
-    osm_pbf: Option<PathBuf>,
+    osm_pbf: Option<Utf8PathBuf>,
     /// Path to the Wikidata dump file (JSON/BZ2).
     #[arg(long = ARG_WIKIDATA_DUMP, value_name = "path")]
     #[serde(default)]
-    wikidata_dump: Option<PathBuf>,
+    wikidata_dump: Option<Utf8PathBuf>,
     /// Directory to write the generated artefacts.
     #[arg(long = ARG_OUTPUT_DIR, value_name = "dir")]
     #[serde(default)]
-    output_dir: Option<PathBuf>,
+    output_dir: Option<Utf8PathBuf>,
 }
 
 impl IngestArgs {
@@ -172,9 +169,9 @@ impl IngestArgs {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct IngestConfig {
-    osm_pbf: PathBuf,
-    wikidata_dump: PathBuf,
-    output_dir: PathBuf,
+    osm_pbf: Utf8PathBuf,
+    wikidata_dump: Utf8PathBuf,
+    output_dir: Utf8PathBuf,
 }
 
 impl IngestConfig {
@@ -196,15 +193,15 @@ impl IngestConfig {
         )
     }
 
-    fn osm_pbf(&self) -> &Path {
+    fn osm_pbf(&self) -> &Utf8Path {
         &self.osm_pbf
     }
 
-    fn wikidata_dump(&self) -> &Path {
+    fn wikidata_dump(&self) -> &Utf8Path {
         &self.wikidata_dump
     }
 
-    fn require_existing(path: &Path, field: &'static str) -> Result<(), CliError> {
+    fn require_existing(path: &Utf8Path, field: &'static str) -> Result<(), CliError> {
         if path.is_file() {
             Ok(())
         } else {
@@ -228,7 +225,7 @@ impl TryFrom<IngestArgs> for IngestConfig {
             field: ARG_WIKIDATA_DUMP,
             env: ENV_WIKIDATA_DUMP,
         })?;
-        let output_dir = args.output_dir.unwrap_or_else(|| PathBuf::from("."));
+        let output_dir = args.output_dir.unwrap_or_else(|| Utf8PathBuf::from("."));
         Ok(Self {
             osm_pbf,
             wikidata_dump,
@@ -239,23 +236,23 @@ impl TryFrom<IngestArgs> for IngestConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ArtefactPaths {
-    pois_db: PathBuf,
-    spatial_index: PathBuf,
+    pois_db: Utf8PathBuf,
+    spatial_index: Utf8PathBuf,
 }
 
 impl ArtefactPaths {
-    fn new(pois_db: PathBuf, spatial_index: PathBuf) -> Self {
+    fn new(pois_db: Utf8PathBuf, spatial_index: Utf8PathBuf) -> Self {
         Self {
             pois_db,
             spatial_index,
         }
     }
 
-    fn pois_db(&self) -> &Path {
+    fn pois_db(&self) -> &Utf8Path {
         &self.pois_db
     }
 
-    fn spatial_index(&self) -> &Path {
+    fn spatial_index(&self) -> &Utf8Path {
         &self.spatial_index
     }
 }
@@ -303,23 +300,26 @@ pub enum CliError {
     },
     /// A referenced input path does not exist on disk.
     #[error("{field} path {path:?} does not exist")]
-    MissingSourceFile { field: &'static str, path: PathBuf },
+    MissingSourceFile {
+        field: &'static str,
+        path: Utf8PathBuf,
+    },
     /// The output directory exists but is not a directory.
     #[error("output directory {path:?} is not a directory")]
-    OutputDirectoryNotDirectory { path: PathBuf },
+    OutputDirectoryNotDirectory { path: Utf8PathBuf },
     /// OSM ingestion failed.
     #[error("failed to ingest OSM data: {0}")]
     OsmIngest(#[from] OsmIngestError),
     /// Persisting POIs to SQLite failed.
     #[error("failed to persist POIs to {path:?}: {source}")]
     PersistPois {
-        path: PathBuf,
+        path: Utf8PathBuf,
         source: PersistPoisError,
     },
     /// Opening the Wikidata dump failed.
     #[error("failed to open Wikidata dump at {path:?}")]
     OpenWikidataDump {
-        path: PathBuf,
+        path: Utf8PathBuf,
         #[source]
         source: std::io::Error,
     },
@@ -329,13 +329,13 @@ pub enum CliError {
     /// Persisting Wikidata claims to SQLite failed.
     #[error("failed to persist Wikidata claims into {path:?}: {source}")]
     PersistClaims {
-        path: PathBuf,
+        path: Utf8PathBuf,
         source: PersistClaimsError,
     },
     /// Writing the spatial index artefact failed.
     #[error("failed to write spatial index to {path:?}: {source}")]
     WriteSpatialIndex {
-        path: PathBuf,
+        path: Utf8PathBuf,
         source: SpatialIndexWriteError,
     },
 }

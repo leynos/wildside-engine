@@ -1,21 +1,38 @@
 //! Focused unit tests covering ingest CLI configuration validation.
 
 use super::*;
+use camino::{Utf8Path, Utf8PathBuf};
+use cap_std::{ambient_authority, fs_utf8};
 use rstest::rstest;
-use std::{fs, path::PathBuf};
 use tempfile::TempDir;
 
+fn write_utf8(path: &Utf8PathBuf, contents: impl AsRef<[u8]>) {
+    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
+    let file_name = path
+        .file_name()
+        .expect("write target should include a file name");
+    fs_utf8::Dir::open_ambient_dir(parent, ambient_authority())
+        .expect("open ambient dir")
+        .write(file_name, contents.as_ref())
+        .expect("write file");
+}
+
 #[rstest]
-#[case(None, Some(PathBuf::from("wikidata.json")), ARG_OSM_PBF, ENV_OSM_PBF)]
 #[case(
-    Some(PathBuf::from("planet.osm.pbf")),
+    None,
+    Some(Utf8PathBuf::from("wikidata.json")),
+    ARG_OSM_PBF,
+    ENV_OSM_PBF
+)]
+#[case(
+    Some(Utf8PathBuf::from("planet.osm.pbf")),
     None,
     ARG_WIKIDATA_DUMP,
     ENV_WIKIDATA_DUMP
 )]
 fn converting_without_required_fields_errors(
-    #[case] osm: Option<PathBuf>,
-    #[case] wiki: Option<PathBuf>,
+    #[case] osm: Option<Utf8PathBuf>,
+    #[case] wiki: Option<Utf8PathBuf>,
     #[case] field: &'static str,
     #[case] env_var: &'static str,
 ) {
@@ -40,10 +57,12 @@ fn converting_without_required_fields_errors(
 #[rstest]
 fn validate_sources_reports_missing_files() {
     let tmp = TempDir::new().expect("tempdir");
+    let workspace =
+        Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace path");
     let config = IngestConfig {
-        osm_pbf: tmp.path().join("missing-osm"),
-        wikidata_dump: tmp.path().join("missing-wiki"),
-        output_dir: tmp.path().to_path_buf(),
+        osm_pbf: workspace.join("missing-osm"),
+        wikidata_dump: workspace.join("missing-wiki"),
+        output_dir: workspace,
     };
     let err = config.validate_sources().expect_err("expected failure");
     match err {
@@ -57,12 +76,13 @@ fn validate_sources_reports_missing_files() {
 #[rstest]
 fn validate_sources_rejects_directories() {
     let dir = TempDir::new().expect("tempdir");
-    let file_path = dir.path().join("dump.json");
-    fs::write(&file_path, b"{}\n").expect("write dump");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+    let file_path = root.join("dump.json");
+    write_utf8(&file_path, b"{}\n");
     let config = IngestConfig {
-        osm_pbf: dir.path().to_path_buf(),
+        osm_pbf: root.clone(),
         wikidata_dump: file_path,
-        output_dir: dir.path().to_path_buf(),
+        output_dir: root.clone(),
     };
     let err = config
         .validate_sources()
@@ -76,12 +96,13 @@ fn validate_sources_rejects_directories() {
 #[rstest]
 fn validate_sources_rejects_output_file() {
     let dir = TempDir::new().expect("tempdir");
-    let osm_path = dir.path().join("planet.osm.pbf");
-    let wikidata_path = dir.path().join("dump.json");
-    let output_file = dir.path().join("pois.db");
-    fs::write(&osm_path, b"osm").expect("write osm placeholder");
-    fs::write(&wikidata_path, b"wiki").expect("write wiki placeholder");
-    fs::write(&output_file, b"existing artefact").expect("write output file");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+    let osm_path = root.join("planet.osm.pbf");
+    let wikidata_path = root.join("dump.json");
+    let output_file = root.join("pois.db");
+    write_utf8(&osm_path, b"osm");
+    write_utf8(&wikidata_path, b"wiki");
+    write_utf8(&output_file, b"existing artefact");
 
     let config = IngestConfig {
         osm_pbf: osm_path,

@@ -2,26 +2,29 @@
 
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
+use camino::Utf8PathBuf;
 use geo::{Coord, Rect};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
-use std::{cell::RefCell, path::PathBuf};
+use std::cell::RefCell;
 use tempfile::TempDir;
 use wildside_core::{PoiStore, SqlitePoiStore};
 
 #[derive(Debug)]
 struct PipelineWorld {
     workspace: TempDir,
-    osm_path: RefCell<Option<PathBuf>>,
-    wikidata_path: RefCell<Option<PathBuf>>,
+    osm_path: RefCell<Option<Utf8PathBuf>>,
+    wikidata_path: RefCell<Option<Utf8PathBuf>>,
     outcome: RefCell<Option<Result<IngestOutcome, CliError>>>,
-    output_dir: PathBuf,
+    output_dir: Utf8PathBuf,
 }
 
 impl PipelineWorld {
     fn new() -> Self {
         let workspace = TempDir::new().expect("create workspace");
-        let output_dir = workspace.path().join("artefacts");
+        let root =
+            Utf8PathBuf::from_path_buf(workspace.path().to_path_buf()).expect("utf-8 workspace");
+        let output_dir = root.join("artefacts");
         Self {
             workspace,
             osm_path: RefCell::new(None),
@@ -31,7 +34,7 @@ impl PipelineWorld {
         }
     }
 
-    fn osm_path(&self) -> PathBuf {
+    fn osm_path(&self) -> Utf8PathBuf {
         self.osm_path
             .borrow()
             .as_ref()
@@ -39,7 +42,7 @@ impl PipelineWorld {
             .expect("OSM path should be initialised")
     }
 
-    fn wikidata_path(&self) -> PathBuf {
+    fn wikidata_path(&self) -> Utf8PathBuf {
         self.wikidata_path
             .borrow()
             .as_ref()
@@ -55,16 +58,20 @@ fn pipeline_world() -> PipelineWorld {
 
 #[given("a valid OSM fixture and Wikidata dump")]
 fn valid_inputs(#[from(pipeline_world)] world: &PipelineWorld) {
-    let osm = decode_pbf_fixture(world.workspace.path(), "poi_tags");
-    let wikidata = write_wikidata_dump(world.workspace.path());
+    let root =
+        Utf8PathBuf::from_path_buf(world.workspace.path().to_path_buf()).expect("utf-8 workspace");
+    let osm = decode_pbf_fixture(&root, "poi_tags");
+    let wikidata = write_wikidata_dump(&root);
     world.osm_path.replace(Some(osm));
     world.wikidata_path.replace(Some(wikidata));
 }
 
 #[given("a valid OSM fixture and a missing Wikidata dump")]
 fn missing_wikidata(#[from(pipeline_world)] world: &PipelineWorld) {
-    let osm = decode_pbf_fixture(world.workspace.path(), "poi_tags");
-    let missing = world.workspace.path().join("missing.json");
+    let root =
+        Utf8PathBuf::from_path_buf(world.workspace.path().to_path_buf()).expect("utf-8 workspace");
+    let osm = decode_pbf_fixture(&root, "poi_tags");
+    let missing = root.join("missing.json");
     world.osm_path.replace(Some(osm));
     world.wikidata_path.replace(Some(missing));
 }
@@ -105,8 +112,11 @@ fn index_matches_pois(#[from(pipeline_world)] world: &PipelineWorld) {
         .as_ref()
         .expect("pipeline should succeed");
     let artefacts = outcome.artefacts();
-    let store = SqlitePoiStore::open(artefacts.pois_db(), artefacts.spatial_index())
-        .expect("open POI store");
+    let store = SqlitePoiStore::open(
+        artefacts.pois_db().as_std_path(),
+        artefacts.spatial_index().as_std_path(),
+    )
+    .expect("open POI store");
     let bbox = Rect::new(
         Coord {
             x: -180.0,
