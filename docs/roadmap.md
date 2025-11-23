@@ -10,11 +10,11 @@ core data structures of the engine.
   - [x] Create the repository root directory `wildside-engine` and initialize a
         virtual workspace:
 
-        ```bash
-        mkdir wildside-engine && cd wildside-engine
-        git init
-        cargo init --vcs git
-        ```
+    ```bash
+    mkdir wildside-engine && cd wildside-engine
+    git init
+    cargo init --vcs git
+    ```
 
   - [x] Replace the root `Cargo.toml` with a virtual workspace manifest (no
         `[package]`), defining members: `cargo new --lib wildside-core`,
