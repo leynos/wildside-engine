@@ -154,12 +154,23 @@ fn base_dir_and_relative(
     let (base, relative) = match std_parent.components().next() {
         // Windows absolute path with a drive or UNC prefix.
         Some(Component::Prefix(prefix)) => {
-            let mut base = Utf8PathBuf::from(prefix.as_os_str().to_str().unwrap_or("."));
-            base.push(std::path::MAIN_SEPARATOR.to_string());
+            let prefix_str =
+                prefix
+                    .as_os_str()
+                    .to_str()
+                    .ok_or_else(|| PersistPoisError::CreateDirectory {
+                        path: parent.to_path_buf(),
+                        source: io::Error::other("non-UTF-8 path prefix"),
+                    })?;
+
+            let base = Utf8PathBuf::from(format!("{}{}", prefix_str, std::path::MAIN_SEPARATOR));
             let relative = std_parent
                 .strip_prefix(base.as_std_path())
                 .or_else(|_| std_parent.strip_prefix(prefix.as_os_str()))
-                .unwrap_or(std_parent)
+                .map_err(|_| PersistPoisError::CreateDirectory {
+                    path: parent.to_path_buf(),
+                    source: io::Error::other("failed to strip prefix from parent path"),
+                })?
                 .to_path_buf();
             (base, relative)
         }
@@ -168,7 +179,10 @@ fn base_dir_and_relative(
             let base = Utf8PathBuf::from(std::path::MAIN_SEPARATOR.to_string());
             let relative = std_parent
                 .strip_prefix(base.as_std_path())
-                .unwrap_or(std_parent)
+                .map_err(|_| PersistPoisError::CreateDirectory {
+                    path: parent.to_path_buf(),
+                    source: io::Error::other("failed to strip root from absolute path"),
+                })?
                 .to_path_buf();
             (base, relative)
         }
