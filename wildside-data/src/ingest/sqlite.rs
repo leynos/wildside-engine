@@ -5,6 +5,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use cap_std::{ambient_authority, fs_utf8};
 use rusqlite::{Connection, Error as SqliteError, Transaction};
 use serde_json::to_string;
+use std::io;
+use std::path::Component;
 use thiserror::Error;
 use wildside_core::PointOfInterest;
 
@@ -131,6 +133,9 @@ fn ensure_parent_dir(path: &Utf8Path) -> Result<(), PersistPoisError> {
     }
 
     let (base_dir, relative) = base_dir_and_relative(parent)?;
+    if relative.as_os_str().is_empty() {
+        return Ok(());
+    }
     base_dir
         .create_dir_all(&relative)
         .map_err(|source| PersistPoisError::CreateDirectory {
@@ -144,20 +149,47 @@ fn ensure_parent_dir(path: &Utf8Path) -> Result<(), PersistPoisError> {
 fn base_dir_and_relative(
     parent: &Utf8Path,
 ) -> Result<(fs_utf8::Dir, Utf8PathBuf), PersistPoisError> {
-    let (base, relative) = if parent.is_absolute() {
-        ("/", parent.strip_prefix("/").unwrap_or(parent))
-    } else {
-        (".", parent)
+    let std_parent = parent.as_std_path();
+
+    let (base, relative) = match std_parent.components().next() {
+        // Windows absolute path with a drive or UNC prefix.
+        Some(Component::Prefix(prefix)) => {
+            let mut base = Utf8PathBuf::from(prefix.as_os_str().to_str().unwrap_or("."));
+            base.push(std::path::MAIN_SEPARATOR.to_string());
+            let relative = std_parent
+                .strip_prefix(base.as_std_path())
+                .or_else(|_| std_parent.strip_prefix(prefix.as_os_str()))
+                .unwrap_or(std_parent)
+                .to_path_buf();
+            (base, relative)
+        }
+        // Unix-style absolute path.
+        Some(Component::RootDir) => {
+            let base = Utf8PathBuf::from(std::path::MAIN_SEPARATOR.to_string());
+            let relative = std_parent
+                .strip_prefix(base.as_std_path())
+                .unwrap_or(std_parent)
+                .to_path_buf();
+            (base, relative)
+        }
+        // Relative path: resolve from the current directory.
+        _ => (Utf8PathBuf::from("."), std_parent.to_path_buf()),
     };
 
-    let dir = fs_utf8::Dir::open_ambient_dir(base, ambient_authority()).map_err(|source| {
+    let dir = fs_utf8::Dir::open_ambient_dir(&base, ambient_authority()).map_err(|source| {
         PersistPoisError::CreateDirectory {
             path: parent.to_path_buf(),
             source,
         }
     })?;
 
-    Ok((dir, relative.to_path_buf()))
+    let relative =
+        Utf8PathBuf::from_path_buf(relative).map_err(|_| PersistPoisError::CreateDirectory {
+            path: parent.to_path_buf(),
+            source: io::Error::other("non-utf8 parent path"),
+        })?;
+
+    Ok((dir, relative))
 }
 
 fn create_schema(transaction: &Transaction<'_>) -> Result<(), PersistPoisError> {
@@ -286,6 +318,22 @@ mod tests {
         assert!(
             exists,
             "expected database file to be created at absolute path"
+        );
+    }
+
+    #[cfg(windows)]
+    #[rstest]
+    fn persists_to_windows_absolute_path(poi: PointOfInterest) {
+        let path = Utf8PathBuf::from("C:\\temp\\wildside_pois.db");
+        let _ = std::fs::remove_file(path.as_std_path());
+
+        persist_pois_to_sqlite(&path, &[poi]).expect("persist POIs to Windows absolute path");
+
+        let exists = path.exists();
+        let _ = std::fs::remove_file(path.as_std_path());
+        assert!(
+            exists,
+            "expected database file to be created at Windows absolute path"
         );
     }
 
