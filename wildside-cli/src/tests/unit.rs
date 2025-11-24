@@ -118,3 +118,31 @@ fn validate_sources_rejects_output_file() {
         other => panic!("unexpected error {other:?}"),
     }
 }
+
+#[rstest]
+fn ingest_config_uses_default_output_dir_when_none() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+
+    let osm_pbf_path = root.join("data.osm.pbf");
+    let wikidata_dump_path = root.join("dump.json");
+    write_utf8(&osm_pbf_path, b"dummy osm pbf");
+    write_utf8(&wikidata_dump_path, b"{}\n");
+
+    let args = IngestArgs {
+        osm_pbf: Some(osm_pbf_path),
+        wikidata_dump: Some(wikidata_dump_path),
+        output_dir: None,
+    };
+
+    let config: IngestConfig = IngestConfig::try_from(args).expect("config should build");
+    assert_eq!(
+        config.output_dir,
+        Utf8PathBuf::from("."),
+        "output_dir should default to current directory"
+    );
+
+    config
+        .validate_sources()
+        .expect("validation should succeed for valid defaults");
+}

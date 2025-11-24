@@ -11,7 +11,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 use thiserror::Error;
 use wildside_core::{
-    PointOfInterest, build_spatial_index,
+    PointOfInterest,
     store::{SpatialIndexWriteError, write_spatial_index},
 };
 use wildside_data::wikidata::etl::{
@@ -52,38 +52,37 @@ fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {
 }
 
 fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
-    let artefacts = config.artefact_paths();
-    let report = ingest_osm_pbf_report(config.osm_pbf().as_std_path())?;
+    let pois_db = config.output_dir.join("pois.db");
+    let spatial_index = config.output_dir.join("pois.rstar");
+    let report = ingest_osm_pbf_report(config.osm_pbf.as_std_path())?;
 
-    persist_pois_to_sqlite(artefacts.pois_db(), &report.pois).map_err(|source| {
-        CliError::PersistPois {
-            path: artefacts.pois_db().to_path_buf(),
-            source,
-        }
+    persist_pois_to_sqlite(&pois_db, &report.pois).map_err(|source| CliError::PersistPois {
+        path: pois_db.clone(),
+        source,
     })?;
 
     let claims = ingest_wikidata_claims(config, &report.pois)?;
-    persist_claims_to_path(artefacts.pois_db().as_std_path(), &claims).map_err(|source| {
+    persist_claims_to_path(pois_db.as_std_path(), &claims).map_err(|source| {
         CliError::PersistClaims {
-            path: artefacts.pois_db().to_path_buf(),
+            path: pois_db.clone(),
             source,
         }
     })?;
 
-    let index = build_spatial_index(report.pois.iter().cloned());
-    write_spatial_index(artefacts.spatial_index().as_std_path(), &report.pois).map_err(
-        |source| CliError::WriteSpatialIndex {
-            path: artefacts.spatial_index().to_path_buf(),
+    write_spatial_index(spatial_index.as_std_path(), &report.pois).map_err(|source| {
+        CliError::WriteSpatialIndex {
+            path: spatial_index.clone(),
             source,
-        },
-    )?;
+        }
+    })?;
 
     Ok(IngestOutcome {
-        artefacts,
+        pois_db,
+        spatial_index,
         poi_count: report.pois.len(),
         claims_count: claims.len(),
         summary: report.summary,
-        index_size: index.len(),
+        index_size: report.pois.len(),
     })
 }
 
@@ -95,7 +94,7 @@ fn ingest_wikidata_claims(
     if links.is_empty() {
         return Ok(Vec::new());
     }
-    let reader = open_wikidata_dump(config.wikidata_dump())?;
+    let reader = open_wikidata_dump(&config.wikidata_dump)?;
     extract_linked_entity_claims(reader, &links).map_err(CliError::WikidataEtl)
 }
 
@@ -107,7 +106,7 @@ fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliErro
         }
     })?;
     if is_bz2(path) {
-        Ok(Box::new(MultiBzDecoder::new(file)))
+        Ok(Box::new(BufReader::new(MultiBzDecoder::new(file))))
     } else {
         Ok(Box::new(BufReader::new(file)))
     }
@@ -186,21 +185,6 @@ impl IngestConfig {
         Ok(())
     }
 
-    fn artefact_paths(&self) -> ArtefactPaths {
-        ArtefactPaths::new(
-            self.output_dir.join("pois.db"),
-            self.output_dir.join("pois.rstar"),
-        )
-    }
-
-    fn osm_pbf(&self) -> &Utf8Path {
-        &self.osm_pbf
-    }
-
-    fn wikidata_dump(&self) -> &Utf8Path {
-        &self.wikidata_dump
-    }
-
     fn require_existing(path: &Utf8Path, field: &'static str) -> Result<(), CliError> {
         if path.is_file() {
             Ok(())
@@ -234,53 +218,14 @@ impl TryFrom<IngestArgs> for IngestConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ArtefactPaths {
-    pois_db: Utf8PathBuf,
-    spatial_index: Utf8PathBuf,
-}
-
-impl ArtefactPaths {
-    fn new(pois_db: Utf8PathBuf, spatial_index: Utf8PathBuf) -> Self {
-        Self {
-            pois_db,
-            spatial_index,
-        }
-    }
-
-    fn pois_db(&self) -> &Utf8Path {
-        &self.pois_db
-    }
-
-    fn spatial_index(&self) -> &Utf8Path {
-        &self.spatial_index
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 struct IngestOutcome {
-    artefacts: ArtefactPaths,
-    poi_count: usize,
-    claims_count: usize,
-    summary: OsmIngestSummary,
-    index_size: usize,
-}
-
-impl IngestOutcome {
-    #[cfg(test)]
-    fn artefacts(&self) -> &ArtefactPaths {
-        &self.artefacts
-    }
-
-    #[cfg(test)]
-    fn poi_count(&self) -> usize {
-        self.poi_count
-    }
-
-    #[cfg(test)]
-    fn index_size(&self) -> usize {
-        self.index_size
-    }
+    pub pois_db: Utf8PathBuf,
+    pub spatial_index: Utf8PathBuf,
+    pub poi_count: usize,
+    pub claims_count: usize,
+    pub summary: OsmIngestSummary,
+    pub index_size: usize,
 }
 
 /// Errors emitted by the Wildside CLI.
@@ -317,7 +262,7 @@ pub enum CliError {
         source: PersistPoisError,
     },
     /// Opening the Wikidata dump failed.
-    #[error("failed to open Wikidata dump at {path:?}")]
+    #[error("failed to open Wikidata dump at {path:?}: {source}")]
     OpenWikidataDump {
         path: Utf8PathBuf,
         #[source]

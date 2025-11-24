@@ -2,9 +2,12 @@
 
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
+use bzip2::{Compression, write::BzEncoder};
 use camino::Utf8PathBuf;
 use geo::{Coord, Rect};
 use rstest::rstest;
+use std::fs;
+use std::io::Write;
 use tempfile::TempDir;
 use wildside_core::{PoiStore, SqlitePoiStore, Tags};
 
@@ -24,17 +27,16 @@ fn ingest_pipeline_creates_artefacts() {
     };
 
     let outcome = run_ingest(args).expect("pipeline should succeed");
-    let artefacts = outcome.artefacts();
-    assert!(artefacts.pois_db().exists(), "expected pois.db artefact");
+    assert!(outcome.pois_db.exists(), "expected pois.db artefact");
     assert!(
-        artefacts.spatial_index().exists(),
+        outcome.spatial_index.exists(),
         "expected pois.rstar artefact"
     );
-    assert_eq!(outcome.poi_count(), outcome.index_size());
+    assert_eq!(outcome.poi_count, outcome.index_size);
 
     let store = SqlitePoiStore::open(
-        artefacts.pois_db().as_std_path(),
-        artefacts.spatial_index().as_std_path(),
+        outcome.pois_db.as_std_path(),
+        outcome.spatial_index.as_std_path(),
     )
     .expect("open SQLite POI store");
     let bbox = Rect::new(
@@ -45,7 +47,7 @@ fn ingest_pipeline_creates_artefacts() {
         Coord { x: 180.0, y: 90.0 },
     );
     let pois: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
-    assert_eq!(pois.len(), outcome.poi_count());
+    assert_eq!(pois.len(), outcome.poi_count);
 }
 
 #[rstest]
@@ -67,6 +69,53 @@ fn ingest_errors_when_wikidata_missing() {
         CliError::MissingSourceFile { field, .. } => assert_eq!(field, ARG_WIKIDATA_DUMP),
         other => panic!("unexpected error {other:?}"),
     }
+}
+
+#[rstest]
+fn ingest_pipeline_creates_artefacts_with_bz2_wikidata() {
+    let working = TempDir::new().expect("temp dir");
+    let workspace =
+        Utf8PathBuf::from_path_buf(working.path().to_path_buf()).expect("utf-8 workspace path");
+    let osm_path = decode_pbf_fixture(&workspace, "poi_tags");
+    let wikidata_plain = write_wikidata_dump(&workspace);
+
+    let bz2_path = workspace.join("wikidata.json.bz2");
+    let plain = fs::read(&wikidata_plain).expect("read wikidata dump");
+    let file = fs::File::create(&bz2_path).expect("create bz2 file");
+    let mut encoder = BzEncoder::new(file, Compression::default());
+    encoder.write_all(&plain).expect("compress wikidata");
+    encoder.finish().expect("finish compression");
+
+    let output_dir = workspace.join("artefacts");
+
+    let args = IngestArgs {
+        osm_pbf: Some(osm_path),
+        wikidata_dump: Some(bz2_path),
+        output_dir: Some(output_dir.clone()),
+    };
+
+    let outcome = run_ingest(args).expect("pipeline should succeed");
+    assert!(outcome.pois_db.exists(), "expected pois.db artefact");
+    assert!(
+        outcome.spatial_index.exists(),
+        "expected pois.rstar artefact"
+    );
+    assert_eq!(outcome.poi_count, outcome.index_size);
+
+    let store = SqlitePoiStore::open(
+        outcome.pois_db.as_std_path(),
+        outcome.spatial_index.as_std_path(),
+    )
+    .expect("open SQLite POI store");
+    let bbox = Rect::new(
+        Coord {
+            x: -180.0,
+            y: -90.0,
+        },
+        Coord { x: 180.0, y: 90.0 },
+    );
+    let pois: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
+    assert_eq!(pois.len(), outcome.poi_count);
 }
 
 #[rstest]

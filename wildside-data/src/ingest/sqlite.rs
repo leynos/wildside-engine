@@ -123,37 +123,41 @@ pub fn persist_pois_to_sqlite(
 }
 
 fn ensure_parent_dir(path: &Utf8Path) -> Result<(), PersistPoisError> {
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        let (anchor, target) = if parent.is_absolute() {
-            let relative = parent.strip_prefix("/").unwrap_or(parent).to_path_buf();
-            let dir =
-                fs_utf8::Dir::open_ambient_dir("/", ambient_authority()).map_err(|source| {
-                    PersistPoisError::CreateDirectory {
-                        path: parent.to_path_buf(),
-                        source,
-                    }
-                })?;
-            (dir, relative)
-        } else {
-            let dir =
-                fs_utf8::Dir::open_ambient_dir(".", ambient_authority()).map_err(|source| {
-                    PersistPoisError::CreateDirectory {
-                        path: parent.to_path_buf(),
-                        source,
-                    }
-                })?;
-            (dir, parent.to_path_buf())
-        };
-        anchor
-            .create_dir_all(&target)
-            .map_err(|source| PersistPoisError::CreateDirectory {
-                path: parent.to_path_buf(),
-                source,
-            })?;
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+    if parent.as_os_str().is_empty() || parent == Utf8Path::new("/") {
+        return Ok(());
     }
+
+    let (base_dir, relative) = base_dir_and_relative(parent)?;
+    base_dir
+        .create_dir_all(&relative)
+        .map_err(|source| PersistPoisError::CreateDirectory {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+
     Ok(())
+}
+
+fn base_dir_and_relative(
+    parent: &Utf8Path,
+) -> Result<(fs_utf8::Dir, Utf8PathBuf), PersistPoisError> {
+    let (base, relative) = if parent.is_absolute() {
+        ("/", parent.strip_prefix("/").unwrap_or(parent))
+    } else {
+        (".", parent)
+    };
+
+    let dir = fs_utf8::Dir::open_ambient_dir(base, ambient_authority()).map_err(|source| {
+        PersistPoisError::CreateDirectory {
+            path: parent.to_path_buf(),
+            source,
+        }
+    })?;
+
+    Ok((dir, relative.to_path_buf()))
 }
 
 fn create_schema(transaction: &Transaction<'_>) -> Result<(), PersistPoisError> {

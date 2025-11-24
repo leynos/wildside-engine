@@ -95,12 +95,8 @@ fn artefacts_created(#[from(pipeline_world)] world: &PipelineWorld) {
         .expect("outcome should exist")
         .as_ref()
         .expect("pipeline should succeed");
-    let artefacts = outcome.artefacts();
-    assert!(artefacts.pois_db().exists(), "pois.db should exist");
-    assert!(
-        artefacts.spatial_index().exists(),
-        "pois.rstar should exist"
-    );
+    assert!(outcome.pois_db.exists(), "pois.db should exist");
+    assert!(outcome.spatial_index.exists(), "pois.rstar should exist");
 }
 
 #[then("the spatial index matches the ingested POI count")]
@@ -111,10 +107,9 @@ fn index_matches_pois(#[from(pipeline_world)] world: &PipelineWorld) {
         .expect("outcome should exist")
         .as_ref()
         .expect("pipeline should succeed");
-    let artefacts = outcome.artefacts();
     let store = SqlitePoiStore::open(
-        artefacts.pois_db().as_std_path(),
-        artefacts.spatial_index().as_std_path(),
+        outcome.pois_db.as_std_path(),
+        outcome.spatial_index.as_std_path(),
     )
     .expect("open POI store");
     let bbox = Rect::new(
@@ -125,7 +120,7 @@ fn index_matches_pois(#[from(pipeline_world)] world: &PipelineWorld) {
         Coord { x: 180.0, y: 90.0 },
     );
     let pois: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
-    assert_eq!(pois.len(), outcome.poi_count());
+    assert_eq!(pois.len(), outcome.poi_count);
 }
 
 #[then("the CLI reports a missing Wikidata dump")]
