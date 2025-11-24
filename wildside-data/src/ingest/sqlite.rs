@@ -288,4 +288,18 @@ mod tests {
             "expected database file to be created at absolute path"
         );
     }
+
+    #[cfg(unix)]
+    #[rstest]
+    fn persisting_under_root_reports_permission(poi: PointOfInterest) {
+        let path = Utf8PathBuf::from("/pois.db");
+        let outcome = persist_pois_to_sqlite(&path, &[poi]);
+        assert!(
+            matches!(
+                outcome,
+                Err(PersistPoisError::Open { .. }) | Err(PersistPoisError::CreateDirectory { .. })
+            ),
+            "expected a permission-related error when writing to root"
+        );
+    }
 }
