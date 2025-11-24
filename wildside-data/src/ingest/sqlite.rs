@@ -96,7 +96,7 @@ pub enum PersistPoisError {
 ///
 /// The function is idempotent: rows are replaced when identifiers already
 /// exist. Parent directories are created automatically, and the `pois` table
-/// is initialised if missing. Tags are serialized to JSON strings.
+/// is initialized if missing. Tags are serialized to JSON strings.
 pub fn persist_pois_to_sqlite(
     path: &Utf8Path,
     pois: &[PointOfInterest],
@@ -320,35 +320,31 @@ mod tests {
         assert!(matches!(err, PersistPoisError::PoiIdOutOfRange { .. }));
     }
 
-    #[rstest]
-    fn persists_to_absolute_path(poi: PointOfInterest) {
-        let path = Utf8PathBuf::from("/tmp/wildside_pois.db");
+    fn test_absolute_path_persistence(path: Utf8PathBuf, poi: PointOfInterest, description: &str) {
         let _ = std::fs::remove_file(path.as_std_path());
 
-        persist_pois_to_sqlite(&path, &[poi]).expect("persist POIs to absolute path");
+        persist_pois_to_sqlite(&path, &[poi])
+            .unwrap_or_else(|_| panic!("persist POIs to {description}"));
 
         let exists = path.exists();
         let _ = std::fs::remove_file(path.as_std_path());
         assert!(
             exists,
-            "expected database file to be created at absolute path"
+            "expected database file to be created at {description}"
         );
+    }
+
+    #[rstest]
+    fn persists_to_absolute_path(poi: PointOfInterest) {
+        let path = Utf8PathBuf::from("/tmp/wildside_pois.db");
+        test_absolute_path_persistence(path, poi, "absolute path");
     }
 
     #[cfg(windows)]
     #[rstest]
     fn persists_to_windows_absolute_path(poi: PointOfInterest) {
         let path = Utf8PathBuf::from("C:\\temp\\wildside_pois.db");
-        let _ = std::fs::remove_file(path.as_std_path());
-
-        persist_pois_to_sqlite(&path, &[poi]).expect("persist POIs to Windows absolute path");
-
-        let exists = path.exists();
-        let _ = std::fs::remove_file(path.as_std_path());
-        assert!(
-            exists,
-            "expected database file to be created at Windows absolute path"
-        );
+        test_absolute_path_persistence(path, poi, "Windows absolute path");
     }
 
     #[cfg(unix)]
