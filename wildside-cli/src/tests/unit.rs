@@ -1,21 +1,10 @@
 //! Focused unit tests covering ingest CLI configuration validation.
 
+use super::helpers::write_utf8;
 use super::*;
-use camino::{Utf8Path, Utf8PathBuf};
-use cap_std::{ambient_authority, fs_utf8};
+use camino::Utf8PathBuf;
 use rstest::rstest;
 use tempfile::TempDir;
-
-fn write_utf8(path: &Utf8PathBuf, contents: impl AsRef<[u8]>) {
-    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
-    let file_name = path
-        .file_name()
-        .expect("write target should include a file name");
-    fs_utf8::Dir::open_ambient_dir(parent, ambient_authority())
-        .expect("open ambient dir")
-        .write(file_name, contents.as_ref())
-        .expect("write file");
-}
 
 #[rstest]
 #[case(

@@ -678,9 +678,9 @@ for performance and scalability.
 The `wildside` CLI now wires these stages together: the `ingest` command
 validates input paths, streams the PBF to derive POIs, writes `pois.db`
 (creating parent directories when required), extracts linked claims from plain
-JSON or `.bz2` Wikidata dumps, and serialises the R\*-tree to `pois.rstar`.
-When no POIs carry a `wikidata` tag the ETL is skipped but the claims schema is
-still initialised to keep artefact shapes stable. Output paths default to the
+JSON or `.bz2` Wikidata dumps, and serializes the R\*-tree to `pois.rstar`.
+When no POIs carry a `wikidata` tag, the ETL is skipped but the claims schema
+is still initialized to keep artefact shapes stable. Output paths default to the
 current working directory and can be overridden via `--output-dir`. Filesystem
 access during these steps relies on `cap-std`'s `fs_utf8` module and `camino`
 paths to ensure UTF-8-safe handling and to keep the pipeline ready for

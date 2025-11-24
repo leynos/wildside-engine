@@ -82,7 +82,6 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
         poi_count: report.pois.len(),
         claims_count: claims.len(),
         summary: report.summary,
-        index_size: report.pois.len(),
     })
 }
 
@@ -225,7 +224,6 @@ struct IngestOutcome {
     pub poi_count: usize,
     pub claims_count: usize,
     pub summary: OsmIngestSummary,
-    pub index_size: usize,
 }
 
 /// Errors emitted by the Wildside CLI.

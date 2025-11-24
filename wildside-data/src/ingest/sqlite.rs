@@ -273,4 +273,19 @@ mod tests {
             persist_pois_to_sqlite(&db_path, &[poi]).expect_err("should fail for out-of-range id");
         assert!(matches!(err, PersistPoisError::PoiIdOutOfRange { .. }));
     }
+
+    #[rstest]
+    fn persists_to_absolute_path(poi: PointOfInterest) {
+        let path = Utf8PathBuf::from("/tmp/wildside_pois.db");
+        let _ = std::fs::remove_file(path.as_std_path());
+
+        persist_pois_to_sqlite(&path, &[poi]).expect("persist POIs to absolute path");
+
+        let exists = path.exists();
+        let _ = std::fs::remove_file(path.as_std_path());
+        assert!(
+            exists,
+            "expected database file to be created at absolute path"
+        );
+    }
 }

@@ -32,7 +32,7 @@ fn ingest_pipeline_creates_artefacts() {
         outcome.spatial_index.exists(),
         "expected pois.rstar artefact"
     );
-    assert_eq!(outcome.poi_count, outcome.index_size);
+    assert!(outcome.poi_count > 0);
 
     let store = SqlitePoiStore::open(
         outcome.pois_db.as_std_path(),
@@ -100,7 +100,7 @@ fn ingest_pipeline_creates_artefacts_with_bz2_wikidata() {
         outcome.spatial_index.exists(),
         "expected pois.rstar artefact"
     );
-    assert_eq!(outcome.poi_count, outcome.index_size);
+    assert!(outcome.poi_count > 0);
 
     let store = SqlitePoiStore::open(
         outcome.pois_db.as_std_path(),

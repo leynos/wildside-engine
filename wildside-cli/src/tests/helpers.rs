@@ -6,7 +6,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use cap_std::{ambient_authority, fs_utf8};
 use tempfile::TempDir;
 
-fn open_ambient_path(path: &Utf8Path) -> (fs_utf8::Dir, &str) {
+pub(super) fn open_ambient_path(path: &Utf8Path) -> (fs_utf8::Dir, &str) {
     let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
     let file_name = path.file_name().expect("target should include a file name");
     let dir =
@@ -14,12 +14,12 @@ fn open_ambient_path(path: &Utf8Path) -> (fs_utf8::Dir, &str) {
     (dir, file_name)
 }
 
-fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
+pub(super) fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
     let (dir, file_name) = open_ambient_path(path);
     dir.write(file_name, contents.as_ref()).expect("write file");
 }
 
-fn read_utf8(path: &Utf8Path) -> String {
+pub(super) fn read_utf8(path: &Utf8Path) -> String {
     let (dir, file_name) = open_ambient_path(path);
     dir.read_to_string(file_name).expect("read file")
 }
