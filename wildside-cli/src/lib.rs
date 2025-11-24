@@ -241,8 +241,8 @@ pub enum CliError {
         field: &'static str,
         env: &'static str,
     },
-    /// A referenced input path does not exist on disk.
-    #[error("{field} path {path:?} does not exist")]
+    /// A referenced input path does not exist on disk or is not a file.
+    #[error("{field} path {path:?} does not exist or is not a file")]
     MissingSourceFile {
         field: &'static str,
         path: Utf8PathBuf,
