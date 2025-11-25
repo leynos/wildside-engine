@@ -200,7 +200,7 @@ fn base_dir_and_relative(
     let relative =
         Utf8PathBuf::from_path_buf(relative).map_err(|_| PersistPoisError::CreateDirectory {
             path: parent.to_path_buf(),
-            source: io::Error::other("non-utf8 parent path"),
+            source: io::Error::other("non-UTF-8 parent path"),
         })?;
 
     Ok((dir, relative))
@@ -324,7 +324,7 @@ mod tests {
         let _ = std::fs::remove_file(path.as_std_path());
 
         persist_pois_to_sqlite(&path, &[poi])
-            .unwrap_or_else(|_| panic!("persist POIs to {description}"));
+            .unwrap_or_else(|e| panic!("persist POIs to {description}: {e:?}"));
 
         let exists = path.exists();
         let _ = std::fs::remove_file(path.as_std_path());
