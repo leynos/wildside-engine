@@ -2,11 +2,8 @@
 #![forbid(unsafe_code)]
 
 use camino::{Utf8Path, Utf8PathBuf};
-use cap_std::{ambient_authority, fs_utf8};
 use rusqlite::{Connection, Error as SqliteError, Transaction};
 use serde_json::to_string;
-use std::io;
-use std::path::Component;
 use thiserror::Error;
 use wildside_core::PointOfInterest;
 
@@ -14,7 +11,7 @@ use wildside_core::PointOfInterest;
 #[derive(Debug, Error)]
 pub enum PersistPoisError {
     /// Failed to create the parent directory for the SQLite artefact.
-    #[error("failed to create parent directory {path:?}")]
+    #[error("failed to create parent directory {path:?}: {source}")]
     CreateDirectory {
         /// Path of the directory that could not be created.
         path: Utf8PathBuf,
@@ -23,7 +20,7 @@ pub enum PersistPoisError {
         source: std::io::Error,
     },
     /// Opening the SQLite database failed.
-    #[error("failed to open SQLite database at {path:?}")]
+    #[error("failed to open SQLite database at {path:?}: {source}")]
     Open {
         /// Destination database path.
         path: Utf8PathBuf,
@@ -32,21 +29,21 @@ pub enum PersistPoisError {
         source: SqliteError,
     },
     /// Enabling SQLite foreign keys failed.
-    #[error("failed to enable SQLite foreign keys")]
+    #[error("failed to enable SQLite foreign keys: {source}")]
     ForeignKeys {
         /// Source error returned by `rusqlite`.
         #[source]
         source: SqliteError,
     },
     /// Beginning the transaction failed.
-    #[error("failed to begin POI persistence transaction")]
+    #[error("failed to begin POI persistence transaction: {source}")]
     BeginTransaction {
         /// Source error returned by `rusqlite`.
         #[source]
         source: SqliteError,
     },
     /// Creating the `pois` table failed.
-    #[error("failed to create pois table")]
+    #[error("failed to create pois table: {source}")]
     CreateSchema {
         /// Source error returned by `rusqlite`.
         #[source]
@@ -68,7 +65,7 @@ pub enum PersistPoisError {
         source: serde_json::Error,
     },
     /// Writing a POI row failed.
-    #[error("failed to persist POI {poi_id}")]
+    #[error("failed to persist POI {poi_id}: {source}")]
     PersistRow {
         /// Identifier of the POI being persisted.
         poi_id: u64,
@@ -77,14 +74,14 @@ pub enum PersistPoisError {
         source: SqliteError,
     },
     /// Preparing the insert statement failed.
-    #[error("failed to prepare POI insert statement")]
+    #[error("failed to prepare POI insert statement: {source}")]
     PrepareInsert {
         /// Source error returned by `rusqlite`.
         #[source]
         source: SqliteError,
     },
     /// Committing the transaction failed.
-    #[error("failed to commit POI persistence transaction")]
+    #[error("failed to commit POI persistence transaction: {source}")]
     Commit {
         /// Source error returned by `rusqlite`.
         #[source]
@@ -125,85 +122,13 @@ pub fn persist_pois_to_sqlite(
 }
 
 fn ensure_parent_dir(path: &Utf8Path) -> Result<(), PersistPoisError> {
-    let Some(parent) = path.parent() else {
-        return Ok(());
-    };
-    if parent.as_os_str().is_empty() || parent == Utf8Path::new("/") {
-        return Ok(());
-    }
-
-    let (base_dir, relative) = base_dir_and_relative(parent)?;
-    if relative.as_os_str().is_empty() {
-        return Ok(());
-    }
-    base_dir
-        .create_dir_all(&relative)
-        .map_err(|source| PersistPoisError::CreateDirectory {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-
-    Ok(())
-}
-
-fn base_dir_and_relative(
-    parent: &Utf8Path,
-) -> Result<(fs_utf8::Dir, Utf8PathBuf), PersistPoisError> {
-    let std_parent = parent.as_std_path();
-
-    let (base, relative) = match std_parent.components().next() {
-        // Windows absolute path with a drive or UNC prefix.
-        Some(Component::Prefix(prefix)) => {
-            let prefix_str =
-                prefix
-                    .as_os_str()
-                    .to_str()
-                    .ok_or_else(|| PersistPoisError::CreateDirectory {
-                        path: parent.to_path_buf(),
-                        source: io::Error::other("non-UTF-8 path prefix"),
-                    })?;
-
-            let base = Utf8PathBuf::from(prefix_str).join(std::path::MAIN_SEPARATOR.to_string());
-            let relative = std_parent
-                .strip_prefix(base.as_std_path())
-                .or_else(|_| std_parent.strip_prefix(prefix.as_os_str()))
-                .map_err(|_| PersistPoisError::CreateDirectory {
-                    path: parent.to_path_buf(),
-                    source: io::Error::other("failed to strip prefix from parent path"),
-                })?
-                .to_path_buf();
-            (base, relative)
-        }
-        // Unix-style absolute path.
-        Some(Component::RootDir) => {
-            let base = Utf8PathBuf::from(std::path::MAIN_SEPARATOR.to_string());
-            let relative = std_parent
-                .strip_prefix(base.as_std_path())
-                .map_err(|_| PersistPoisError::CreateDirectory {
-                    path: parent.to_path_buf(),
-                    source: io::Error::other("failed to strip root from absolute path"),
-                })?
-                .to_path_buf();
-            (base, relative)
-        }
-        // Relative path: resolve from the current directory.
-        _ => (Utf8PathBuf::from("."), std_parent.to_path_buf()),
-    };
-
-    let dir = fs_utf8::Dir::open_ambient_dir(&base, ambient_authority()).map_err(|source| {
-        PersistPoisError::CreateDirectory {
-            path: parent.to_path_buf(),
-            source,
-        }
-    })?;
-
-    let relative =
-        Utf8PathBuf::from_path_buf(relative).map_err(|_| PersistPoisError::CreateDirectory {
-            path: parent.to_path_buf(),
-            source: io::Error::other("non-UTF-8 parent path"),
-        })?;
-
-    Ok((dir, relative))
+    wildside_fs::ensure_parent_dir(path).map_err(|source| PersistPoisError::CreateDirectory {
+        path: path
+            .parent()
+            .unwrap_or_else(|| Utf8Path::new("."))
+            .to_path_buf(),
+        source,
+    })
 }
 
 fn create_schema(transaction: &Transaction<'_>) -> Result<(), PersistPoisError> {

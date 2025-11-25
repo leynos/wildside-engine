@@ -3,6 +3,7 @@ members = [
     "wildside-core",
     "wildside-data",
     "wildside-cli",
+    "wildside-fs",
 ]
 resolver = "2"
 

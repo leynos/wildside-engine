@@ -3,25 +3,22 @@
 use super::*;
 use base64::{Engine as _, engine::general_purpose};
 use camino::{Utf8Path, Utf8PathBuf};
-use cap_std::{ambient_authority, fs_utf8};
 use tempfile::TempDir;
+use wildside_fs::open_dir_and_file;
 
-pub(super) fn open_ambient_path(path: &Utf8Path) -> (fs_utf8::Dir, &str) {
-    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
-    let file_name = path.file_name().expect("target should include a file name");
-    let dir =
-        fs_utf8::Dir::open_ambient_dir(parent, ambient_authority()).expect("open ambient dir");
-    (dir, file_name)
+pub(super) fn open_ambient_path(path: &Utf8Path) -> (cap_std::fs_utf8::Dir, String) {
+    open_dir_and_file(path).expect("open ambient dir")
 }
 
 pub(super) fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
     let (dir, file_name) = open_ambient_path(path);
-    dir.write(file_name, contents.as_ref()).expect("write file");
+    dir.write(file_name.as_str(), contents.as_ref())
+        .expect("write file");
 }
 
 pub(super) fn read_utf8(path: &Utf8Path) -> String {
     let (dir, file_name) = open_ambient_path(path);
-    dir.read_to_string(file_name).expect("read file")
+    dir.read_to_string(file_name.as_str()).expect("read file")
 }
 
 #[derive(Debug, Clone, Default)]

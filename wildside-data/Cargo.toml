@@ -27,6 +27,7 @@ url = "2.5.7"
 tempfile = "3.23.0"
 camino = { workspace = true }
 cap-std = { workspace = true }
+wildside-fs = { path = "../wildside-fs" }
 
 [dev-dependencies]
 base64 = "0.22"

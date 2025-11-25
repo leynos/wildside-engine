@@ -3221,11 +3221,13 @@ dependencies = [
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
+ "rusqlite",
  "serde",
  "tempfile",
  "thiserror 1.0.69",
  "wildside-core",
  "wildside-data",
+ "wildside-fs",
 ]
 
 [[package]]
@@ -3273,6 +3275,15 @@ dependencies = [
  "url",
  "wikidata",
  "wildside-core",
+ "wildside-fs",
+]
+
+[[package]]
+name = "wildside-fs"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "cap-std",
 ]
 
 [[package]]

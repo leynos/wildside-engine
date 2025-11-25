@@ -2,10 +2,12 @@
 
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
+use crate::is_bz2;
 use bzip2::{Compression, write::BzEncoder};
 use camino::Utf8PathBuf;
 use geo::{Coord, Rect};
 use rstest::rstest;
+use rusqlite::Connection;
 use std::fs;
 use std::io::Write;
 use tempfile::TempDir;
@@ -48,6 +50,17 @@ fn ingest_pipeline_creates_artefacts() {
     );
     let pois: Vec<_> = store.get_pois_in_bbox(&bbox).collect();
     assert_eq!(pois.len(), outcome.poi_count);
+
+    let conn = Connection::open(outcome.pois_db.as_std_path()).expect("open pois.db");
+    let persisted_claims: i64 = conn
+        .query_row("SELECT COUNT(*) FROM wikidata_entity_claims", [], |row| {
+            row.get(0)
+        })
+        .expect("count persisted claims");
+    assert_eq!(
+        persisted_claims as usize, outcome.claims_count,
+        "claims_count should reflect persisted claims"
+    );
 }
 
 #[rstest]
@@ -140,4 +153,39 @@ fn wikidata_claims_are_extracted_for_linked_entities() {
     assert_eq!(claims[0].entity_id, "Q64");
     assert_eq!(claims[0].linked_poi_ids, vec![7]);
     assert_eq!(claims[0].heritage_designations, vec!["Q9259".to_string()]);
+}
+
+#[rstest]
+fn wikidata_claims_are_empty_when_no_linked_entities() {
+    let working = TempDir::new().expect("temp dir");
+    let workspace =
+        Utf8PathBuf::from_path_buf(working.path().to_path_buf()).expect("utf-8 workspace path");
+    let wikidata_path = write_wikidata_dump(&workspace);
+    let config = IngestConfig {
+        osm_pbf: workspace.join("dummy.osm.pbf"),
+        wikidata_dump: wikidata_path,
+        output_dir: workspace.clone(),
+    };
+
+    let claims = ingest_wikidata_claims(&config, &[]).expect("extract claims without links");
+    assert!(
+        claims.is_empty(),
+        "expected no claims when POIs contain no wikidata tags"
+    );
+}
+
+#[test]
+fn is_bz2_handles_case_insensitive_extensions() {
+    let cases = [
+        ("dump.bz2", true),
+        ("dump.BZ2", true),
+        ("dump.json.bz2", true),
+        ("dump.json", false),
+        ("dumpbz2", false),
+    ];
+
+    for (name, expected) in cases {
+        let path = Utf8PathBuf::from(name);
+        assert_eq!(is_bz2(&path), expected, "is_bz2({name})");
+    }
 }

@@ -3,7 +3,6 @@
 
 use bzip2::read::MultiBzDecoder;
 use camino::{Utf8Path, Utf8PathBuf};
-use cap_std::{ambient_authority, fs_utf8::File};
 use clap::{Parser, Subcommand};
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
@@ -22,6 +21,7 @@ use wildside_data::{
     OsmIngestError, OsmIngestSummary, PersistPoisError, ingest_osm_pbf_report,
     persist_pois_to_sqlite,
 };
+use wildside_fs::open_utf8_file;
 
 const ARG_OSM_PBF: &str = "osm-pbf";
 const ARG_WIKIDATA_DUMP: &str = "wikidata-dump";
@@ -98,11 +98,9 @@ fn ingest_wikidata_claims(
 }
 
 fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliError> {
-    let file = File::open_ambient(path, ambient_authority()).map_err(|source| {
-        CliError::OpenWikidataDump {
-            path: path.to_path_buf(),
-            source,
-        }
+    let file = open_utf8_file(path).map_err(|source| CliError::OpenWikidataDump {
+        path: path.to_path_buf(),
+        source,
     })?;
     if is_bz2(path) {
         Ok(Box::new(BufReader::new(MultiBzDecoder::new(file))))
@@ -185,13 +183,12 @@ impl IngestConfig {
     }
 
     fn require_existing(path: &Utf8Path, field: &'static str) -> Result<(), CliError> {
-        if path.is_file() {
-            Ok(())
-        } else {
-            Err(CliError::MissingSourceFile {
+        match wildside_fs::file_is_file(path) {
+            Ok(true) => Ok(()),
+            Ok(false) | Err(_) => Err(CliError::MissingSourceFile {
                 field,
                 path: path.to_path_buf(),
-            })
+            }),
         }
     }
 }
