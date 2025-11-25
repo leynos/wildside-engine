@@ -208,16 +208,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
+name = "bzip2"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdb116a6ef3f6c3698828873ad02c3014b3c85cadb88496095628e3ef1e347f8"
+dependencies = [
+ "bzip2-sys",
+ "libc",
+]
+
+[[package]]
+name = "bzip2-sys"
+version = "0.1.13+1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "225bff33b2141874fe80d71e07d6eec4f85c5c216453dd96388240f96e1acc14"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
 name = "camino"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276a59bf2b2c967788139340c9f0c5b12d7fd6630315c15c217e559de85d2609"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "cap-primitives"
-version = "3.4.4"
+version = "3.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a1e394ed14f39f8bc26f59d4c0c010dbe7f0a1b9bafff451b1f98b67c8af62a"
+checksum = "b6cf3aea8a5081171859ef57bc1606b1df6999df4f1110f8eef68b30098d1d3a"
 dependencies = [
  "ambient-authority",
  "fs-set-times",
@@ -233,9 +256,9 @@ dependencies = [
 
 [[package]]
 name = "cap-std"
-version = "3.4.4"
+version = "3.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07c0355ca583dd58f176c3c12489d684163861ede3c9efa6fd8bba314c984189"
+checksum = "b6dc3090992a735d23219de5c204927163d922f42f575a0189b005c62d37549a"
 dependencies = [
  "camino",
  "cap-primitives",
@@ -3187,15 +3210,24 @@ dependencies = [
 name = "wildside-cli"
 version = "0.1.0"
 dependencies = [
+ "base64",
+ "bzip2",
+ "camino",
+ "cap-std",
  "clap",
  "eyre",
+ "geo",
  "ortho_config",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",
+ "rusqlite",
  "serde",
  "tempfile",
  "thiserror 1.0.69",
+ "wildside-core",
+ "wildside-data",
+ "wildside-fs",
 ]
 
 [[package]]
@@ -3221,6 +3253,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "base64",
+ "camino",
+ "cap-std",
  "clap",
  "futures-util",
  "geo",
@@ -3241,6 +3275,15 @@ dependencies = [
  "url",
  "wikidata",
  "wildside-core",
+ "wildside-fs",
+]
+
+[[package]]
+name = "wildside-fs"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "cap-std",
 ]
 
 [[package]]

@@ -15,9 +15,18 @@ eyre = "0.6"
 ortho_config = "0.6.0"
 serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "1.0.69"
+bzip2 = "0.4"
+wildside-core = { workspace = true }
+wildside-data = { workspace = true }
+camino = { workspace = true }
+cap-std = { workspace = true }
+wildside-fs = { path = "../wildside-fs" }
 
 [dev-dependencies]
+base64 = "0.22"
+geo = "0.31.0"
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 tempfile = "3.23.0"
+rusqlite = { version = "0.31.0", features = ["bundled"] }

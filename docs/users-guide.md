@@ -12,8 +12,9 @@ consume the public APIs exposed by the workspace.
 - `wildside-engine`: convenience facade that currently exposes a `greet`
   helper. Downstream applications should depend on the specific feature crates
   described in this guide until the facade is expanded.
-- `wildside-cli`: placeholder command-line binary reserved for future
-  operational tooling.
+- `wildside-cli`: offline tooling that runs the `ingest` pipeline to build
+  `pois.db` and `pois.rstar` from an OpenStreetMap (OSM)
+  Protocolbuffer Binary Format (PBF) file plus a Wikidata dump.
 
 ## Core data model
 

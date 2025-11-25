@@ -3,6 +3,7 @@ members = [
     "wildside-core",
     "wildside-data",
     "wildside-cli",
+    "wildside-fs",
 ]
 resolver = "2"
 
@@ -11,10 +12,13 @@ edition = "2024"
 
 [workspace.dependencies]
 wildside-core = { path = "wildside-core" }
+wildside-data = { path = "wildside-data" }
 log = "0.4.22"
 rstest = "0.26.1"
 rstest-bdd = "0.1.0"
 rstest-bdd-macros = "0.1.0"
+camino = { version = "1.2.1", features = ["serde1"] }
+cap-std = { version = "3.4.5", features = ["fs_utf8"] }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

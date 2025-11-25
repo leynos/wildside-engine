@@ -1,10 +1,13 @@
 //! OpenStreetMap (OSM) PBF ingestion.
 //!
-//! Provides parallel ingestion that summarises raw element counts and derives
-//! Points of Interest (POIs) from tagged nodes and ways. Way POIs are anchored
-//! to the first resolved node reference. The main entry points are:
+//! Provides parallel ingestion that summarises raw element counts, derives
+//! Points of Interest (POIs) from tagged nodes and ways, and persists POIs to
+//! SQLite. Way POIs are anchored to the first resolved node reference.
+//!
+//! Main entry points are:
 //! - [`ingest_osm_pbf`] for a summary only
 //! - [`ingest_osm_pbf_report`] for a summary plus derived POIs
+//! - [`persist_pois_to_sqlite`] to persist POIs to a SQLite database
 //!
 //! This module is thread-safe and performs a second pass to hydrate coordinates
 //! for node references required by relevant ways.
@@ -18,7 +21,10 @@ use wildside_core::PointOfInterest;
 
 mod accumulator;
 mod ids;
+mod sqlite;
 mod tags;
+
+pub use sqlite::{PersistPoisError, persist_pois_to_sqlite};
 
 use accumulator::OsmPoiAccumulator;
 

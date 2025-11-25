@@ -17,6 +17,7 @@ simd-json = { version = "0.17.0", features = ["serde"] }
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls", "stream"] }
 serde = { version = "^1.0", features = ["derive"] }
+serde_json = "1"
 clap = { version = "4.5.49", features = ["derive"] }
 tokio = { version = "1.38.0", features = ["macros", "rt", "rt-multi-thread"] }
 tokio-util = { version = "^0.7", features = ["io-util"] }
@@ -24,6 +25,9 @@ futures-util = "^0.3"
 async-trait = "^0.1"
 url = "2.5.7"
 tempfile = "3.23.0"
+camino = { workspace = true }
+cap-std = { workspace = true }
+wildside-fs = { path = "../wildside-fs" }
 
 [dev-dependencies]
 base64 = "0.22"

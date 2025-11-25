@@ -1,27 +1,34 @@
 //! Focused unit tests covering ingest CLI configuration validation.
 
+use super::helpers::write_utf8;
 use super::*;
+use camino::Utf8PathBuf;
 use rstest::rstest;
-use std::{fs, path::PathBuf};
 use tempfile::TempDir;
 
 #[rstest]
-#[case(None, Some(PathBuf::from("wikidata.json")), ARG_OSM_PBF, ENV_OSM_PBF)]
 #[case(
-    Some(PathBuf::from("planet.osm.pbf")),
+    None,
+    Some(Utf8PathBuf::from("wikidata.json")),
+    ARG_OSM_PBF,
+    ENV_OSM_PBF
+)]
+#[case(
+    Some(Utf8PathBuf::from("planet.osm.pbf")),
     None,
     ARG_WIKIDATA_DUMP,
     ENV_WIKIDATA_DUMP
 )]
 fn converting_without_required_fields_errors(
-    #[case] osm: Option<PathBuf>,
-    #[case] wiki: Option<PathBuf>,
+    #[case] osm: Option<Utf8PathBuf>,
+    #[case] wiki: Option<Utf8PathBuf>,
     #[case] field: &'static str,
     #[case] env_var: &'static str,
 ) {
     let args = IngestArgs {
         osm_pbf: osm,
         wikidata_dump: wiki,
+        ..IngestArgs::default()
     };
     let err = IngestConfig::try_from(args).expect_err("missing field should error");
     match err {
@@ -39,9 +46,12 @@ fn converting_without_required_fields_errors(
 #[rstest]
 fn validate_sources_reports_missing_files() {
     let tmp = TempDir::new().expect("tempdir");
+    let workspace =
+        Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace path");
     let config = IngestConfig {
-        osm_pbf: tmp.path().join("missing-osm"),
-        wikidata_dump: tmp.path().join("missing-wiki"),
+        osm_pbf: workspace.join("missing-osm"),
+        wikidata_dump: workspace.join("missing-wiki"),
+        output_dir: workspace,
     };
     let err = config.validate_sources().expect_err("expected failure");
     match err {
@@ -55,11 +65,13 @@ fn validate_sources_reports_missing_files() {
 #[rstest]
 fn validate_sources_rejects_directories() {
     let dir = TempDir::new().expect("tempdir");
-    let file_path = dir.path().join("dump.json");
-    fs::write(&file_path, b"{}\n").expect("write dump");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+    let file_path = root.join("dump.json");
+    write_utf8(&file_path, b"{}\n");
     let config = IngestConfig {
-        osm_pbf: dir.path().to_path_buf(),
+        osm_pbf: root.clone(),
         wikidata_dump: file_path,
+        output_dir: root.clone(),
     };
     let err = config
         .validate_sources()
@@ -68,4 +80,58 @@ fn validate_sources_rejects_directories() {
         CliError::MissingSourceFile { field, .. } => assert_eq!(field, ARG_OSM_PBF),
         other => panic!("unexpected error {other:?}"),
     }
+}
+
+#[rstest]
+fn validate_sources_rejects_output_file() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+    let osm_path = root.join("planet.osm.pbf");
+    let wikidata_path = root.join("dump.json");
+    let output_file = root.join("pois.db");
+    write_utf8(&osm_path, b"osm");
+    write_utf8(&wikidata_path, b"wiki");
+    write_utf8(&output_file, b"existing artefact");
+
+    let config = IngestConfig {
+        osm_pbf: osm_path,
+        wikidata_dump: wikidata_path,
+        output_dir: output_file,
+    };
+
+    let err = config
+        .validate_sources()
+        .expect_err("expected output directory validation to fail");
+    match err {
+        CliError::OutputDirectoryNotDirectory { .. } => {}
+        other => panic!("unexpected error {other:?}"),
+    }
+}
+
+#[rstest]
+fn ingest_config_uses_default_output_dir_when_none() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf()).expect("utf-8 workspace");
+
+    let osm_pbf_path = root.join("data.osm.pbf");
+    let wikidata_dump_path = root.join("dump.json");
+    write_utf8(&osm_pbf_path, b"dummy osm pbf");
+    write_utf8(&wikidata_dump_path, b"{}\n");
+
+    let args = IngestArgs {
+        osm_pbf: Some(osm_pbf_path),
+        wikidata_dump: Some(wikidata_dump_path),
+        output_dir: None,
+    };
+
+    let config: IngestConfig = IngestConfig::try_from(args).expect("config should build");
+    assert_eq!(
+        config.output_dir,
+        Utf8PathBuf::from("."),
+        "output_dir should default to current directory"
+    );
+
+    config
+        .validate_sources()
+        .expect("validation should succeed for valid defaults");
 }

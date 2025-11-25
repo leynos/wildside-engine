@@ -277,6 +277,18 @@ fn load_index_entries(path: &Path) -> Result<Vec<PointOfInterest>, SpatialIndexE
     })
 }
 
+/// Persist a spatial index artefact containing the provided POIs.
+///
+/// The file is written in the `WSPI` binary format expected by
+/// [`SqlitePoiStore`]. It combines a fixed header with a `bincode` payload of
+/// [`PointOfInterest`] entries. Existing files are truncated.
+pub fn write_spatial_index(
+    path: &Path,
+    entries: &[PointOfInterest],
+) -> Result<(), SpatialIndexWriteError> {
+    write_index(path, entries)
+}
+
 pub(crate) fn write_index(
     path: &Path,
     entries: &[PointOfInterest],
