@@ -163,7 +163,7 @@ fn base_dir_and_relative(
                         source: io::Error::other("non-UTF-8 path prefix"),
                     })?;
 
-            let base = Utf8PathBuf::from(format!("{}{}", prefix_str, std::path::MAIN_SEPARATOR));
+            let base = Utf8PathBuf::from(prefix_str).join(std::path::MAIN_SEPARATOR.to_string());
             let relative = std_parent
                 .strip_prefix(base.as_std_path())
                 .or_else(|_| std_parent.strip_prefix(prefix.as_os_str()))
