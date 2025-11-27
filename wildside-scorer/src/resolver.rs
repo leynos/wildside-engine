@@ -86,20 +86,32 @@ pub(crate) fn parse_sitelinks_from_tags(
     match candidate {
         None => Ok(None),
         Some(value) if value.is_null() => Ok(None),
-        Some(value) if value.is_number() => value
-            .as_i64()
-            .ok_or_else(|| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })
-            .map(Some),
-        Some(value) if value.is_string() => {
-            let raw = value.as_str().unwrap_or_default().trim();
-            if raw.is_empty() {
-                return Ok(None);
-            }
-            let parsed_value = raw
-                .parse::<i64>()
-                .map_err(|_| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })?;
-            Ok(Some(parsed_value))
-        }
+        Some(value) if value.is_number() => extract_number_value(value, poi_id),
+        Some(value) if value.is_string() => extract_string_value(value, poi_id),
         Some(_) => Err(PopularityError::InvalidSitelinkCount { poi_id, raw: 0 }),
     }
+}
+
+fn extract_number_value(
+    value: &serde_json::Value,
+    poi_id: u64,
+) -> Result<Option<i64>, PopularityError> {
+    value
+        .as_i64()
+        .ok_or_else(|| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })
+        .map(Some)
+}
+
+fn extract_string_value(
+    value: &serde_json::Value,
+    poi_id: u64,
+) -> Result<Option<i64>, PopularityError> {
+    let raw = value.as_str().unwrap_or_default().trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let parsed_value = raw
+        .parse::<i64>()
+        .map_err(|_| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })?;
+    Ok(Some(parsed_value))
 }
