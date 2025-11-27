@@ -3287,6 +3287,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "wildside-scorer"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "camino",
+ "rstest",
+ "rstest-bdd",
+ "rstest-bdd-macros",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "wildside-core",
+ "wildside-fs",
+]
+
+[[package]]
 name = "winapi-util"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
