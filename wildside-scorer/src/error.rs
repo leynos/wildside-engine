@@ -48,6 +48,14 @@ pub enum PopularityError {
         /// Raw value found in the database.
         raw: i64,
     },
+    /// A sitelink value of an unexpected type was discovered in POI tags.
+    #[error("sitelink value for POI {poi_id} is invalid JSON: {raw_json}")]
+    InvalidSitelinkCountJson {
+        /// Identifier of the affected POI.
+        poi_id: u64,
+        /// Raw JSON payload describing the invalid value.
+        raw_json: String,
+    },
     /// Creating the parent directory for the output file failed.
     #[error("failed to create parent directory {path}")]
     CreateParent {

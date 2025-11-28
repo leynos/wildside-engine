@@ -1,7 +1,7 @@
 //! Public configuration and output types for popularity scoring.
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ impl Default for PopularityWeights {
 /// Normalised popularity scores keyed by POI identifier.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PopularityScores {
-    scores: HashMap<u64, f32>,
+    scores: BTreeMap<u64, f32>,
 }
 
 impl PopularityScores {
@@ -36,7 +36,7 @@ impl PopularityScores {
         reason = "scores are produced at runtime from database reads"
     )]
     #[must_use]
-    pub fn new(scores: HashMap<u64, f32>) -> Self {
+    pub fn new(scores: BTreeMap<u64, f32>) -> Self {
         Self { scores }
     }
 
@@ -60,7 +60,7 @@ impl PopularityScores {
 
     /// Consume the wrapper and return the underlying map.
     #[must_use]
-    pub fn into_inner(self) -> HashMap<u64, f32> {
+    pub fn into_inner(self) -> BTreeMap<u64, f32> {
         self.scores
     }
 }

@@ -5,8 +5,9 @@ use rusqlite::{CachedStatement, Connection, OptionalExtension};
 
 use crate::{PopularityError, SITELINK_TABLE};
 
-pub(crate) struct SitelinkResolver<'conn> {
-    statement: Option<CachedStatement<'conn>>,
+pub(crate) enum SitelinkResolver<'conn> {
+    Db { statement: CachedStatement<'conn> },
+    TagsOnly,
 }
 
 impl<'conn> SitelinkResolver<'conn> {
@@ -29,14 +30,13 @@ impl<'conn> SitelinkResolver<'conn> {
                 format!("SELECT sitelink_count FROM {SITELINK_TABLE} WHERE entity_id = ?1 LIMIT 1");
             let statement = connection
                 .prepare_cached(query.as_str())
-                .map(Some)
                 .map_err(|source| PopularityError::Query {
                     operation: "prepare sitelink lookup",
                     source,
                 })?;
-            Ok(Self { statement })
+            Ok(Self::Db { statement })
         } else {
-            Ok(Self { statement: None })
+            Ok(Self::TagsOnly)
         }
     }
 
@@ -46,17 +46,19 @@ impl<'conn> SitelinkResolver<'conn> {
         tags: &str,
         poi_id: u64,
     ) -> Result<u32, PopularityError> {
-        if let (Some(statement), Some(id)) = (&mut self.statement, entity_id) {
-            let value: Option<i64> = statement
+        let db_value = match (self, entity_id) {
+            (Self::Db { statement }, Some(id)) => statement
                 .query_row([id], |row| row.get(0))
                 .optional()
                 .map_err(|source| PopularityError::Query {
                     operation: "lookup sitelink count",
                     source,
-                })?;
-            if let Some(raw) = value {
-                return i64_to_u32(raw, poi_id);
-            }
+                })?,
+            _ => None,
+        };
+
+        if let Some(raw) = db_value {
+            return i64_to_u32(raw, poi_id);
         }
 
         if let Some(raw) = parse_sitelinks_from_tags(tags, poi_id)? {
@@ -83,23 +85,25 @@ pub(crate) fn parse_sitelinks_from_tags(
     let candidate = object
         .get("sitelinks")
         .or_else(|| object.get("sitelink_count"));
-    match candidate {
-        None => Ok(None),
-        Some(value) if value.is_null() => Ok(None),
-        Some(value) if value.is_number() => extract_number_value(value, poi_id),
-        Some(value) if value.is_string() => extract_string_value(value, poi_id),
-        Some(_) => Err(PopularityError::InvalidSitelinkCount { poi_id, raw: 0 }),
-    }
+    let Some(value) = candidate else {
+        return Ok(None);
+    };
+    interpret_sitelink_value(value, poi_id)
 }
 
 fn extract_number_value(
     value: &serde_json::Value,
     poi_id: u64,
 ) -> Result<Option<i64>, PopularityError> {
-    value
-        .as_i64()
-        .ok_or_else(|| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })
-        .map(Some)
+    value.as_i64().map_or_else(
+        || {
+            Err(PopularityError::InvalidSitelinkCountJson {
+                poi_id,
+                raw_json: value.to_string(),
+            })
+        },
+        |v| Ok(Some(v)),
+    )
 }
 
 fn extract_string_value(
@@ -110,8 +114,31 @@ fn extract_string_value(
     if raw.is_empty() {
         return Ok(None);
     }
-    let parsed_value = raw
-        .parse::<i64>()
-        .map_err(|_| PopularityError::InvalidSitelinkCount { poi_id, raw: 0 })?;
+    let parsed_value =
+        raw.parse::<i64>()
+            .map_err(|_| PopularityError::InvalidSitelinkCountJson {
+                poi_id,
+                raw_json: raw.to_owned(),
+            })?;
     Ok(Some(parsed_value))
+}
+
+fn interpret_sitelink_value(
+    value: &serde_json::Value,
+    poi_id: u64,
+) -> Result<Option<i64>, PopularityError> {
+    if value.is_null() {
+        return Ok(None);
+    }
+    if value.is_number() {
+        return extract_number_value(value, poi_id);
+    }
+    if value.is_string() {
+        return extract_string_value(value, poi_id);
+    }
+
+    Err(PopularityError::InvalidSitelinkCountJson {
+        poi_id,
+        raw_json: value.to_string(),
+    })
 }

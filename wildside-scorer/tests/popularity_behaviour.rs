@@ -49,6 +49,7 @@ fn sqlite_with_sitelinks(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBu
     create_schema(&connection);
     insert_poi(&connection, 1, "Q1", "{\"wikidata\":\"Q1\"}");
     insert_poi(&connection, 2, "Q2", "{\"wikidata\":\"Q2\"}");
+    insert_poi(&connection, 3, "Q3", "{}");
     link_entity(&connection, 1, "Q1");
     link_entity(&connection, 2, "Q2");
     insert_heritage_claim(&connection, "Q1");
@@ -151,10 +152,36 @@ fn computation_fails(compute_result: &RefCell<Option<Result<PopularityScores, Po
         .unwrap_or_else(|| panic!("computation result must be recorded"));
     match result {
         Ok(_) => panic!("expected popularity computation to fail"),
-        Err(PopularityError::InvalidSitelinkCount { poi_id, .. }) => {
+        Err(PopularityError::InvalidSitelinkCountJson { poi_id, .. }) => {
             assert_eq!(*poi_id, 7_u64);
         }
         Err(other) => panic!("unexpected error: {other}"),
+    }
+}
+
+#[then("the unlinked POI has a zero normalised score")]
+#[expect(
+    clippy::float_arithmetic,
+    reason = "assertions compare floating-point scores"
+)]
+fn unlinked_poi_scores_zero(
+    compute_result: &RefCell<Option<Result<PopularityScores, PopularityError>>>,
+) {
+    let binding = compute_result.borrow();
+    let result = binding
+        .as_ref()
+        .unwrap_or_else(|| panic!("computation result must be recorded"));
+    match result {
+        Ok(scores) => {
+            let Some(q3) = scores.get(3) else {
+                panic!("score for unlinked poi")
+            };
+            assert!(
+                (q3 - 0.0_f32).abs() < 0.000_1_f32,
+                "unlinked POI should normalise to 0.0 (got {q3})"
+            );
+        }
+        Err(err) => panic!("popularity computation should succeed, got {err}"),
     }
 }
 
@@ -235,6 +262,16 @@ fn heritage_scores_highest_when_sitelinks_present(
 
 #[scenario(path = "tests/features/popularity.feature", index = 1)]
 fn invalid_sitelinks_fail(
+    temp_dir: TempDir,
+    db_path: RefCell<Option<Utf8PathBuf>>,
+    weights: PopularityWeights,
+    compute_result: RefCell<Option<Result<PopularityScores, PopularityError>>>,
+) {
+    let _ = (temp_dir, db_path, weights, compute_result);
+}
+
+#[scenario(path = "tests/features/popularity.feature", index = 2)]
+fn unlinked_poi_scores_zero_scenario(
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,
     weights: PopularityWeights,

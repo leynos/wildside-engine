@@ -1,12 +1,17 @@
 //! Unit coverage for popularity scoring helpers.
 #![forbid(unsafe_code)]
 
+use bincode::Options;
 use camino::Utf8PathBuf;
 use rstest::rstest;
 use rusqlite::Connection;
 use tempfile::TempDir;
 
-use crate::{normalise_scores, resolver::SitelinkResolver, resolver::parse_sitelinks_from_tags};
+use crate::{
+    PopularityError, PopularityScores, PopularityWeights, bincode_options,
+    compute_popularity_scores, normalise_scores, resolver::SitelinkResolver,
+    resolver::parse_sitelinks_from_tags, write_popularity_file,
+};
 
 #[rstest]
 #[expect(
@@ -60,6 +65,57 @@ fn parses_string_sitelinks_from_tags() {
 }
 
 #[rstest]
+fn missing_sitelinks_returns_none() {
+    let tags = r#"{"wikidata":"Q64"}"#;
+
+    let parsed = parse_sitelinks_from_tags(tags, 1).expect("parse sitelinks");
+
+    assert!(parsed.is_none());
+}
+
+#[rstest]
+fn null_sitelinks_returns_none() {
+    let tags = r#"{"wikidata":"Q64","sitelinks":null}"#;
+
+    let parsed = parse_sitelinks_from_tags(tags, 1).expect("parse sitelinks");
+
+    assert!(parsed.is_none());
+}
+
+#[rstest]
+fn sitelink_count_alias_is_supported() {
+    let tags = r#"{"wikidata":"Q64","sitelink_count":5}"#;
+
+    let parsed = parse_sitelinks_from_tags(tags, 1).expect("parse sitelinks");
+
+    assert_eq!(parsed, Some(5));
+}
+
+#[rstest]
+fn empty_string_returns_none() {
+    let tags = r#"{"wikidata":"Q64","sitelinks":"   "}"#;
+
+    let parsed = parse_sitelinks_from_tags(tags, 1).expect("parse sitelinks");
+
+    assert!(parsed.is_none());
+}
+
+#[rstest]
+fn invalid_array_sitelinks_returns_error() {
+    let tags = r#"{"wikidata":"Q64","sitelinks":[]}"#;
+
+    let err = match parse_sitelinks_from_tags(tags, 1) {
+        Ok(value) => panic!("expected error, got {value:?}"),
+        Err(err) => err,
+    };
+
+    match err {
+        PopularityError::InvalidSitelinkCountJson { poi_id, .. } => assert_eq!(poi_id, 1),
+        other => panic!("unexpected error: {other}"),
+    }
+}
+
+#[rstest]
 fn sitelink_table_is_preferred() {
     let temp = TempDir::new().expect("tempdir");
     let db_path = Utf8PathBuf::from_path_buf(temp.path().join("pois.db")).expect("utf8 path");
@@ -84,6 +140,27 @@ fn sitelink_table_is_preferred() {
         .expect("resolve sitelinks");
 
     assert_eq!(count, 99);
+}
+
+#[rstest]
+fn write_popularity_file_round_trips_scores() {
+    let temp = TempDir::new().expect("tempdir");
+    let db_path = Utf8PathBuf::from_path_buf(temp.path().join("pois.db")).expect("utf8 path");
+    seed_database_with_sitelinks(&db_path);
+    let weights = PopularityWeights::default();
+    let expected = compute_popularity_scores(&db_path, weights).expect("compute scores");
+
+    let nested = temp.path().join("nested/dir/popularity.bin");
+    let output = Utf8PathBuf::from_path_buf(nested).expect("valid utf8 nested output path");
+
+    write_popularity_file(&db_path, &output, weights).expect("write popularity file");
+
+    let bytes = std::fs::read(output.as_std_path()).expect("read popularity file");
+    let decoded: PopularityScores = bincode_options()
+        .deserialize(&bytes)
+        .expect("decode popularity file");
+
+    assert_eq!(decoded, expected, "scores should round-trip via bincode");
 }
 
 fn seed_database(path: &Utf8PathBuf) {
@@ -137,4 +214,24 @@ fn seed_database(path: &Utf8PathBuf) {
             [],
         )
         .expect("insert heritage claim");
+}
+
+fn seed_database_with_sitelinks(path: &Utf8PathBuf) {
+    seed_database(path);
+    let connection = Connection::open(path.as_std_path()).expect("reopen database");
+    connection
+        .execute(
+            "CREATE TABLE wikidata_entity_sitelinks (
+                entity_id TEXT PRIMARY KEY,
+                sitelink_count INTEGER NOT NULL
+            )",
+            [],
+        )
+        .expect("create sitelink table");
+    connection
+        .execute(
+            "INSERT INTO wikidata_entity_sitelinks (entity_id, sitelink_count) VALUES ('Q64', 10)",
+            [],
+        )
+        .expect("insert sitelink count");
 }

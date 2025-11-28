@@ -1,6 +1,3 @@
-#![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
-
 //! Offline popularity scoring for Wildside points of interest.
 //!
 //! The crate walks a `pois.db` `SQLite` database, extracts popularity signals,
@@ -21,6 +18,9 @@
 //! let weights = PopularityWeights::default();
 //! write_popularity_file(db_path, output, weights).expect("persist popularity scores");
 //! ```
+
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -43,6 +43,12 @@ use resolver::SitelinkResolver;
 pub(crate) const HERITAGE_PROPERTY: &str = "P1435";
 pub(crate) const SITELINK_TABLE: &str = "wikidata_entity_sitelinks";
 const UNESCO_WORLD_HERITAGE: &str = "Q9259";
+
+/// Bincode options used for serialising popularity scores.
+#[cfg(test)]
+pub(crate) fn bincode_options() -> impl bincode::Options {
+    bincode::DefaultOptions::new()
+}
 
 /// Compute normalised popularity scores for all POIs in a `pois.db` database.
 ///
@@ -79,12 +85,12 @@ pub fn write_popularity_file(
     weights: PopularityWeights,
 ) -> Result<PopularityScores, PopularityError> {
     let scores = compute_popularity_scores(db_path, weights)?;
-    if let Some(parent) = output_path.parent() {
-        ensure_parent_dir(parent).map_err(|source| PopularityError::CreateParent {
-            path: parent.to_path_buf(),
-            source,
-        })?;
-    }
+    ensure_parent_dir(output_path).map_err(|source| PopularityError::CreateParent {
+        path: output_path
+            .parent()
+            .map_or_else(|| Utf8Path::new(".").to_path_buf(), Utf8Path::to_path_buf),
+        source,
+    })?;
     let file =
         File::create(output_path.as_std_path()).map_err(|source| PopularityError::WriteFile {
             path: output_path.to_path_buf(),
@@ -179,7 +185,7 @@ fn score_signals(sitelinks: u32, heritage: bool, weights: PopularityWeights) -> 
     clippy::float_arithmetic,
     reason = "normalising scores divides by the maximum raw value"
 )]
-pub(crate) fn normalise_scores(raw: &HashMap<u64, f32>) -> HashMap<u64, f32> {
+pub(crate) fn normalise_scores(raw: &HashMap<u64, f32>) -> std::collections::BTreeMap<u64, f32> {
     let max = raw.values().copied().fold(0.0_f32, f32::max);
     if max == 0.0_f32 {
         return raw.keys().map(|&id| (id, 0.0_f32)).collect();
