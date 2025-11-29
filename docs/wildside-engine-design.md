@@ -510,6 +510,15 @@ The implementation steps within the ETL pipeline are as follows:
    formula to produce a single floating-point `global_popularity_score`, which
    is then saved to the `popularity.bin` artefact.
 
+The implemented scorer lives in the `wildside-scorer` crate. It resolves
+sitelink counts from an optional `wikidata_entity_sitelinks` table, falling
+back to `sitelinks` or `sitelink_count` tag entries and defaulting to zero when
+no data exists. UNESCO heritage designations add a `25.0` bonus on top of the
+`1.0` sitelink weight, and raw values are normalised against the run maximum
+before serialisation. The resulting `HashMap<u64, f32>` is persisted to
+`popularity.bin` using `bincode`, providing a deterministic artefact for
+request-time scoring.
+
 ### 2.2. Calculating User Relevance `U(POI, user_profile)`
 
 The user relevance score, `U(POI, user\_profile)`, is where true
@@ -680,10 +689,10 @@ validates input paths, streams the PBF to derive POIs, writes `pois.db`
 (creating parent directories when required), extracts linked claims from plain
 JSON or `.bz2` Wikidata dumps, and serializes the R\*-tree to `pois.rstar`.
 When no POIs carry a `wikidata` tag, the ETL is skipped but the claims schema
-is still initialized to keep artefact shapes stable. Output paths default to the
-current working directory and can be overridden via `--output-dir`. Filesystem
-access during these steps relies on `cap-std`'s `fs_utf8` module and `camino`
-paths to ensure UTF-8-safe handling and to keep the pipeline ready for
+is still initialized to keep artefact shapes stable. Output paths default to
+the current working directory and can be overridden via `--output-dir`.
+Filesystem access during these steps relies on `cap-std`'s `fs_utf8` module and
+`camino` paths to ensure UTF-8-safe handling and to keep the pipeline ready for
 capability-based sandboxing.
 
 #### 3.4.1. Artefact versioning and migration

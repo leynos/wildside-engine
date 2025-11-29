@@ -13,8 +13,8 @@ consume the public APIs exposed by the workspace.
   helper. Downstream applications should depend on the specific feature crates
   described in this guide until the facade is expanded.
 - `wildside-cli`: offline tooling that runs the `ingest` pipeline to build
-  `pois.db` and `pois.rstar` from an OpenStreetMap (OSM)
-  Protocolbuffer Binary Format (PBF) file plus a Wikidata dump.
+  `pois.db` and `pois.rstar` from an OpenStreetMap (OSM) Protocolbuffer Binary
+  Format (PBF) file plus a Wikidata dump.
 
 ## Core data model
 
