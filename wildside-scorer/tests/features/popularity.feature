@@ -14,3 +14,8 @@ Feature: Compute global popularity
     Given a SQLite POI database with sitelink counts
     When I compute popularity scores
     Then the unlinked POI has a zero normalised score
+
+  Scenario: Popularity file round-trips computed scores
+    Given a SQLite POI database with sitelink counts
+    When I write the popularity file to a nested path
+    Then the popularity file round-trips the scores

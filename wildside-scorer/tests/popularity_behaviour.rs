@@ -2,6 +2,8 @@
 
 use std::cell::RefCell;
 
+use bincode::Options;
+use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
@@ -9,6 +11,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use wildside_scorer::{
     PopularityError, PopularityScores, PopularityWeights, compute_popularity_scores,
+    write_popularity_file,
 };
 
 /// Temporary directory for each scenario.
@@ -35,6 +38,12 @@ pub fn weights() -> PopularityWeights {
 /// Captures the outcome of popularity computation for assertions.
 #[fixture]
 pub fn compute_result() -> RefCell<Option<Result<PopularityScores, PopularityError>>> {
+    RefCell::new(None)
+}
+
+/// Location of the written popularity file for persistence scenarios.
+#[fixture]
+pub fn popularity_path() -> RefCell<Option<Utf8PathBuf>> {
     RefCell::new(None)
 }
 
@@ -111,6 +120,27 @@ fn compute_scores(
     *compute_result.borrow_mut() = Some(result);
 }
 
+#[when("I write the popularity file to a nested path")]
+fn write_popularity(
+    db_path: &RefCell<Option<Utf8PathBuf>>,
+    weights: PopularityWeights,
+    popularity_path: &RefCell<Option<Utf8PathBuf>>,
+) {
+    let db = db_path
+        .borrow()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| panic!("database path must be initialised"));
+    let nested = db
+        .parent()
+        .unwrap_or_else(|| Utf8Path::new("."))
+        .join("nested/dir/popularity.bin");
+    let output = nested.to_path_buf();
+    write_popularity_file(&db, &output, weights)
+        .unwrap_or_else(|err| panic!("write popularity file: {err}"));
+    *popularity_path.borrow_mut() = Some(output);
+}
+
 #[then("the heritage POI has the highest normalised score")]
 #[expect(
     clippy::float_arithmetic,
@@ -185,6 +215,35 @@ fn unlinked_poi_scores_zero(
     }
 }
 
+#[then("the popularity file round-trips the scores")]
+fn popularity_file_round_trips(
+    db_path: &RefCell<Option<Utf8PathBuf>>,
+    weights: PopularityWeights,
+    popularity_path: &RefCell<Option<Utf8PathBuf>>,
+) {
+    let output = popularity_path
+        .borrow()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| panic!("popularity file path must be recorded"));
+    let db = db_path
+        .borrow()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| panic!("database path must be initialised"));
+    let expected = compute_popularity_scores(&db, weights)
+        .unwrap_or_else(|err| panic!("compute expected scores: {err}"));
+    let bytes = std::fs::read(output.as_std_path())
+        .unwrap_or_else(|err| panic!("read popularity file: {err}"));
+    let decoded: PopularityScores = bincode::DefaultOptions::new()
+        .deserialize(&bytes)
+        .unwrap_or_else(|err| panic!("decode popularity scores: {err}"));
+    assert_eq!(
+        decoded, expected,
+        "scores should round-trip via file output"
+    );
+}
+
 #[expect(
     clippy::expect_used,
     reason = "schema setup should panic when the database is unavailable"
@@ -251,31 +310,61 @@ fn insert_heritage_claim(connection: &Connection, entity: &str) {
 }
 
 #[scenario(path = "tests/features/popularity.feature", index = 0)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fixtures are dictated by rstest-bdd API"
+)]
 fn heritage_scores_highest_when_sitelinks_present(
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,
     weights: PopularityWeights,
     compute_result: RefCell<Option<Result<PopularityScores, PopularityError>>>,
+    popularity_path: RefCell<Option<Utf8PathBuf>>,
 ) {
-    let _ = (temp_dir, db_path, weights, compute_result);
+    let _ = (temp_dir, db_path, weights, compute_result, popularity_path);
 }
 
 #[scenario(path = "tests/features/popularity.feature", index = 1)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fixtures are dictated by rstest-bdd API"
+)]
 fn invalid_sitelinks_fail(
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,
     weights: PopularityWeights,
     compute_result: RefCell<Option<Result<PopularityScores, PopularityError>>>,
+    popularity_path: RefCell<Option<Utf8PathBuf>>,
 ) {
-    let _ = (temp_dir, db_path, weights, compute_result);
+    let _ = (temp_dir, db_path, weights, compute_result, popularity_path);
 }
 
 #[scenario(path = "tests/features/popularity.feature", index = 2)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fixtures are dictated by rstest-bdd API"
+)]
 fn unlinked_poi_scores_zero_scenario(
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,
     weights: PopularityWeights,
     compute_result: RefCell<Option<Result<PopularityScores, PopularityError>>>,
+    popularity_path: RefCell<Option<Utf8PathBuf>>,
 ) {
-    let _ = (temp_dir, db_path, weights, compute_result);
+    let _ = (temp_dir, db_path, weights, compute_result, popularity_path);
+}
+
+#[scenario(path = "tests/features/popularity.feature", index = 3)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "fixtures are dictated by rstest-bdd API"
+)]
+fn popularity_file_roundtrip_scenario(
+    temp_dir: TempDir,
+    db_path: RefCell<Option<Utf8PathBuf>>,
+    weights: PopularityWeights,
+    compute_result: RefCell<Option<Result<PopularityScores, PopularityError>>>,
+    popularity_path: RefCell<Option<Utf8PathBuf>>,
+) {
+    let _ = (temp_dir, db_path, weights, compute_result, popularity_path);
 }
