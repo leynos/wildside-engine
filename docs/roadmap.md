@@ -99,11 +99,11 @@ This phase implements the core logic that gives the engine its intelligence.
 
 - **Implement Global Popularity Scorer**
 
-  - [ ] Create the `wildside-scorer` crate.
-  - [ ] Implement an offline process that iterates through `pois.db`, calculates
+  - [x] Create the `wildside-scorer` crate.
+  - [x] Implement an offline process that iterates through `pois.db`, calculates
         a popularity score for each POI based on its sitelink count and
         heritage status, and normalizes the scores.
-  - [ ] Serialize the resulting `HashMap<PoiId, f32>` of scores to a compact
+  - [x] Serialize the resulting `HashMap<PoiId, f32>` of scores to a compact
         binary file (`popularity.bin`) using a library like `bincode`.
 
 - **Implement User Relevance Scorer**
