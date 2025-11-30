@@ -514,8 +514,8 @@ The implemented scorer lives in the `wildside-scorer` crate. It resolves
 sitelink counts from an optional `wikidata_entity_sitelinks` table, falling
 back to `sitelinks` or `sitelink_count` tag entries and defaulting to zero when
 no data exists. UNESCO heritage designations add a `25.0` bonus on top of the
-`1.0` sitelink weight, and raw values are normalised against the run maximum
-before serialisation. The resulting `HashMap<u64, f32>` is persisted to
+`1.0` sitelink weight, and raw values are normalized against the run maximum
+before serialization. The resulting `HashMap<u64, f32>` is persisted to
 `popularity.bin` using `bincode`, providing a deterministic artefact for
 request-time scoring.
 

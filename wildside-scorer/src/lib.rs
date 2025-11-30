@@ -44,8 +44,7 @@ pub(crate) const HERITAGE_PROPERTY: &str = "P1435";
 pub(crate) const SITELINK_TABLE: &str = "wikidata_entity_sitelinks";
 const UNESCO_WORLD_HERITAGE: &str = "Q9259";
 
-/// Bincode options used for serialising popularity scores.
-#[cfg(test)]
+/// Bincode options used for serialising and deserialising popularity scores.
 pub(crate) fn bincode_options() -> impl bincode::Options {
     bincode::DefaultOptions::new()
 }
@@ -97,7 +96,7 @@ pub fn write_popularity_file(
             source,
         })?;
     let writer = BufWriter::new(file);
-    bincode::DefaultOptions::new()
+    bincode_options()
         .serialize_into(writer, &scores)
         .map_err(|source| PopularityError::Serialise {
             path: output_path.to_path_buf(),

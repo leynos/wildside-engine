@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 /// Tunable weights applied to raw popularity signals.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PopularityWeights {
     /// Multiplier applied to the sitelink count.
     pub sitelink_weight: f32,
