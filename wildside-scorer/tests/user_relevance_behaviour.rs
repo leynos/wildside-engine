@@ -1,8 +1,4 @@
-#![allow(
-    missing_docs,
-    reason = "integration test fixtures keep boilerplate low"
-)]
-#![allow(
+#![expect(
     clippy::expect_used,
     reason = "tests should fail fast when setup breaks"
 )]
@@ -25,6 +21,7 @@ use wildside_scorer::{
 const ART_PROPERTY: &str = "P999";
 const ART_VALUE: &str = "Q_ART";
 
+/// Aggregate fixtures shared across the BDD scenarios.
 pub struct TestContext {
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,
@@ -34,6 +31,7 @@ pub struct TestContext {
 }
 
 #[fixture]
+/// Build a fresh `TestContext` for each scenario run.
 pub fn context() -> TestContext {
     let mut mapping = ThemeClaimMapping::default();
     let selector = ClaimSelector::new(ART_PROPERTY, ART_VALUE).expect("valid art selector");

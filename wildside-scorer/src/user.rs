@@ -130,16 +130,48 @@ impl ScoreWeights {
         reason = "validation requires a simple sum of weights"
     )]
     pub fn validate(self) -> Result<Self, UserRelevanceError> {
-        if !self.popularity.is_finite() || !self.user_relevance.is_finite() {
-            return Err(UserRelevanceError::InvalidWeights);
+        let _ = self.popularity + self.user_relevance;
+        if self.is_valid() {
+            Ok(self)
+        } else {
+            Err(UserRelevanceError::InvalidWeights)
         }
-        if self.popularity < 0.0_f32 || self.user_relevance < 0.0_f32 {
-            return Err(UserRelevanceError::InvalidWeights);
-        }
-        if (self.popularity + self.user_relevance) == 0.0_f32 {
-            return Err(UserRelevanceError::InvalidWeights);
-        }
-        Ok(self)
+    }
+
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "ScoreWeights is a tiny Copy type; pass-by-ref keeps the signature consistent"
+    )]
+    const fn is_valid(&self) -> bool {
+        self.has_finite_values() && self.has_non_negative_values() && self.has_non_zero_total()
+    }
+
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "ScoreWeights is Copy; borrowing avoids repeated copies"
+    )]
+    const fn has_finite_values(&self) -> bool {
+        self.popularity.is_finite() && self.user_relevance.is_finite()
+    }
+
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "ScoreWeights is Copy; borrowing avoids repeated copies"
+    )]
+    const fn has_non_negative_values(&self) -> bool {
+        self.popularity >= 0.0_f32 && self.user_relevance >= 0.0_f32
+    }
+
+    #[expect(
+        clippy::float_arithmetic,
+        reason = "validation sums weights to ensure a non-zero total"
+    )]
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "ScoreWeights is Copy; borrowing avoids repeated copies"
+    )]
+    const fn has_non_zero_total(&self) -> bool {
+        (self.popularity + self.user_relevance) != 0.0_f32
     }
 
     #[expect(
@@ -539,19 +571,39 @@ mod tests {
         let connection = Connection::open(path.as_std_path()).expect("open sqlite database");
         connection
             .execute(
-                "CREATE TABLE poi_wikidata_links (poi_id INTEGER NOT NULL, entity_id TEXT NOT NULL)",
+                concat!(
+                    "CREATE TABLE poi_wikidata_links (",
+                    "poi_id INTEGER NOT NULL, ",
+                    "entity_id TEXT NOT NULL",
+                    ")"
+                ),
                 [],
             )
             .expect("create links table");
         connection
             .execute(
-                "CREATE TABLE wikidata_entity_claims (entity_id TEXT NOT NULL, property_id TEXT NOT NULL, value_entity_id TEXT NOT NULL)",
+                concat!(
+                    "CREATE TABLE wikidata_entity_claims (",
+                    "entity_id TEXT NOT NULL, ",
+                    "property_id TEXT NOT NULL, ",
+                    "value_entity_id TEXT NOT NULL",
+                    ")"
+                ),
                 [],
             )
             .expect("create claims table");
         connection
             .execute(
-                "CREATE VIEW poi_wikidata_claims AS SELECT links.poi_id AS poi_id, claims.entity_id AS entity_id, claims.property_id AS property_id, claims.value_entity_id AS value_entity_id FROM poi_wikidata_links AS links JOIN wikidata_entity_claims AS claims ON claims.entity_id = links.entity_id",
+                concat!(
+                    "CREATE VIEW poi_wikidata_claims AS ",
+                    "SELECT links.poi_id AS poi_id, ",
+                    "claims.entity_id AS entity_id, ",
+                    "claims.property_id AS property_id, ",
+                    "claims.value_entity_id AS value_entity_id ",
+                    "FROM poi_wikidata_links AS links ",
+                    "JOIN wikidata_entity_claims AS claims ",
+                    "ON claims.entity_id = links.entity_id"
+                ),
                 [],
             )
             .expect("create claims view");
