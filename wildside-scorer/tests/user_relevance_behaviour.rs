@@ -23,38 +23,33 @@ use wildside_scorer::{ClaimSelector, ScoreWeights, ThemeClaimMapping, UserReleva
 const ART_PROPERTY: &str = "P999";
 const ART_VALUE: &str = "Q_ART";
 
-#[fixture]
-pub fn temp_dir() -> TempDir {
-    TempDir::new().expect("create tempdir for scenario")
+pub struct TestContext {
+    temp_dir: TempDir,
+    db_path: RefCell<Option<Utf8PathBuf>>,
+    popularity_path: RefCell<Option<Utf8PathBuf>>,
+    mapping: ThemeClaimMapping,
+    scored_value: RefCell<Option<f32>>,
 }
 
 #[fixture]
-pub fn db_path() -> RefCell<Option<Utf8PathBuf>> {
-    RefCell::new(None)
-}
-
-#[fixture]
-pub fn popularity_path() -> RefCell<Option<Utf8PathBuf>> {
-    RefCell::new(None)
-}
-
-#[fixture]
-pub fn mapping() -> ThemeClaimMapping {
+pub fn context() -> TestContext {
     let mut mapping = ThemeClaimMapping::default();
     let selector = ClaimSelector::new(ART_PROPERTY, ART_VALUE).expect("valid art selector");
     mapping.insert(Theme::Art, selector);
-    mapping
-}
 
-#[fixture]
-pub fn scored_value() -> RefCell<Option<f32>> {
-    RefCell::new(None)
+    TestContext {
+        temp_dir: TempDir::new().expect("create tempdir for scenario"),
+        db_path: RefCell::new(None),
+        popularity_path: RefCell::new(None),
+        mapping,
+        scored_value: RefCell::new(None),
+    }
 }
 
 #[given("a SQLite POI database with themed claims")]
 #[expect(clippy::expect_used, reason = "fixtures should fail fast during setup")]
-fn sqlite_with_claims(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBuf>>) {
-    let path = Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db"))
+fn sqlite_with_claims(context: &TestContext) {
+    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("pois.db"))
         .expect("utf8 path for database");
     let connection =
         rusqlite::Connection::open(path.as_std_path()).expect("open sqlite database for claims");
@@ -109,70 +104,55 @@ fn sqlite_with_claims(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBuf>>
         )
         .expect("insert heritage claim");
 
-    *db_path.borrow_mut() = Some(path);
+    *context.db_path.borrow_mut() = Some(path);
 }
 
 #[given("a popularity file where the POI scores 0.3")]
-fn popularity_score_low(temp_dir: &TempDir, popularity_path: &RefCell<Option<Utf8PathBuf>>) {
-    write_popularity_file(temp_dir, popularity_path, 0.3_f32);
+fn popularity_score_low(context: &TestContext) {
+    write_popularity_file(context, 0.3_f32);
 }
 
 #[given("a popularity file where the POI scores 0.7")]
-fn popularity_score_high(temp_dir: &TempDir, popularity_path: &RefCell<Option<Utf8PathBuf>>) {
-    write_popularity_file(temp_dir, popularity_path, 0.7_f32);
+fn popularity_score_high(context: &TestContext) {
+    write_popularity_file(context, 0.7_f32);
 }
 
 #[given("a popularity file without an entry for the POI")]
-fn popularity_without_entry(temp_dir: &TempDir, popularity_path: &RefCell<Option<Utf8PathBuf>>) {
+fn popularity_without_entry(context: &TestContext) {
     use std::collections::BTreeMap;
 
-    let path = Utf8PathBuf::from_path_buf(temp_dir.path().join("popularity.bin"))
+    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
         .expect("utf8 popularity path");
     let scores = wildside_scorer::PopularityScores::new(BTreeMap::from([(99_u64, 0.4_f32)]));
     let bytes = bincode::DefaultOptions::new()
         .serialize(&scores)
         .expect("serialise popularity without entry");
     std::fs::write(path.as_std_path(), bytes).expect("write popularity without entry");
-    *popularity_path.borrow_mut() = Some(path);
+    *context.popularity_path.borrow_mut() = Some(path);
 }
 
 #[when("I score the POI for an art-loving visitor")]
-fn score_for_art(
-    db_path: &RefCell<Option<Utf8PathBuf>>,
-    popularity_path: &RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: &RefCell<Option<f32>>,
-) {
-    let scorer = build_scorer(db_path, popularity_path, mapping);
+fn score_for_art(context: &TestContext) {
+    let scorer = build_scorer(context);
     let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
     let profile = InterestProfile::new().with_weight(Theme::Art, 0.9_f32);
-    record_score(scored_value, scorer.score(&poi, &profile));
+    record_score(&context.scored_value, scorer.score(&poi, &profile));
 }
 
 #[when("I score the POI for a food-loving visitor")]
-fn score_for_food(
-    db_path: &RefCell<Option<Utf8PathBuf>>,
-    popularity_path: &RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: &RefCell<Option<f32>>,
-) {
-    let scorer = build_scorer(db_path, popularity_path, mapping);
+fn score_for_food(context: &TestContext) {
+    let scorer = build_scorer(context);
     let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
     let profile = InterestProfile::new().with_weight(Theme::Food, 0.8_f32);
-    record_score(scored_value, scorer.score(&poi, &profile));
+    record_score(&context.scored_value, scorer.score(&poi, &profile));
 }
 
 #[when("I score the POI for a history-loving visitor")]
-fn score_for_history(
-    db_path: &RefCell<Option<Utf8PathBuf>>,
-    popularity_path: &RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: &RefCell<Option<f32>>,
-) {
-    let scorer = build_scorer(db_path, popularity_path, mapping);
+fn score_for_history(context: &TestContext) {
+    let scorer = build_scorer(context);
     let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
     let profile = InterestProfile::new().with_weight(Theme::History, 1.0_f32);
-    record_score(scored_value, scorer.score(&poi, &profile));
+    record_score(&context.scored_value, scorer.score(&poi, &profile));
 }
 
 #[then("the score combines popularity with the art interest")]
@@ -180,8 +160,11 @@ fn score_for_history(
     clippy::float_arithmetic,
     reason = "assertions compare floating point values"
 )]
-fn assert_art_score(scored_value: &RefCell<Option<f32>>) {
-    let score = scored_value.borrow().expect("score should be recorded");
+fn assert_art_score(context: &TestContext) {
+    let score = context
+        .scored_value
+        .borrow()
+        .expect("score should be recorded");
     assert!(
         (score - 0.6_f32).abs() < 0.000_1_f32,
         "expected blended score of 0.6"
@@ -193,8 +176,11 @@ fn assert_art_score(scored_value: &RefCell<Option<f32>>) {
     clippy::float_arithmetic,
     reason = "assertions compare floating point values"
 )]
-fn assert_food_score(scored_value: &RefCell<Option<f32>>) {
-    let score = scored_value.borrow().expect("score should be recorded");
+fn assert_food_score(context: &TestContext) {
+    let score = context
+        .scored_value
+        .borrow()
+        .expect("score should be recorded");
     assert!(
         (score - 0.7_f32).abs() < 0.000_1_f32,
         "expected popularity-only score"
@@ -206,48 +192,50 @@ fn assert_food_score(scored_value: &RefCell<Option<f32>>) {
     clippy::float_arithmetic,
     reason = "assertions compare floating point values"
 )]
-fn assert_history_score(scored_value: &RefCell<Option<f32>>) {
-    let score = scored_value.borrow().expect("score should be recorded");
+fn assert_history_score(context: &TestContext) {
+    let score = context
+        .scored_value
+        .borrow()
+        .expect("score should be recorded");
     assert!(
         (score - 0.5_f32).abs() < 0.000_1_f32,
         "expected interest-led score"
     );
 }
 
-fn write_popularity_file(
-    temp_dir: &TempDir,
-    popularity_path: &RefCell<Option<Utf8PathBuf>>,
-    score: f32,
-) {
+fn write_popularity_file(context: &TestContext, score: f32) {
     use std::collections::BTreeMap;
 
-    let path = Utf8PathBuf::from_path_buf(temp_dir.path().join("popularity.bin"))
+    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
         .expect("utf8 popularity path");
     let scores = wildside_scorer::PopularityScores::new(BTreeMap::from([(1_u64, score)]));
     let bytes = bincode::DefaultOptions::new()
         .serialize(&scores)
         .expect("serialise popularity scores");
     std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
-    *popularity_path.borrow_mut() = Some(path);
+    *context.popularity_path.borrow_mut() = Some(path);
 }
 
-fn build_scorer(
-    db_path: &RefCell<Option<Utf8PathBuf>>,
-    popularity_path: &RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-) -> UserRelevanceScorer {
-    let db = db_path
+fn build_scorer(context: &TestContext) -> UserRelevanceScorer {
+    let db = context
+        .db_path
         .borrow()
         .as_ref()
         .cloned()
         .expect("database path must be initialised");
-    let popularity = popularity_path
+    let popularity = context
+        .popularity_path
         .borrow()
         .as_ref()
         .cloned()
         .expect("popularity path must be initialised");
-    UserRelevanceScorer::from_paths(&db, &popularity, mapping, ScoreWeights::default())
-        .expect("construct scorer")
+    UserRelevanceScorer::from_paths(
+        &db,
+        &popularity,
+        context.mapping.clone(),
+        ScoreWeights::default(),
+    )
+    .expect("construct scorer")
 }
 
 fn record_score(cell: &RefCell<Option<f32>>, score: f32) {
@@ -255,46 +243,16 @@ fn record_score(cell: &RefCell<Option<f32>>, score: f32) {
 }
 
 #[scenario(path = "tests/features/user_relevance.feature", index = 0)]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "fixtures are dictated by rstest-bdd"
-)]
-fn art_interest_blends_popularity(
-    temp_dir: TempDir,
-    db_path: RefCell<Option<Utf8PathBuf>>,
-    popularity_path: RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: RefCell<Option<f32>>,
-) {
-    let _ = (temp_dir, db_path, popularity_path, mapping, scored_value);
+fn art_interest_blends_popularity(context: TestContext) {
+    let _ = context;
 }
 
 #[scenario(path = "tests/features/user_relevance.feature", index = 1)]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "fixtures are dictated by rstest-bdd"
-)]
-fn unmatched_interest_falls_back_to_popularity(
-    temp_dir: TempDir,
-    db_path: RefCell<Option<Utf8PathBuf>>,
-    popularity_path: RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: RefCell<Option<f32>>,
-) {
-    let _ = (temp_dir, db_path, popularity_path, mapping, scored_value);
+fn unmatched_interest_falls_back_to_popularity(context: TestContext) {
+    let _ = context;
 }
 
 #[scenario(path = "tests/features/user_relevance.feature", index = 2)]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "fixtures are dictated by rstest-bdd"
-)]
-fn missing_popularity_relies_on_interest(
-    temp_dir: TempDir,
-    db_path: RefCell<Option<Utf8PathBuf>>,
-    popularity_path: RefCell<Option<Utf8PathBuf>>,
-    mapping: ThemeClaimMapping,
-    scored_value: RefCell<Option<f32>>,
-) {
-    let _ = (temp_dir, db_path, popularity_path, mapping, scored_value);
+fn missing_popularity_relies_on_interest(context: TestContext) {
+    let _ = context;
 }
