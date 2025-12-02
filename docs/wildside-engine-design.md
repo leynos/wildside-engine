@@ -548,6 +548,21 @@ technical enabler for this entire personalization feature. Performing thousands
 of property checks as indexed queries against a local database can be
 accomplished in milliseconds, ensuring a responsive user experience.
 
+**Implementation notes (Dec 2025):**
+
+- The runtime scorer (`UserRelevanceScorer`) loads `popularity.bin` alongside a
+  read-only `pois.db` connection. It queries the indexed `poi_wikidata_claims`
+  view with prepared statements to keep per-POI lookups fast and predictable.
+- Theme matching is declarative. A `ThemeClaimMapping` maps each `Theme` to
+  one or more Wikidata `(property_id, value_entity_id)` pairs. The default
+  mapping treats `Theme::History` as a proxy for UNESCO heritage status
+  (`P1435 = Q9259`), with additional themes added by callers as the ETL
+  surfaces richer claims.
+- Per-request relevance sums the profile weights for matching themes and
+  clamps the result to `0.0..=1.0`. Combining popularity and relevance uses a
+  weighted mean (default 50/50). The user-weight is only applied when at least
+  one theme matches so POIs without profile matches are not penalized.
+
 ## Section 3: A Library-First Architecture for the Wildside Engine
 
 The previous analysis focused on the "what" of the data pipeline; this section

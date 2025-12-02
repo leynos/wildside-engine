@@ -15,6 +15,7 @@ wildside-core = { workspace = true }
 wildside-fs = { path = "../wildside-fs" }
 
 [dev-dependencies]
+geo = "0.31"
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }

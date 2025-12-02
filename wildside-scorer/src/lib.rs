@@ -1,11 +1,17 @@
-//! Offline popularity scoring for Wildside points of interest.
+//! Scoring utilities for Wildside points of interest.
 //!
-//! The crate walks a `pois.db` `SQLite` database, extracts popularity signals,
-//! normalises them into the `0.0..=1.0` range, and optionally serialises the
-//! resulting scores to `popularity.bin` via `bincode`. Popularity is derived
-//! from two signals:
-//! - Wikidata sitelink counts per linked entity.
-//! - UNESCO World Heritage designation (`P1435=Q9259`).
+//! The crate provides two complementary capabilities:
+//! - **Offline popularity computation** walks a `pois.db` `SQLite` database,
+//!   extracts popularity signals, normalises them into the `0.0..=1.0` range,
+//!   and optionally serialises the resulting scores to `popularity.bin` via
+//!   `bincode`. Popularity is derived from two signals: Wikidata sitelink
+//!   counts per linked entity, and UNESCO World Heritage designation
+//!   (`P1435=Q9259`).
+//! - **Request-time user relevance scoring** combines per-theme interests from
+//!   an [`InterestProfile`](wildside_core::InterestProfile) with fast, indexed
+//!   lookups against `pois.db` and the pre-computed popularity scores. It
+//!   implements the [`Scorer`](wildside_core::Scorer) trait so callers can
+//!   plug the scorer into route solvers.
 //!
 //! # Examples
 //!
@@ -34,9 +40,13 @@ use wildside_fs::ensure_parent_dir;
 mod error;
 pub(crate) mod resolver;
 mod types;
+mod user;
 
 pub use error::PopularityError;
 pub use types::{PopularityScores, PopularityWeights};
+pub use user::{
+    ClaimSelector, ScoreWeights, ThemeClaimMapping, UserRelevanceError, UserRelevanceScorer,
+};
 
 use resolver::SitelinkResolver;
 
