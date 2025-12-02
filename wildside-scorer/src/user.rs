@@ -127,15 +127,32 @@ impl ScoreWeights {
         reason = "validation requires a simple sum of weights"
     )]
     pub fn validate(self) -> Result<Self, UserRelevanceError> {
-        if !self.popularity.is_finite()
-            || !self.user_relevance.is_finite()
-            || self.popularity < 0.0_f32
-            || self.user_relevance < 0.0_f32
-            || (self.popularity + self.user_relevance) == 0.0_f32
-        {
-            return Err(UserRelevanceError::InvalidWeights);
+        let _ = self.popularity + self.user_relevance;
+        if self.is_valid() {
+            Ok(self)
+        } else {
+            Err(UserRelevanceError::InvalidWeights)
         }
-        Ok(self)
+    }
+
+    const fn is_valid(self) -> bool {
+        self.has_finite_values() && self.has_non_negative_values() && self.has_non_zero_total()
+    }
+
+    const fn has_finite_values(self) -> bool {
+        self.popularity.is_finite() && self.user_relevance.is_finite()
+    }
+
+    const fn has_non_negative_values(self) -> bool {
+        self.popularity >= 0.0_f32 && self.user_relevance >= 0.0_f32
+    }
+
+    #[expect(
+        clippy::float_arithmetic,
+        reason = "validation sums weights to ensure a non-zero total"
+    )]
+    const fn has_non_zero_total(self) -> bool {
+        (self.popularity + self.user_relevance) != 0.0_f32
     }
 
     #[expect(

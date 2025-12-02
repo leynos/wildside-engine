@@ -1,5 +1,11 @@
-#![allow(missing_docs, reason = "integration test fixtures keep boilerplate low")]
-#![allow(clippy::expect_used, reason = "tests should fail fast when setup breaks")]
+#![allow(
+    missing_docs,
+    reason = "integration test fixtures keep boilerplate low"
+)]
+#![allow(
+    clippy::expect_used,
+    reason = "tests should fail fast when setup breaks"
+)]
 
 //! Behavioural coverage for user relevance scoring.
 
