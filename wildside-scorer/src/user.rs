@@ -1,5 +1,6 @@
-//! User relevance scoring that combines personalised interests with
-//! pre-computed popularity.
+//! User relevance scoring that combines personalized interests with
+//! pre-computed popularity, returning a normalized value in `0.0..=1.0` via
+//! the `Scorer` trait.
 //!
 //! The scorer inspects Wikidata claims stored in `pois.db` to determine whether
 //! a point of interest matches the visitor's declared themes. It blends these
@@ -15,6 +16,7 @@ use std::{
 
 use bincode::Options;
 use camino::{Utf8Path, Utf8PathBuf};
+use log::warn;
 use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use thiserror::Error;
 use wildside_core::{InterestProfile, PointOfInterest, Scorer, Theme};
@@ -70,10 +72,11 @@ impl ThemeClaimMapping {
 
 impl Default for ThemeClaimMapping {
     fn default() -> Self {
-        let selector = ClaimSelector {
-            property_id: DEFAULT_HISTORY_PROPERTY.to_owned(),
-            value_entity_id: DEFAULT_HISTORY_VALUE.to_owned(),
-        };
+        let selector = ClaimSelector::new(DEFAULT_HISTORY_PROPERTY, DEFAULT_HISTORY_VALUE)
+            .unwrap_or_else(|_| ClaimSelector {
+                property_id: DEFAULT_HISTORY_PROPERTY.to_owned(),
+                value_entity_id: DEFAULT_HISTORY_VALUE.to_owned(),
+            });
         Self::new().with_selector(Theme::History, selector)
     }
 }
@@ -127,32 +130,16 @@ impl ScoreWeights {
         reason = "validation requires a simple sum of weights"
     )]
     pub fn validate(self) -> Result<Self, UserRelevanceError> {
-        let _ = self.popularity + self.user_relevance;
-        if self.is_valid() {
-            Ok(self)
-        } else {
-            Err(UserRelevanceError::InvalidWeights)
+        if !self.popularity.is_finite() || !self.user_relevance.is_finite() {
+            return Err(UserRelevanceError::InvalidWeights);
         }
-    }
-
-    const fn is_valid(self) -> bool {
-        self.has_finite_values() && self.has_non_negative_values() && self.has_non_zero_total()
-    }
-
-    const fn has_finite_values(self) -> bool {
-        self.popularity.is_finite() && self.user_relevance.is_finite()
-    }
-
-    const fn has_non_negative_values(self) -> bool {
-        self.popularity >= 0.0_f32 && self.user_relevance >= 0.0_f32
-    }
-
-    #[expect(
-        clippy::float_arithmetic,
-        reason = "validation sums weights to ensure a non-zero total"
-    )]
-    const fn has_non_zero_total(self) -> bool {
-        (self.popularity + self.user_relevance) != 0.0_f32
+        if self.popularity < 0.0_f32 || self.user_relevance < 0.0_f32 {
+            return Err(UserRelevanceError::InvalidWeights);
+        }
+        if (self.popularity + self.user_relevance) == 0.0_f32 {
+            return Err(UserRelevanceError::InvalidWeights);
+        }
+        Ok(self)
     }
 
     #[expect(
@@ -182,7 +169,7 @@ impl Default for ScoreWeights {
     }
 }
 
-/// Errors raised when initialising or configuring the user relevance scorer.
+/// Errors raised when initializing or configuring the user relevance scorer.
 #[derive(Debug, Error)]
 pub enum UserRelevanceError {
     /// Opening the `SQLite` database failed.
@@ -307,10 +294,12 @@ impl UserRelevanceScorer {
             return 0.0;
         };
         let Ok(connection) = self.connection.lock() else {
+            warn!("user relevance scoring skipped: SQLite connection lock was poisoned");
             return 0.0;
         };
 
         let Ok(mut statement) = connection.prepare_cached(CLAIM_LOOKUP_SQL) else {
+            warn!("user relevance scoring skipped: failed to prepare claim lookup statement");
             return 0.0;
         };
 
@@ -378,7 +367,7 @@ mod tests {
     use bincode::Options;
     use camino::Utf8PathBuf;
     use geo::Coord;
-    use rstest::rstest;
+    use rstest::{fixture, rstest};
     use rusqlite::Connection;
     use tempfile::TempDir;
     use wildside_core::{InterestProfile, PointOfInterest, Scorer, Theme};
@@ -386,7 +375,7 @@ mod tests {
     use super::{
         ClaimSelector, ScoreWeights, ThemeClaimMapping, UserRelevanceError, UserRelevanceScorer,
     };
-    use crate::{PopularityScores, bincode_options};
+    use crate::{PopularityScores, popularity_bincode_options};
 
     const TEST_PROPERTY: &str = "P999";
     const TEST_VALUE: &str = "Q_TEST_ART";
@@ -414,17 +403,51 @@ mod tests {
         assert!(matches!(err, UserRelevanceError::InvalidWeights));
     }
 
+    #[fixture]
+    fn seeded_db_path() -> (TempDir, Utf8PathBuf) {
+        let temp_dir = TempDir::new().expect("tempdir");
+        let path =
+            Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db")).expect("utf8 db path");
+        seed_claims_database(&path);
+        (temp_dir, path)
+    }
+
+    #[derive(Clone)]
+    struct PopularityFixture {
+        dir: Utf8PathBuf,
+    }
+
+    impl PopularityFixture {
+        fn with_score(&self, poi_id: u64, score: f32) -> Utf8PathBuf {
+            let popularity = PopularityScores::new(BTreeMap::from([(poi_id, score)]));
+            let path = self.dir.join("popularity.bin");
+            let bytes = popularity_bincode_options()
+                .serialize(&popularity)
+                .expect("serialise popularity");
+            std::fs::write(path.as_std_path(), bytes).expect("write popularity fixture");
+            path
+        }
+    }
+
+    #[fixture]
+    fn popularity_fixture() -> (TempDir, PopularityFixture) {
+        let temp_dir = TempDir::new().expect("tempdir");
+        let dir = Utf8PathBuf::from_path_buf(temp_dir.path().to_path_buf()).expect("utf8 dir path");
+        (temp_dir, PopularityFixture { dir })
+    }
+
     #[rstest]
     #[expect(
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
     )]
-    fn scoring_blends_popularity_and_interest() {
-        let temp = TempDir::new().expect("tempdir");
-        let db_path =
-            Utf8PathBuf::from_path_buf(temp.path().join("pois.db")).expect("utf8 db path");
-        seed_claims_database(&db_path);
-        let popularity_path = write_popularity_fixture(&temp, 1, 0.25_f32);
+    fn scoring_blends_popularity_and_interest(
+        seeded_db_path: (TempDir, Utf8PathBuf),
+        popularity_fixture: (TempDir, PopularityFixture),
+    ) {
+        let (_pop_temp_dir, pop_fixture) = popularity_fixture;
+        let popularity_path = pop_fixture.with_score(1, 0.25_f32);
+        let (_db_temp_dir, db_path) = seeded_db_path;
 
         let mut mapping = ThemeClaimMapping::new();
         mapping.insert(
@@ -456,12 +479,13 @@ mod tests {
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
     )]
-    fn non_matching_interest_yields_popularity_only() {
-        let temp = TempDir::new().expect("tempdir");
-        let db_path =
-            Utf8PathBuf::from_path_buf(temp.path().join("pois.db")).expect("utf8 db path");
-        seed_claims_database(&db_path);
-        let popularity_path = write_popularity_fixture(&temp, 1, 0.6_f32);
+    fn non_matching_interest_yields_popularity_only(
+        seeded_db_path: (TempDir, Utf8PathBuf),
+        popularity_fixture: (TempDir, PopularityFixture),
+    ) {
+        let (_pop_temp_dir, pop_fixture) = popularity_fixture;
+        let popularity_path = pop_fixture.with_score(1, 0.6_f32);
+        let (_db_temp_dir, db_path) = seeded_db_path;
 
         let scorer = UserRelevanceScorer::with_defaults(&db_path, &popularity_path)
             .expect("construct scorer with defaults");
@@ -481,12 +505,13 @@ mod tests {
         clippy::float_arithmetic,
         reason = "tests compare floating point values"
     )]
-    fn missing_popularity_falls_back_to_interest() {
-        let temp = TempDir::new().expect("tempdir");
-        let db_path =
-            Utf8PathBuf::from_path_buf(temp.path().join("pois.db")).expect("utf8 db path");
-        seed_claims_database(&db_path);
-        let popularity_path = write_popularity_fixture(&temp, 2, 0.0_f32);
+    fn missing_popularity_falls_back_to_interest(
+        seeded_db_path: (TempDir, Utf8PathBuf),
+        popularity_fixture: (TempDir, PopularityFixture),
+    ) {
+        let (_pop_temp_dir, pop_fixture) = popularity_fixture;
+        let popularity_path = pop_fixture.with_score(2, 0.0_f32);
+        let (_db_temp_dir, db_path) = seeded_db_path;
 
         let mapping = ThemeClaimMapping::default();
         let scorer = UserRelevanceScorer::from_paths(
@@ -548,16 +573,5 @@ mod tests {
                 [],
             )
             .expect("insert heritage claim");
-    }
-
-    fn write_popularity_fixture(dir: &TempDir, poi_id: u64, score: f32) -> Utf8PathBuf {
-        let popularity = PopularityScores::new(BTreeMap::from([(poi_id, score)]));
-        let path =
-            Utf8PathBuf::from_path_buf(dir.path().join("popularity.bin")).expect("utf8 path");
-        let bytes = bincode_options()
-            .serialize(&popularity)
-            .expect("serialise popularity");
-        std::fs::write(path.as_std_path(), bytes).expect("write popularity fixture");
-        path
     }
 }

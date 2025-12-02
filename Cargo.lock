@@ -3293,6 +3293,7 @@ dependencies = [
  "bincode",
  "camino",
  "geo",
+ "log",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",

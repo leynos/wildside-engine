@@ -13,6 +13,7 @@ serde_json = "1"
 thiserror = "1"
 wildside-core = { workspace = true }
 wildside-fs = { path = "../wildside-fs" }
+log = { workspace = true }
 
 [dev-dependencies]
 geo = "0.31"

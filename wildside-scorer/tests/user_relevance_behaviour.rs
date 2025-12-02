@@ -18,7 +18,9 @@ use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use tempfile::TempDir;
 use wildside_core::{InterestProfile, PointOfInterest, Scorer, Theme};
-use wildside_scorer::{ClaimSelector, ScoreWeights, ThemeClaimMapping, UserRelevanceScorer};
+use wildside_scorer::{
+    ClaimSelector, ScoreWeights, ThemeClaimMapping, UserRelevanceScorer, popularity_bincode_options,
+};
 
 const ART_PROPERTY: &str = "P999";
 const ART_VALUE: &str = "Q_ART";
@@ -194,7 +196,7 @@ fn write_popularity_scores(
     let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
         .expect("utf8 popularity path");
     let scores = wildside_scorer::PopularityScores::new(BTreeMap::from_iter(scores_map));
-    let bytes = bincode::DefaultOptions::new()
+    let bytes = popularity_bincode_options()
         .serialize(&scores)
         .expect("serialise popularity scores");
     std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
