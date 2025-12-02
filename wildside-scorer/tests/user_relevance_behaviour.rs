@@ -119,101 +119,44 @@ fn popularity_score_high(context: &TestContext) {
 
 #[given("a popularity file without an entry for the POI")]
 fn popularity_without_entry(context: &TestContext) {
-    use std::collections::BTreeMap;
-
-    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
-        .expect("utf8 popularity path");
-    let scores = wildside_scorer::PopularityScores::new(BTreeMap::from([(99_u64, 0.4_f32)]));
-    let bytes = bincode::DefaultOptions::new()
-        .serialize(&scores)
-        .expect("serialise popularity without entry");
-    std::fs::write(path.as_std_path(), bytes).expect("write popularity without entry");
-    *context.popularity_path.borrow_mut() = Some(path);
+    write_popularity_scores(
+        context,
+        std::collections::BTreeMap::from([(99_u64, 0.4_f32)]),
+    );
 }
 
 #[when("I score the POI for an art-loving visitor")]
 fn score_for_art(context: &TestContext) {
-    let scorer = build_scorer(context);
-    let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
-    let profile = InterestProfile::new().with_weight(Theme::Art, 0.9_f32);
-    record_score(&context.scored_value, scorer.score(&poi, &profile));
+    score_poi_with_theme(context, Theme::Art, 0.9_f32);
 }
 
 #[when("I score the POI for a food-loving visitor")]
 fn score_for_food(context: &TestContext) {
-    let scorer = build_scorer(context);
-    let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
-    let profile = InterestProfile::new().with_weight(Theme::Food, 0.8_f32);
-    record_score(&context.scored_value, scorer.score(&poi, &profile));
+    score_poi_with_theme(context, Theme::Food, 0.8_f32);
 }
 
 #[when("I score the POI for a history-loving visitor")]
 fn score_for_history(context: &TestContext) {
-    let scorer = build_scorer(context);
-    let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
-    let profile = InterestProfile::new().with_weight(Theme::History, 1.0_f32);
-    record_score(&context.scored_value, scorer.score(&poi, &profile));
+    score_poi_with_theme(context, Theme::History, 1.0_f32);
 }
 
 #[then("the score combines popularity with the art interest")]
-#[expect(
-    clippy::float_arithmetic,
-    reason = "assertions compare floating point values"
-)]
 fn assert_art_score(context: &TestContext) {
-    let score = context
-        .scored_value
-        .borrow()
-        .expect("score should be recorded");
-    assert!(
-        (score - 0.6_f32).abs() < 0.000_1_f32,
-        "expected blended score of 0.6"
-    );
+    assert_score_near(context, 0.6_f32, "expected blended score of 0.6");
 }
 
 #[then("the score equals the popularity component")]
-#[expect(
-    clippy::float_arithmetic,
-    reason = "assertions compare floating point values"
-)]
 fn assert_food_score(context: &TestContext) {
-    let score = context
-        .scored_value
-        .borrow()
-        .expect("score should be recorded");
-    assert!(
-        (score - 0.7_f32).abs() < 0.000_1_f32,
-        "expected popularity-only score"
-    );
+    assert_score_near(context, 0.7_f32, "expected popularity-only score");
 }
 
 #[then("the score is driven by the history interest")]
-#[expect(
-    clippy::float_arithmetic,
-    reason = "assertions compare floating point values"
-)]
 fn assert_history_score(context: &TestContext) {
-    let score = context
-        .scored_value
-        .borrow()
-        .expect("score should be recorded");
-    assert!(
-        (score - 0.5_f32).abs() < 0.000_1_f32,
-        "expected interest-led score"
-    );
+    assert_score_near(context, 0.5_f32, "expected interest-led score");
 }
 
 fn write_popularity_file(context: &TestContext, score: f32) {
-    use std::collections::BTreeMap;
-
-    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
-        .expect("utf8 popularity path");
-    let scores = wildside_scorer::PopularityScores::new(BTreeMap::from([(1_u64, score)]));
-    let bytes = bincode::DefaultOptions::new()
-        .serialize(&scores)
-        .expect("serialise popularity scores");
-    std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
-    *context.popularity_path.borrow_mut() = Some(path);
+    write_popularity_scores(context, std::collections::BTreeMap::from([(1_u64, score)]));
 }
 
 fn build_scorer(context: &TestContext) -> UserRelevanceScorer {
@@ -240,6 +183,41 @@ fn build_scorer(context: &TestContext) -> UserRelevanceScorer {
 
 fn record_score(cell: &RefCell<Option<f32>>, score: f32) {
     *cell.borrow_mut() = Some(score);
+}
+
+fn write_popularity_scores(
+    context: &TestContext,
+    scores_map: std::collections::BTreeMap<u64, f32>,
+) {
+    use std::collections::BTreeMap;
+
+    let path = Utf8PathBuf::from_path_buf(context.temp_dir.path().join("popularity.bin"))
+        .expect("utf8 popularity path");
+    let scores = wildside_scorer::PopularityScores::new(BTreeMap::from_iter(scores_map));
+    let bytes = bincode::DefaultOptions::new()
+        .serialize(&scores)
+        .expect("serialise popularity scores");
+    std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
+    *context.popularity_path.borrow_mut() = Some(path);
+}
+
+fn score_poi_with_theme(context: &TestContext, theme: Theme, weight: f32) {
+    let scorer = build_scorer(context);
+    let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
+    let profile = InterestProfile::new().with_weight(theme, weight);
+    record_score(&context.scored_value, scorer.score(&poi, &profile));
+}
+
+#[expect(
+    clippy::float_arithmetic,
+    reason = "assertions compare floating point values"
+)]
+fn assert_score_near(context: &TestContext, expected: f32, message: &str) {
+    let score = context
+        .scored_value
+        .borrow()
+        .expect("score should be recorded");
+    assert!((score - expected).abs() < 0.000_1_f32, "{message}");
 }
 
 #[scenario(path = "tests/features/user_relevance.feature", index = 0)]
