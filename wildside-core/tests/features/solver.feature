@@ -17,3 +17,8 @@ Feature: Solver validation
     Given a solve request with a non-finite start coordinate
     When I run the solver
     Then an invalid request error is returned
+
+  Scenario: Zero max nodes hint fails validation
+    Given a solve request with zero max nodes
+    When I run the solver
+    Then an invalid request error is returned

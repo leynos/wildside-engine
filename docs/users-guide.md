@@ -56,11 +56,13 @@ non-negative, finite values, and should normalise scores to `0.0..=1.0`.
 
 Tour construction is delegated to the `Solver` trait. Consumers build a
 `SolveRequest` that includes a start coordinate, visit duration (minutes), an
-interest profile, and a random seed for deterministic behaviour. Call
-`SolveRequest::validate` to enforce the implemented invariants: non-zero
-duration and finite coordinates. Successful solvers return `SolveResponse`,
-which packages the chosen `Route` and its aggregate score. Invalid inputs must
-produce `SolveError::InvalidRequest` instead of panicking.[^6]
+interest profile, a random seed for deterministic behaviour, and an optional
+`max_nodes` pruning hint for candidate selection. Call `SolveRequest::validate`
+to enforce the implemented invariants: non-zero duration, finite coordinates,
+and a positive `max_nodes` value when set. Successful solvers return
+`SolveResponse`, which packages the chosen `Route` and its aggregate score.
+Invalid inputs must produce `SolveError::InvalidRequest` instead of
+panicking.[^6]
 
 ## Point-of-interest storage
 
@@ -146,6 +148,7 @@ fn plan_visit(
         duration_minutes: 180,
         interests: profile.clone(),
         seed: 42,
+        max_nodes: None,
     };
     request.validate()?;
 
@@ -176,7 +179,7 @@ for repeatable results.
 [^3]: <../wildside-core/src/profile.rs#L1-L98>
 [^4]: <../wildside-core/src/route.rs#L1-L75>
 [^5]: <../wildside-core/src/scorer.rs#L1-L55>
-[^6]: <../wildside-core/src/solver.rs#L1-L69>
+[^6]: <../wildside-core/src/solver.rs#L1-L97>
 [^7]: <../wildside-core/src/store.rs#L1-L220>
 [^8]: <../wildside-core/src/store.rs#L361-L404>
 [^9]: <../wildside-core/src/travel_time/provider.rs#L1-L59>
@@ -185,6 +188,6 @@ for repeatable results.
 [^12]: <../wildside-core/src/test_support.rs#L100-L134>
 [^13]: <../wildside-core/src/test_support.rs#L135-L151>
 [^14]: <../wildside-core/src/profile.rs#L21-L98>
-[^15]: <../wildside-core/src/solver.rs#L33-L69>
+[^15]: <../wildside-core/src/solver.rs#L29-L97>
 [^16]: <../wildside-core/src/travel_time/error.rs#L1-L14>
 [^17]: <../wildside-core/src/store.rs#L28-L164>

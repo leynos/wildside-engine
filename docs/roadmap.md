@@ -117,11 +117,11 @@ This phase implements the core logic that gives the engine its intelligence.
 
 - **Define Stable API**
 
-  - [ ] In `wildside-core`, define the `SolveRequest` struct with public
+- [x] In `wildside-core`, define the `SolveRequest` struct with public
         fields for `start: geo::Coord`, `duration_minutes: u16`,
         `interests: InterestProfile`, and a `seed: u64` for reproducible
-        results. Status: implemented without the planned `max_nodes` pruning
-        hint; add this once candidate selection controls are specified.
+        results. Status: includes an optional `max_nodes` pruning hint to cap
+        candidate selection when callers supply it.
   - [ ] Define the `SolveResponse` struct to include the final `Route`, the
     total `score`, and a `Diagnostics` struct for metrics like solve time and
     number of candidates. Status: `Route` and `score` are in place; add
