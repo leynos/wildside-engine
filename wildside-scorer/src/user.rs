@@ -5,7 +5,7 @@
 //! The scorer inspects Wikidata claims stored in `pois.db` to determine whether
 //! a point of interest matches the visitor's declared themes. It blends these
 //! matches with the global popularity score loaded from `popularity.bin`,
-//! returning a normalised value in `0.0..=1.0` via the `Scorer` trait.
+//! returning a normalized value in `0.0..=1.0` via the `Scorer` trait.
 
 #![forbid(unsafe_code)]
 

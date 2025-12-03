@@ -561,7 +561,7 @@ accomplished in milliseconds, ensuring a responsive user experience.
 - Per-request relevance sums the profile weights for matching themes and
   clamps the result to `0.0..=1.0`. Combining popularity and relevance uses a
   weighted mean (default 50/50). The user weight is only applied when at least
-  one theme matches, so POIs without profile matches are not penalised.
+  one theme matches, so POIs without profile matches are not penalized.
 
 ## Section 3: A Library-First Architecture for the Wildside Engine
 
