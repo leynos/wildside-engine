@@ -108,12 +108,12 @@ This phase implements the core logic that gives the engine its intelligence.
 
 - **Implement User Relevance Scorer**
 
-  - [ ] Implement the `score` method of the `Scorer` trait.
-  - [ ] The method will receive a `PointOfInterest` and an `InterestProfile`.
-  - [ ] It will perform fast, indexed lookups against `pois.db` to check for
+  - [x] Implement the `score` method of the `Scorer` trait.
+  - [x] The method will receive a `PointOfInterest` and an `InterestProfile`.
+  - [x] It will perform fast, indexed lookups against `pois.db` to check for
         Wikidata properties matching selected interests.
-  - [ ] It will combine these matches with the pre-calculated global popularity
-        score loaded from `popularity.bin`.
+  - [x] It will combine these matches with the pre-calculated global
+        popularity score loaded from `popularity.bin`.
 
 - **Define Stable API**
 

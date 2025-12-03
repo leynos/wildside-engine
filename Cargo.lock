@@ -3292,6 +3292,8 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "camino",
+ "geo",
+ "log",
  "rstest",
  "rstest-bdd",
  "rstest-bdd-macros",

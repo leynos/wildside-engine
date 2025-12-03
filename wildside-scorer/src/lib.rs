@@ -1,11 +1,17 @@
-//! Offline popularity scoring for Wildside points of interest.
+//! Scoring utilities for Wildside points of interest.
 //!
-//! The crate walks a `pois.db` `SQLite` database, extracts popularity signals,
-//! normalises them into the `0.0..=1.0` range, and optionally serialises the
-//! resulting scores to `popularity.bin` via `bincode`. Popularity is derived
-//! from two signals:
-//! - Wikidata sitelink counts per linked entity.
-//! - UNESCO World Heritage designation (`P1435=Q9259`).
+//! The crate provides two complementary capabilities:
+//! - **Offline popularity computation** walks a `pois.db` `SQLite` database,
+//!   extracts popularity signals, normalizes them into the `0.0..=1.0` range,
+//!   and optionally serializes the resulting scores to `popularity.bin` via
+//!   `bincode`. Popularity is derived from two signals: Wikidata sitelink
+//!   counts per linked entity, and UNESCO World Heritage designation
+//!   (`P1435=Q9259`).
+//! - **Request-time user relevance scoring** combines per-theme interests from
+//!   an [`InterestProfile`](wildside_core::InterestProfile) with fast, indexed
+//!   lookups against `pois.db` and the pre-computed popularity scores. It
+//!   implements the [`Scorer`](wildside_core::Scorer) trait so callers can
+//!   plug the scorer into route solvers.
 //!
 //! # Examples
 //!
@@ -34,9 +40,13 @@ use wildside_fs::ensure_parent_dir;
 mod error;
 pub(crate) mod resolver;
 mod types;
+mod user;
 
 pub use error::PopularityError;
 pub use types::{PopularityScores, PopularityWeights};
+pub use user::{
+    ClaimSelector, ScoreWeights, ThemeClaimMapping, UserRelevanceError, UserRelevanceScorer,
+};
 
 use resolver::SitelinkResolver;
 
@@ -44,12 +54,18 @@ pub(crate) const HERITAGE_PROPERTY: &str = "P1435";
 pub(crate) const SITELINK_TABLE: &str = "wikidata_entity_sitelinks";
 const UNESCO_WORLD_HERITAGE: &str = "Q9259";
 
-/// Bincode options used for serialising and deserialising popularity scores.
+/// Bincode options used for serializing and deserializing popularity scores.
 pub(crate) fn bincode_options() -> impl bincode::Options {
     bincode::DefaultOptions::new()
 }
 
-/// Compute normalised popularity scores for all POIs in a `pois.db` database.
+/// Public helper exposing the bincode configuration used for popularity files.
+#[must_use]
+pub fn popularity_bincode_options() -> impl bincode::Options {
+    bincode_options()
+}
+
+/// Compute normalized popularity scores for all POIs in a `pois.db` database.
 ///
 /// # Errors
 /// Returns [`PopularityError`] when the `SQLite` database cannot be opened,
@@ -77,7 +93,7 @@ pub fn compute_popularity_scores(
 ///
 /// # Errors
 /// Propagates errors from [`compute_popularity_scores`] and from filesystem
-/// interactions when creating the output file or serialising the scores.
+/// interactions when creating the output file or serializing the scores.
 pub fn write_popularity_file(
     db_path: &Utf8Path,
     output_path: &Utf8Path,
@@ -182,7 +198,7 @@ fn score_signals(sitelinks: u32, heritage: bool, weights: PopularityWeights) -> 
 
 #[expect(
     clippy::float_arithmetic,
-    reason = "normalising scores divides by the maximum raw value"
+    reason = "normalizing scores divides by the maximum raw value"
 )]
 pub(crate) fn normalise_scores(raw: &HashMap<u64, f32>) -> std::collections::BTreeMap<u64, f32> {
     let max = raw.values().copied().fold(0.0_f32, f32::max);
