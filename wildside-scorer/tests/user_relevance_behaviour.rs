@@ -2,6 +2,10 @@
     clippy::expect_used,
     reason = "tests should fail fast when setup breaks"
 )]
+#![expect(
+    missing_docs,
+    reason = "integration test fixtures keep boilerplate low in this file"
+)]
 
 //! Behavioural coverage for user relevance scoring.
 
@@ -21,7 +25,6 @@ use wildside_scorer::{
 const ART_PROPERTY: &str = "P999";
 const ART_VALUE: &str = "Q_ART";
 
-/// Aggregate fixtures shared across the BDD scenarios.
 pub struct TestContext {
     temp_dir: TempDir,
     db_path: RefCell<Option<Utf8PathBuf>>,

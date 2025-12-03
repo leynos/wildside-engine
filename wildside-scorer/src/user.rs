@@ -23,8 +23,10 @@ use wildside_core::{InterestProfile, PointOfInterest, Scorer, Theme};
 
 use crate::{PopularityScores, bincode_options};
 
-const CLAIM_LOOKUP_SQL: &str = "SELECT 1 FROM poi_wikidata_claims WHERE poi_id = ?1 AND property_id = ?2\
-     AND value_entity_id = ?3 LIMIT 1";
+const CLAIM_LOOKUP_SQL: &str = concat!(
+    "SELECT 1 FROM poi_wikidata_claims WHERE poi_id = ?1 AND property_id = ?2 ",
+    "AND value_entity_id = ?3 LIMIT 1"
+);
 const DEFAULT_HISTORY_PROPERTY: &str = "P1435";
 const DEFAULT_HISTORY_VALUE: &str = "Q9259";
 
@@ -386,8 +388,13 @@ fn claim_exists(
             |_| Ok(()),
         )
         .optional()
-        .map(|row| row.is_some())
-        .unwrap_or(false)
+        .map_or_else(
+            |err| {
+                warn!("claim query failed for POI {poi_id}: {err}");
+                false
+            },
+            |row| row.is_some(),
+        )
 }
 
 #[cfg(test)]
