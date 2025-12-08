@@ -51,15 +51,22 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
 }
 
 #[rstest]
-fn zero_duration_returns_invalid_request() {
+#[case::zero_duration(SolveRequest {
+    start: Coord { x: 0.0, y: 0.0 },
+    duration_minutes: 0,
+    interests: InterestProfile::new(),
+    seed: 1,
+    max_nodes: None,
+})]
+#[case::zero_max_nodes(SolveRequest {
+    start: Coord { x: 0.0, y: 0.0 },
+    duration_minutes: 10,
+    interests: InterestProfile::new(),
+    seed: 1,
+    max_nodes: Some(0),
+})]
+fn invalid_requests_are_rejected(#[case] req: SolveRequest) {
     let solver = DummySolver;
-    let req = SolveRequest {
-        start: Coord { x: 0.0, y: 0.0 },
-        duration_minutes: 0,
-        interests: InterestProfile::new(),
-        seed: 1,
-        max_nodes: None,
-    };
 
     let err = req.validate().expect_err("expected InvalidRequest");
     assert!(matches!(err, SolveError::InvalidRequest));
@@ -81,24 +88,6 @@ fn non_finite_start_is_invalid(#[case] start: Coord<f64>) {
         interests: InterestProfile::new(),
         seed: 1,
         max_nodes: None,
-    };
-
-    let err = req.validate().expect_err("expected InvalidRequest");
-    assert!(matches!(err, SolveError::InvalidRequest));
-
-    let err = solver.solve(&req).expect_err("expected InvalidRequest");
-    assert!(matches!(err, SolveError::InvalidRequest));
-}
-
-#[rstest]
-fn zero_max_nodes_is_invalid() {
-    let solver = DummySolver;
-    let req = SolveRequest {
-        start: Coord { x: 0.0, y: 0.0 },
-        duration_minutes: 10,
-        interests: InterestProfile::new(),
-        seed: 1,
-        max_nodes: Some(0),
     };
 
     let err = req.validate().expect_err("expected InvalidRequest");
