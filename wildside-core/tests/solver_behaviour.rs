@@ -219,6 +219,8 @@ fn then_invalid_request(#[from(outcome)] outcome: &RefCell<Result<SolveResponse,
     );
 }
 
+// Scenario: "Valid request returns a response" (index 0 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 0)]
 fn valid_request_is_solved(
     solver: DummySolver,
@@ -228,6 +230,8 @@ fn valid_request_is_solved(
     let _ = (solver, request, outcome);
 }
 
+// Scenario: "Zero duration request fails" (index 1 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 1)]
 fn zero_duration_request_fails(
     solver: DummySolver,
@@ -237,6 +241,8 @@ fn zero_duration_request_fails(
     let _ = (solver, request, outcome);
 }
 
+// Scenario: "Non-finite start request fails" (index 2 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 2)]
 fn non_finite_request_fails(
     solver: DummySolver,
@@ -246,6 +252,8 @@ fn non_finite_request_fails(
     let _ = (solver, request, outcome);
 }
 
+// Scenario: "Zero max nodes hint fails validation" (index 3 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 3)]
 fn zero_max_nodes_request_fails(
     solver: DummySolver,

@@ -677,7 +677,7 @@ benchmarking, and diagnosing production incidents. A lightweight
 `SolveRequest::validate` helper enforces the core invariant: a duration of zero
 minutes is rejected with `SolveError::InvalidRequest`. The optional `max_nodes`
 pruning hint must be greater than zero when supplied; `None` leaves solver
-implementations free to choose their own candidate limits. A `Diagnostics`
+implementations free to choose candidate limits. A `Diagnostics`
 payload will be added once the telemetry schema is agreed.
 
 ### 3.4. Data and Computation Boundaries: Offline vs. Online
