@@ -20,6 +20,7 @@ use crate::{InterestProfile, Route};
 ///     duration_minutes: 30,
 ///     interests: InterestProfile::new(),
 ///     seed: 1,
+///     max_nodes: Some(50),
 /// };
 /// assert_eq!(request.duration_minutes, 30);
 /// ```
@@ -34,18 +35,28 @@ pub struct SolveRequest {
     pub interests: InterestProfile,
     /// Seed for reproducible stochastic components.
     pub seed: u64,
+    /// Optional upper bound on candidate POIs considered by the solver.
+    ///
+    /// This is a hint to prune expensive searches. A value of zero is
+    /// rejected by [`SolveRequest::validate`]; `None` leaves the solver free
+    /// to choose its own limits.
+    pub max_nodes: Option<u16>,
 }
 
 impl SolveRequest {
     /// Validates invariants required by solvers.
     ///
     /// Returns [`SolveError::InvalidRequest`] when the time budget is zero or the
-    /// start coordinates are non-finite.
+    /// start coordinates are non-finite. A provided `max_nodes` hint must be
+    /// greater than zero.
     pub fn validate(&self) -> Result<(), SolveError> {
         if self.duration_minutes == 0 {
             return Err(SolveError::InvalidRequest);
         }
         if !(self.start.x.is_finite() && self.start.y.is_finite()) {
+            return Err(SolveError::InvalidRequest);
+        }
+        if matches!(self.max_nodes, Some(0)) {
             return Err(SolveError::InvalidRequest);
         }
         Ok(())

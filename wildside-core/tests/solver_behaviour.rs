@@ -11,8 +11,8 @@ struct DummySolver;
 
 impl Solver for DummySolver {
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError> {
-        // `interests` and `seed` are ignored by this stub.
-        let _ = (&request.interests, request.seed);
+        // `interests`, `seed`, and `max_nodes` are ignored by this stub.
+        let _ = (&request.interests, request.seed, request.max_nodes);
         request.validate()?;
         Ok(SolveResponse {
             route: Route::new(Vec::new(), Duration::from_secs(0)),
@@ -31,6 +31,7 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
         duration_minutes: duration,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: None,
     };
     let validation = req.validate();
     let result = solver.solve(&req);
@@ -50,14 +51,22 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
 }
 
 #[rstest]
-fn zero_duration_returns_invalid_request() {
+#[case::zero_duration(SolveRequest {
+    start: Coord { x: 0.0, y: 0.0 },
+    duration_minutes: 0,
+    interests: InterestProfile::new(),
+    seed: 1,
+    max_nodes: None,
+})]
+#[case::zero_max_nodes(SolveRequest {
+    start: Coord { x: 0.0, y: 0.0 },
+    duration_minutes: 10,
+    interests: InterestProfile::new(),
+    seed: 1,
+    max_nodes: Some(0),
+})]
+fn invalid_requests_are_rejected(#[case] req: SolveRequest) {
     let solver = DummySolver;
-    let req = SolveRequest {
-        start: Coord { x: 0.0, y: 0.0 },
-        duration_minutes: 0,
-        interests: InterestProfile::new(),
-        seed: 1,
-    };
 
     let err = req.validate().expect_err("expected InvalidRequest");
     assert!(matches!(err, SolveError::InvalidRequest));
@@ -78,6 +87,7 @@ fn non_finite_start_is_invalid(#[case] start: Coord<f64>) {
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: None,
     };
 
     let err = req.validate().expect_err("expected InvalidRequest");
@@ -85,6 +95,23 @@ fn non_finite_start_is_invalid(#[case] start: Coord<f64>) {
 
     let err = solver.solve(&req).expect_err("expected InvalidRequest");
     assert!(matches!(err, SolveError::InvalidRequest));
+}
+
+#[rstest]
+fn positive_max_nodes_is_accepted() {
+    let solver = DummySolver;
+    let req = SolveRequest {
+        start: Coord { x: 0.0, y: 0.0 },
+        duration_minutes: 10,
+        interests: InterestProfile::new(),
+        seed: 1,
+        max_nodes: Some(25),
+    };
+
+    req.validate().expect("expected valid request");
+    let response = solver.solve(&req).expect("expected solver success");
+    assert!(response.route.pois().is_empty());
+    assert_eq!(response.score, 0.0);
 }
 
 #[fixture]
@@ -99,6 +126,7 @@ fn request() -> RefCell<SolveRequest> {
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: None,
     })
 }
 
@@ -122,6 +150,7 @@ fn given_valid_request(#[from(request)] request: &RefCell<SolveRequest>) {
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: Some(10),
     };
 }
 
@@ -132,6 +161,7 @@ fn given_zero_duration_request(#[from(request)] request: &RefCell<SolveRequest>)
         duration_minutes: 0,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: None,
     };
 }
 
@@ -145,6 +175,18 @@ fn given_non_finite_request(#[from(request)] request: &RefCell<SolveRequest>) {
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
+        max_nodes: None,
+    };
+}
+
+#[given("a solve request with zero max nodes")]
+fn given_zero_max_nodes_request(#[from(request)] request: &RefCell<SolveRequest>) {
+    *request.borrow_mut() = SolveRequest {
+        start: Coord { x: 0.0, y: 0.0 },
+        duration_minutes: 10,
+        interests: InterestProfile::new(),
+        seed: 1,
+        max_nodes: Some(0),
     };
 }
 
@@ -177,6 +219,8 @@ fn then_invalid_request(#[from(outcome)] outcome: &RefCell<Result<SolveResponse,
     );
 }
 
+// Scenario: "Valid request returns a response" (index 0 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 0)]
 fn valid_request_is_solved(
     solver: DummySolver,
@@ -186,6 +230,8 @@ fn valid_request_is_solved(
     let _ = (solver, request, outcome);
 }
 
+// Scenario: "Zero duration request fails" (index 1 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 1)]
 fn zero_duration_request_fails(
     solver: DummySolver,
@@ -195,8 +241,21 @@ fn zero_duration_request_fails(
     let _ = (solver, request, outcome);
 }
 
+// Scenario: "Non-finite start request fails" (index 2 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 2)]
 fn non_finite_request_fails(
+    solver: DummySolver,
+    request: RefCell<SolveRequest>,
+    outcome: RefCell<Result<SolveResponse, SolveError>>,
+) {
+    let _ = (solver, request, outcome);
+}
+
+// Scenario: "Zero max nodes hint fails validation" (index 3 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
+#[scenario(path = "tests/features/solver.feature", index = 3)]
+fn zero_max_nodes_request_fails(
     solver: DummySolver,
     request: RefCell<SolveRequest>,
     outcome: RefCell<Result<SolveResponse, SolveError>>,

@@ -658,6 +658,7 @@ pub struct SolveRequest {
     pub duration_minutes: u16,  // Tmax
     pub interests: InterestProfile,
     pub seed: u64,              // For deterministic, reproducible heuristic runs
+    pub max_nodes: Option<u16>, // Optional pruning hint for candidate search
 }
 ```
 
@@ -674,9 +675,10 @@ The inclusion of a `seed` in the request is critical for reliability. It makes
 the heuristic solver's output reproducible, which is invaluable for testing,
 benchmarking, and diagnosing production incidents. A lightweight
 `SolveRequest::validate` helper enforces the core invariant: a duration of zero
-minutes is rejected with `SolveError::InvalidRequest`. Future revisions will
-reintroduce the `max_nodes` pruning hint and the `Diagnostics` payload once the
-surrounding heuristics are designed.
+minutes is rejected with `SolveError::InvalidRequest`. The optional `max_nodes`
+pruning hint must be greater than zero when supplied; `None` leaves solver
+implementations free to choose candidate limits. A `Diagnostics`
+payload will be added once the telemetry schema is agreed.
 
 ### 3.4. Data and Computation Boundaries: Offline vs. Online
 
