@@ -122,10 +122,9 @@ This phase implements the core logic that gives the engine its intelligence.
         `interests: InterestProfile`, and a `seed: u64` for reproducible
         results. Status: includes an optional `max_nodes` pruning hint to cap
         candidate selection when callers supply it.
-  - [ ] Define the `SolveResponse` struct to include the final `Route`, the
+  - [x] Define the `SolveResponse` struct to include the final `Route`, the
     total `score`, and a `Diagnostics` struct for metrics like solve time and
-    number of candidates. Status: `Route` and `score` are in place; add
-    `Diagnostics` when the telemetry schema is agreed.
+    number of candidates.
 
 ## Phase 3: The orienteering problem solver
 

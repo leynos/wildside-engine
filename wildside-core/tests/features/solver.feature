@@ -22,3 +22,8 @@ Feature: Solver validation
     Given a solve request with zero max nodes
     When I run the solver
     Then an invalid request error is returned
+
+  Scenario: Response includes diagnostics
+    Given a valid solve request
+    When I run the solver
+    Then the response includes diagnostics

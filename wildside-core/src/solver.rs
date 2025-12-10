@@ -63,9 +63,35 @@ impl SolveRequest {
     }
 }
 
+/// Telemetry from a solve operation.
+///
+/// Contains metrics describing solver execution, useful for performance
+/// monitoring and debugging.
+///
+/// # Examples
+/// ```rust
+/// use std::time::Duration;
+/// use wildside_core::Diagnostics;
+///
+/// let diagnostics = Diagnostics {
+///     solve_time: Duration::from_millis(42),
+///     candidates_evaluated: 150,
+/// };
+/// assert_eq!(diagnostics.candidates_evaluated, 150);
+/// ```
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Diagnostics {
+    /// Time taken to produce the solution.
+    pub solve_time: std::time::Duration,
+    /// Number of candidate POIs evaluated by the solver.
+    pub candidates_evaluated: u32,
+}
+
 /// Response from a successful solve.
 ///
-/// Contains the chosen [`Route`] and its aggregate score.
+/// Contains the chosen [`Route`], its aggregate score, and [`Diagnostics`]
+/// describing solver execution.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct SolveResponse {
@@ -73,6 +99,8 @@ pub struct SolveResponse {
     pub route: Route,
     /// Total score accumulated along the route.
     pub score: f32,
+    /// Telemetry from the solve operation.
+    pub diagnostics: Diagnostics,
 }
 
 /// Errors returned by [`Solver::solve`].
