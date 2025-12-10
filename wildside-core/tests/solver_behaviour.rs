@@ -19,10 +19,7 @@ impl Solver for DummySolver {
         Ok(SolveResponse {
             route: Route::new(Vec::new(), Duration::from_secs(0)),
             score: 0.0,
-            diagnostics: Diagnostics {
-                solve_time: Duration::from_secs(0),
-                candidates_evaluated: 0,
-            },
+            diagnostics: Diagnostics::default(),
         })
     }
 }
@@ -182,10 +179,7 @@ fn outcome() -> RefCell<Result<SolveResponse, SolveError>> {
     RefCell::new(Ok(SolveResponse {
         route: Route::new(Vec::new(), Duration::from_secs(0)),
         score: 0.0,
-        diagnostics: Diagnostics {
-            solve_time: Duration::from_secs(0),
-            candidates_evaluated: 0,
-        },
+        diagnostics: Diagnostics::default(),
     }))
 }
 
@@ -278,9 +272,9 @@ fn then_response_includes_diagnostics(
     let response = borrow
         .as_ref()
         .expect("expected solver to succeed with a valid request");
-    // Verify diagnostics are present and have sensible values.
-    assert!(response.diagnostics.solve_time >= Duration::from_secs(0));
-    assert!(response.diagnostics.candidates_evaluated == 0);
+    // Verify diagnostics are present and match the dummy solver's metrics.
+    assert_eq!(response.diagnostics.solve_time, Duration::from_secs(0));
+    assert_eq!(response.diagnostics.candidates_evaluated, 0);
 }
 
 // Scenario: "Valid request returns a response" (index 0 in solver.feature).

@@ -80,12 +80,12 @@ impl SolveRequest {
 /// assert_eq!(diagnostics.candidates_evaluated, 150);
 /// ```
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Diagnostics {
     /// Time taken to produce the solution.
     pub solve_time: std::time::Duration,
     /// Number of candidate POIs evaluated by the solver.
-    pub candidates_evaluated: u32,
+    pub candidates_evaluated: u64,
 }
 
 /// Response from a successful solve.

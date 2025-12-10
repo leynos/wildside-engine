@@ -667,7 +667,7 @@ pub struct SolveRequest {
 ```rust
 pub struct Diagnostics {
     pub solve_time: Duration,       // Time taken to produce the solution
-    pub candidates_evaluated: u32,  // Number of candidate POIs evaluated
+    pub candidates_evaluated: u64,  // Number of candidate POIs evaluated
 }
 
 pub struct SolveResponse {
