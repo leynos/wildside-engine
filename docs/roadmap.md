@@ -132,16 +132,16 @@ This phase tackles the complex route-finding algorithm.
 
 - **Implement Native VRP Solver**
 
-  - [ ] Create the `wildside-solver-vrp` crate with a dependency on
+  - [x] Create the `wildside-solver-vrp` crate with a dependency on
         `vrp-core`.
-  - [ ] Create a `VrpSolver` struct that implements the `Solver` trait from the
+  - [x] Create a `VrpSolver` struct that implements the `Solver` trait from the
         core crate.
-  - [ ] The `solve` method will first select candidate POIs from the `PoiStore`.
-  - [ ] It will then fetch the travel time matrix for these candidates from the
+  - [x] The `solve` method will first select candidate POIs from the `PoiStore`.
+  - [x] It will then fetch the travel time matrix for these candidates from the
         `TravelTimeProvider`.
-  - [ ] It will configure the `vrp-core` problem and objective function to
+  - [x] It will configure the `vrp-core` problem and objective function to
         maximize the total collected score within the given time budget.
-  - [ ] Finally, it will run the `vrp-core` solver and transform the result into
+  - [x] Finally, it will run the `vrp-core` solver and transform the result into
         a `SolveResponse`.
 
 - **Implement Travel Time Provider**

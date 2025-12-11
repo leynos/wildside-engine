@@ -23,9 +23,10 @@ fn results() -> RefCell<Vec<PointOfInterest>> {
 
 #[given("a store containing a single POI at the origin")]
 fn given_store(
-    #[from(store)] _store: &MemoryStore,
+    #[from(store)] store: &MemoryStore,
     #[from(results)] results: &RefCell<Vec<PointOfInterest>>,
 ) {
+    let _ = store;
     results.borrow_mut().clear();
 }
 

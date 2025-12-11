@@ -774,6 +774,38 @@ within the required few-second timeframe.15 This implementation will live in the
 
 `wildside-solver-vrp` crate.
 
+#### 4.2.1. Implementation notes
+
+The first-cut `wildside-solver-vrp` implementation makes the following
+pragmatic choices:
+
+- Candidate search uses a rectangular bounding box centred on
+  `SolveRequest::start`. The half-width is derived from `duration_minutes` and
+  an assumed average walking speed of 5 km/h, using a coarse conversion of 111
+  km per latitude degree. This keeps selection synchronous and deterministic;
+  callers can override the speed via `VrpSolverConfig`.
+
+- Candidates are scored using the injected `Scorer` and sorted by score
+  (descending, POI id tie-break). The optional `max_nodes` hint truncates this
+  list before routing.
+
+- The VRP model uses a single vehicle starting and ending at the depot with an
+  end time equal to the request budget in seconds. Service times at POIs are
+  assumed to be zero for now.
+
+- A custom `vrp-core` objective minimises the negative sum of per-job scores.
+  This is equivalent to maximising total collected score, with travel time
+  minimisation applied as a secondary objective. Unassigned jobs carry no
+  explicit penalty beyond these objectives.
+
+- Until `SolveError` gains richer variants, any failure in candidate routing,
+  matrix acquisition, or `vrp-core` modelling is surfaced as
+  `SolveError::InvalidRequest`.
+
+- The request seed is not yet threaded into `vrp-core`'s random environment.
+  Deterministic seeding will be added once the upstream API exposes a stable
+  hook.
+
 ### 4.3. Optional High-Performance Backend: `wildside-solver-ortools`
 
 To allow for future performance comparisons or to meet extreme optimization

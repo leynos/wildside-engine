@@ -124,8 +124,9 @@ fn download_log_target(
 #[when("I download the latest dump")]
 fn download_latest(
     #[from(dump_context)] ctx: &DumpScenarioContext,
-    #[from(working_dir)] _dir: &TempDir,
+    #[from(working_dir)] dir: &TempDir,
 ) {
+    let _ = dir;
     let source_borrow = ctx.stub_source().borrow();
     let stub = source_borrow
         .as_ref()

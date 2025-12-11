@@ -21,8 +21,9 @@ fn result() -> RefCell<Result<TravelTimeMatrix, TravelTimeError>> {
 }
 
 #[given("a provider returning unit travel times")]
-fn given_provider(#[from(provider)] _provider: &UnitTravelTimeProvider) {
+fn given_provider(#[from(provider)] provider: &UnitTravelTimeProvider) {
     // No state to initialise
+    let _ = provider;
 }
 
 #[when("I request travel times for two POIs")]
