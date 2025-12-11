@@ -5,7 +5,9 @@ use rstest::{fixture, rstest};
 use rstest_bdd_macros::{given, scenario, then, when};
 use std::cell::RefCell;
 use std::time::Duration;
-use wildside_core::{InterestProfile, Route, SolveError, SolveRequest, SolveResponse, Solver};
+use wildside_core::{
+    Diagnostics, InterestProfile, Route, SolveError, SolveRequest, SolveResponse, Solver,
+};
 
 struct DummySolver;
 
@@ -17,6 +19,7 @@ impl Solver for DummySolver {
         Ok(SolveResponse {
             route: Route::new(Vec::new(), Duration::from_secs(0)),
             score: 0.0,
+            diagnostics: Diagnostics::default(),
         })
     }
 }
@@ -114,6 +117,62 @@ fn positive_max_nodes_is_accepted() {
     assert_eq!(response.score, 0.0);
 }
 
+#[rstest]
+fn response_includes_diagnostics() {
+    let solver = DummySolver;
+    let req = SolveRequest {
+        start: Coord { x: 0.0, y: 0.0 },
+        duration_minutes: 10,
+        interests: InterestProfile::new(),
+        seed: 1,
+        max_nodes: None,
+    };
+
+    let response = solver.solve(&req).expect("expected solver success");
+    assert_eq!(response.diagnostics.solve_time, Duration::from_secs(0));
+    assert_eq!(response.diagnostics.candidates_evaluated, 0);
+}
+
+#[rstest]
+fn diagnostics_supports_clone_and_equality() {
+    let diagnostics = Diagnostics {
+        solve_time: Duration::from_millis(100),
+        candidates_evaluated: 42,
+    };
+
+    let cloned = diagnostics.clone();
+    assert_eq!(diagnostics, cloned);
+    assert_eq!(cloned.solve_time, Duration::from_millis(100));
+    assert_eq!(cloned.candidates_evaluated, 42);
+}
+
+#[rstest]
+fn diagnostics_debug_format() {
+    let diagnostics = Diagnostics {
+        solve_time: Duration::from_millis(50),
+        candidates_evaluated: 10,
+    };
+
+    let debug_str = format!("{diagnostics:?}");
+    assert!(debug_str.contains("solve_time"));
+    assert!(debug_str.contains("candidates_evaluated"));
+}
+
+#[cfg(feature = "serde")]
+#[rstest]
+fn diagnostics_serde_round_trip() {
+    let original = Diagnostics {
+        solve_time: Duration::from_millis(123),
+        candidates_evaluated: 456,
+    };
+
+    let json = serde_json::to_string(&original).expect("serialization should succeed");
+    let restored: Diagnostics =
+        serde_json::from_str(&json).expect("deserialization should succeed");
+
+    assert_eq!(original, restored);
+}
+
 #[fixture]
 fn solver() -> DummySolver {
     DummySolver
@@ -135,6 +194,7 @@ fn outcome() -> RefCell<Result<SolveResponse, SolveError>> {
     RefCell::new(Ok(SolveResponse {
         route: Route::new(Vec::new(), Duration::from_secs(0)),
         score: 0.0,
+        diagnostics: Diagnostics::default(),
     }))
 }
 
@@ -219,6 +279,21 @@ fn then_invalid_request(#[from(outcome)] outcome: &RefCell<Result<SolveResponse,
     );
 }
 
+#[then("the response includes diagnostics")]
+fn then_response_includes_diagnostics(
+    #[from(outcome)] outcome: &RefCell<Result<SolveResponse, SolveError>>,
+) {
+    let borrow = outcome.borrow();
+    let response = borrow
+        .as_ref()
+        .expect("expected solver to succeed with a valid request");
+    // Verify diagnostics are present and accessible.
+    // Access fields to confirm structural presence without asserting specific values,
+    // so the test remains valid when a real solver replaces the dummy.
+    let _solve_time = response.diagnostics.solve_time;
+    let _candidates = response.diagnostics.candidates_evaluated;
+}
+
 // Scenario: "Valid request returns a response" (index 0 in solver.feature).
 // If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 0)]
@@ -256,6 +331,17 @@ fn non_finite_request_fails(
 // If scenarios are added or reordered, update the index to keep this test aligned.
 #[scenario(path = "tests/features/solver.feature", index = 3)]
 fn zero_max_nodes_request_fails(
+    solver: DummySolver,
+    request: RefCell<SolveRequest>,
+    outcome: RefCell<Result<SolveResponse, SolveError>>,
+) {
+    let _ = (solver, request, outcome);
+}
+
+// Scenario: "Response includes diagnostics" (index 4 in solver.feature).
+// If scenarios are added or reordered, update the index to keep this test aligned.
+#[scenario(path = "tests/features/solver.feature", index = 4)]
+fn diagnostics_are_included(
     solver: DummySolver,
     request: RefCell<SolveRequest>,
     outcome: RefCell<Result<SolveResponse, SolveError>>,

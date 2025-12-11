@@ -665,9 +665,15 @@ pub struct SolveRequest {
 **Output Structure:**
 
 ```rust
+pub struct Diagnostics {
+    pub solve_time: Duration,       // Time taken to produce the solution
+    pub candidates_evaluated: u64,  // Number of candidate POIs evaluated
+}
+
 pub struct SolveResponse {
     pub route: Route,           // Ordered list of coords + POI IDs
     pub score: f32,             // Total collected score for the route
+    pub diagnostics: Diagnostics, // Telemetry from the solve operation
 }
 ```
 
@@ -677,8 +683,9 @@ benchmarking, and diagnosing production incidents. A lightweight
 `SolveRequest::validate` helper enforces the core invariant: a duration of zero
 minutes is rejected with `SolveError::InvalidRequest`. The optional `max_nodes`
 pruning hint must be greater than zero when supplied; `None` leaves solver
-implementations free to choose candidate limits. A `Diagnostics`
-payload will be added once the telemetry schema is agreed.
+implementations free to choose candidate limits. The `Diagnostics` struct
+captures solver telemetry, including elapsed time and the number of candidates
+evaluated, enabling performance monitoring and debugging.
 
 ### 3.4. Data and Computation Boundaries: Offline vs. Online
 
