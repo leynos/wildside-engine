@@ -158,6 +158,7 @@ fn diagnostics_debug_format() {
     assert!(debug_str.contains("candidates_evaluated"));
 }
 
+#[cfg(feature = "serde")]
 #[rstest]
 fn diagnostics_serde_round_trip() {
     let original = Diagnostics {
