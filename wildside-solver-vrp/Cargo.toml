@@ -18,3 +18,6 @@ rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 wildside-core = { workspace = true, features = ["test-support"] }
+
+[features]
+test-support = []

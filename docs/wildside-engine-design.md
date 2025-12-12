@@ -793,9 +793,9 @@ pragmatic choices:
   end time equal to the request budget in seconds. Service times at POIs are
   assumed to be zero for now.
 
-- A custom `vrp-core` objective minimises the negative sum of per-job scores.
-  This is equivalent to maximising total collected score, with travel time
-  minimisation applied as a secondary objective. Unassigned jobs carry no
+- A custom `vrp-core` objective minimizes the negative sum of per-job scores.
+  This is equivalent to maximizing total collected score, with travel time
+  minimization applied as a secondary objective. Unassigned jobs carry no
   explicit penalty beyond these objectives.
 
 - Until `SolveError` gains richer variants, any failure in candidate routing,

@@ -7,10 +7,11 @@ use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
 use wildside_core::test_support::{MemoryStore, TagScorer, UnitTravelTimeProvider};
 use wildside_core::{
-    InterestProfile, PointOfInterest, SolveError, SolveRequest, SolveResponse, Solver, Tags, Theme,
+    InterestProfile, PointOfInterest, SolveError, SolveRequest, SolveResponse, Solver, Theme,
     TravelTimeError, TravelTimeMatrix, TravelTimeProvider,
 };
 use wildside_solver_vrp::VrpSolver;
+use wildside_solver_vrp::test_support::poi;
 
 #[derive(Debug, Clone)]
 enum ProviderChoice {
@@ -76,14 +77,6 @@ impl VrpWorld {
 #[fixture]
 fn world() -> VrpWorld {
     VrpWorld::new()
-}
-
-fn poi(id: u64, x: f64, y: f64, theme: &str) -> PointOfInterest {
-    PointOfInterest::new(
-        id,
-        Coord { x, y },
-        Tags::from([(theme.to_owned(), String::new())]),
-    )
 }
 
 #[given("a memory POI store with points near the origin")]

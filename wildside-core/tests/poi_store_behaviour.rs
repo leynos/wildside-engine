@@ -1,5 +1,10 @@
 //! Behavioural tests for `PoiStore` bounding-box queries.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::{Coord, Rect};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
@@ -23,10 +28,9 @@ fn results() -> RefCell<Vec<PointOfInterest>> {
 
 #[given("a store containing a single POI at the origin")]
 fn given_store(
-    #[from(store)] store: &MemoryStore,
+    #[from(store)] _store: &MemoryStore,
     #[from(results)] results: &RefCell<Vec<PointOfInterest>>,
 ) {
-    let _ = store;
     results.borrow_mut().clear();
 }
 

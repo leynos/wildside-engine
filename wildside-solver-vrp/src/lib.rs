@@ -18,3 +18,6 @@ mod solver;
 mod vrp;
 
 pub use solver::{VrpSolver, VrpSolverConfig};
+
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;

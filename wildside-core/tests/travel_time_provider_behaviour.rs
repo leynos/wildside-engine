@@ -1,5 +1,10 @@
 //! Behavioural tests for `TravelTimeProvider` implementations.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::Coord;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
@@ -21,9 +26,8 @@ fn result() -> RefCell<Result<TravelTimeMatrix, TravelTimeError>> {
 }
 
 #[given("a provider returning unit travel times")]
-fn given_provider(#[from(provider)] provider: &UnitTravelTimeProvider) {
+fn given_provider(#[from(provider)] _provider: &UnitTravelTimeProvider) {
     // No state to initialise
-    let _ = provider;
 }
 
 #[when("I request travel times for two POIs")]

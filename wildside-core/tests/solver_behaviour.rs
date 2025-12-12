@@ -1,5 +1,10 @@
 //! Tests for the `Solver` trait using a dummy implementation.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::Coord;
 use rstest::{fixture, rstest};
 use rstest_bdd_macros::{given, scenario, then, when};
@@ -199,9 +204,8 @@ fn outcome() -> RefCell<Result<SolveResponse, SolveError>> {
 }
 
 #[given("a dummy solver")]
-fn given_solver(#[from(solver)] solver: &DummySolver) {
+fn given_solver(#[from(solver)] _solver: &DummySolver) {
     // Solver has no shared state to initialise.
-    let _ = solver;
 }
 
 #[given("a valid solve request")]

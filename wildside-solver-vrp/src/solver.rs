@@ -8,6 +8,7 @@ use wildside_core::{
     Solver, TravelTimeProvider,
 };
 
+use crate::vrp::VrpInstance;
 use crate::vrp::VrpSolveContext;
 
 /// Configuration for [`VrpSolver`].
@@ -86,8 +87,8 @@ where
         request.validate()?;
         let started_at = Instant::now();
 
-        let candidates = self.select_candidates(request);
-        if candidates.is_empty() {
+        let scored_candidates = self.select_candidates(request);
+        if scored_candidates.is_empty() {
             return Ok(SolveResponse {
                 route: Route::empty(),
                 score: 0.0,
@@ -98,6 +99,8 @@ where
             });
         }
 
+        let (candidates, scores): (Vec<PointOfInterest>, Vec<f32>) =
+            scored_candidates.into_iter().unzip();
         let depot = PointOfInterest::with_empty_tags(0, request.start);
         let mut all_pois = Vec::with_capacity(candidates.len() + 1);
         all_pois.push(depot.clone());
@@ -109,8 +112,9 @@ where
             .map_err(|_| SolveError::InvalidRequest)?;
 
         let budget_seconds = Duration::from_secs(u64::from(request.duration_minutes) * 60);
-        let context = VrpSolveContext::new(&self.scorer, &self.config, &request.interests);
-        let (route_pois, total_score) = context.solve(&candidates, &matrix, budget_seconds)?;
+        let context = VrpSolveContext::new(&self.config);
+        let instance = VrpInstance::new(&candidates, &scores, &matrix, budget_seconds);
+        let (route_pois, total_score) = context.solve(&instance)?;
 
         let total_duration = route_duration(&route_pois, &all_pois, &matrix);
         let diagnostics = Diagnostics {
@@ -152,7 +156,7 @@ where
     T: TravelTimeProvider,
     C: Scorer,
 {
-    fn select_candidates(&self, request: &SolveRequest) -> Vec<PointOfInterest> {
+    fn select_candidates(&self, request: &SolveRequest) -> Vec<(PointOfInterest, f32)> {
         let bbox = bounding_box(
             request.start,
             request.duration_minutes,
@@ -180,8 +184,16 @@ where
             scored.truncate(max);
         }
 
-        scored.into_iter().map(|(poi, _)| poi).collect()
+        scored
     }
+}
+
+fn build_poi_index(all_pois: &[PointOfInterest]) -> std::collections::HashMap<u64, usize> {
+    all_pois
+        .iter()
+        .enumerate()
+        .map(|(idx, poi)| (poi.id, idx))
+        .collect()
 }
 
 fn route_duration(
@@ -191,17 +203,21 @@ fn route_duration(
 ) -> Duration {
     let mut duration = Duration::ZERO;
     let mut prev_index = 0_usize;
+    let poi_index = build_poi_index(all_pois);
     for poi in route_pois {
-        let next_index = all_pois
-            .iter()
-            .position(|candidate| candidate.id == poi.id)
-            .unwrap_or(prev_index);
+        let next_index = poi_index.get(&poi.id).copied().unwrap_or(prev_index);
         if let Some(row) = matrix.get(prev_index)
             && let Some(edge) = row.get(next_index)
         {
             duration += *edge;
         }
         prev_index = next_index;
+    }
+    if prev_index != 0
+        && let Some(row) = matrix.get(prev_index)
+        && let Some(edge) = row.first()
+    {
+        duration += *edge;
     }
     duration
 }
@@ -212,15 +228,9 @@ mod tests {
     use geo::Coord;
     use rstest::rstest;
     use wildside_core::test_support::{MemoryStore, TagScorer, UnitTravelTimeProvider};
-    use wildside_core::{InterestProfile, Tags, Theme};
+    use wildside_core::{InterestProfile, Theme};
 
-    fn poi(id: u64, x: f64, y: f64, theme: &str) -> PointOfInterest {
-        PointOfInterest::new(
-            id,
-            Coord { x, y },
-            Tags::from([(theme.to_owned(), String::new())]),
-        )
-    }
+    use crate::test_support::poi;
 
     #[rstest]
     fn candidate_selection_respects_max_nodes() {
@@ -246,9 +256,15 @@ mod tests {
 
         let candidates = solver.select_candidates(&request);
         assert_eq!(candidates.len(), 2);
-        let first = candidates.first().expect("expected first candidate");
+        let first = candidates
+            .first()
+            .map(|(poi, _)| poi)
+            .expect("expected first candidate");
         assert_eq!(first.id, 1);
-        let second = candidates.get(1).expect("expected second candidate");
+        let second = candidates
+            .get(1)
+            .map(|(poi, _)| poi)
+            .expect("expected second candidate");
         assert_eq!(second.id, 2);
     }
 

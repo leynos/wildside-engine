@@ -1,5 +1,10 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use crate::wikidata::dump::test_support::{StubSource, block_on_for_tests};
 use crate::wikidata::dump::{DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump};
 use rstest::fixture;
@@ -124,9 +129,8 @@ fn download_log_target(
 #[when("I download the latest dump")]
 fn download_latest(
     #[from(dump_context)] ctx: &DumpScenarioContext,
-    #[from(working_dir)] dir: &TempDir,
+    #[from(working_dir)] _dir: &TempDir,
 ) {
-    let _ = dir;
     let source_borrow = ctx.stub_source().borrow();
     let stub = source_borrow
         .as_ref()
