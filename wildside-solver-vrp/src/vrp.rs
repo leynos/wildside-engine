@@ -169,6 +169,11 @@ impl TravelTimeTransportCost {
 }
 
 impl TransportCost for TravelTimeTransportCost {
+    // `distance` and `duration` implement `vrp-core`'s `TransportCost` trait.
+    // The trait signature includes `route` and `departure` parameters even
+    // though this matrix-backed implementation does not use them. Other
+    // `TransportCost` implementations may have route-dependent or
+    // time-dependent costs, so these parameters are part of the shared API.
     fn distance(
         &self,
         _route: &VrpRoute,
