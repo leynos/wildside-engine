@@ -133,11 +133,16 @@ impl TravelTimeTransportCost {
     fn duration_seconds(&self, from: Location, to: Location) -> f64 {
         let from_idx = from;
         let to_idx = to;
-        self.durations
+        let result = self
+            .durations
             .get(from_idx)
             .and_then(|row| row.get(to_idx))
-            .copied()
-            .unwrap_or(0.0)
+            .copied();
+        debug_assert!(
+            result.is_some(),
+            "Matrix lookup failed: from={from_idx}, to={to_idx}"
+        );
+        result.unwrap_or(0.0)
     }
 }
 

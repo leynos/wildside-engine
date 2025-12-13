@@ -216,7 +216,10 @@ fn route_duration(
     let mut prev_index = 0_usize;
     let poi_index = build_poi_index(all_pois);
     for poi in route_pois {
-        let next_index = poi_index.get(&poi.id).copied().unwrap_or(prev_index);
+        let next_index = poi_index.get(&poi.id).copied().unwrap_or_else(|| {
+            debug_assert!(false, "POI {} not found in index", poi.id);
+            prev_index
+        });
         if let Some(row) = matrix.get(prev_index)
             && let Some(edge) = row.get(next_index)
         {
