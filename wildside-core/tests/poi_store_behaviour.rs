@@ -1,5 +1,10 @@
 //! Behavioural tests for `PoiStore` bounding-box queries.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::{Coord, Rect};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
