@@ -217,6 +217,11 @@ fn route_duration(
     let poi_index = build_poi_index(all_pois);
     for poi in route_pois {
         let next_index = poi_index.get(&poi.id).copied().unwrap_or_else(|| {
+            log::warn!(
+                "POI {} not found in POI index; falling back to previous index {}",
+                poi.id,
+                prev_index
+            );
             debug_assert!(false, "POI {} not found in index", poi.id);
             prev_index
         });
