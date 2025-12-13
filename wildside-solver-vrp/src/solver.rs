@@ -196,6 +196,17 @@ fn build_poi_index(all_pois: &[PointOfInterest]) -> std::collections::HashMap<u6
         .collect()
 }
 
+fn return_to_depot_duration(from_index: usize, matrix: &[Vec<Duration>]) -> Duration {
+    if from_index == 0 {
+        return Duration::ZERO;
+    }
+    matrix
+        .get(from_index)
+        .and_then(|row| row.first())
+        .copied()
+        .unwrap_or(Duration::ZERO)
+}
+
 fn route_duration(
     route_pois: &[PointOfInterest],
     all_pois: &[PointOfInterest],
@@ -213,17 +224,13 @@ fn route_duration(
         }
         prev_index = next_index;
     }
-    if prev_index != 0
-        && let Some(row) = matrix.get(prev_index)
-        && let Some(edge) = row.first()
-    {
-        duration += *edge;
-    }
-    duration
+    duration + return_to_depot_duration(prev_index, matrix)
 }
 
 #[cfg(test)]
 mod tests {
+    //! Tests for the `VrpSolver`.
+
     use super::*;
     use geo::Coord;
     use rstest::rstest;
