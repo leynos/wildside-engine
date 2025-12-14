@@ -145,6 +145,7 @@ fn plan_visit(
 
     let request = SolveRequest {
         start: Coord { x: -0.15, y: 51.5 },
+        end: None,
         duration_minutes: 180,
         interests: profile.clone(),
         seed: 42,

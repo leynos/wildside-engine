@@ -1,4 +1,6 @@
 //! `VrpSolver` implementation backed by `vrp-core`.
+//!
+//! Supports point-to-point routing when `SolveRequest::end` is set.
 
 use std::time::{Duration, Instant};
 
@@ -89,6 +91,24 @@ where
 
         let scored_candidates = self.select_candidates(request);
         if scored_candidates.is_empty() {
+            if let Some(end_coord) = request.end {
+                let start = PointOfInterest::with_empty_tags(0, request.start);
+                let end_poi = PointOfInterest::with_empty_tags(u64::MAX, end_coord);
+                let all_pois = vec![start, end_poi];
+                let matrix = self
+                    .travel_time_provider
+                    .get_travel_time_matrix(&all_pois)
+                    .map_err(|_| SolveError::InvalidRequest)?;
+                let total_duration = final_leg_duration(0, 1, &matrix);
+                return Ok(SolveResponse {
+                    route: Route::new(Vec::new(), total_duration),
+                    score: 0.0,
+                    diagnostics: Diagnostics {
+                        solve_time: started_at.elapsed(),
+                        candidates_evaluated: 0,
+                    },
+                });
+            }
             return Ok(SolveResponse {
                 route: Route::empty(),
                 score: 0.0,
@@ -102,21 +122,29 @@ where
         let (candidates, scores): (Vec<PointOfInterest>, Vec<f32>) =
             scored_candidates.into_iter().unzip();
         let depot = PointOfInterest::with_empty_tags(0, request.start);
-        let mut all_pois = Vec::with_capacity(candidates.len() + 1);
+        let end_poi = request
+            .end
+            .map(|end_coord| PointOfInterest::with_empty_tags(u64::MAX, end_coord));
+        let mut all_pois =
+            Vec::with_capacity(candidates.len() + 1 + usize::from(end_poi.is_some()));
         all_pois.push(depot.clone());
         all_pois.extend(candidates.iter().cloned());
+        if let Some(end_poi_value) = end_poi.clone() {
+            all_pois.push(end_poi_value);
+        }
 
         let matrix = self
             .travel_time_provider
             .get_travel_time_matrix(&all_pois)
             .map_err(|_| SolveError::InvalidRequest)?;
 
+        let end_location = end_poi.as_ref().map_or(0, |_| all_pois.len() - 1);
         let budget_seconds = Duration::from_secs(u64::from(request.duration_minutes) * 60);
         let context = VrpSolveContext::new(&self.config);
         let instance = VrpInstance::new(&candidates, &scores, &matrix, budget_seconds);
-        let (route_pois, total_score) = context.solve(&instance)?;
+        let (route_pois, total_score) = context.solve(&instance, end_location)?;
 
-        let total_duration = route_duration(&route_pois, &all_pois, &matrix);
+        let total_duration = route_duration(&route_pois, &all_pois, &matrix, end_location);
         let diagnostics = Diagnostics {
             solve_time: started_at.elapsed(),
             candidates_evaluated: candidates.len() as u64,
@@ -134,18 +162,27 @@ where
     clippy::float_arithmetic,
     reason = "candidate selection uses floating-point score and distance heuristics"
 )]
-fn bounding_box(start: Coord<f64>, duration_minutes: u16, speed_kmh: f64) -> Rect<f64> {
+fn bounding_box(
+    start: Coord<f64>,
+    end_coord: Option<Coord<f64>>,
+    duration_minutes: u16,
+    speed_kmh: f64,
+) -> Rect<f64> {
     let duration_hours = f64::from(duration_minutes) / 60.0;
     let distance_km = duration_hours * speed_kmh;
     let radius_deg = distance_km / 111.0;
+    let min_x = end_coord.map_or(start.x, |end| start.x.min(end.x));
+    let max_x = end_coord.map_or(start.x, |end| start.x.max(end.x));
+    let min_y = end_coord.map_or(start.y, |end| start.y.min(end.y));
+    let max_y = end_coord.map_or(start.y, |end| start.y.max(end.y));
     Rect::new(
         Coord {
-            x: start.x - radius_deg,
-            y: start.y - radius_deg,
+            x: min_x - radius_deg,
+            y: min_y - radius_deg,
         },
         Coord {
-            x: start.x + radius_deg,
-            y: start.y + radius_deg,
+            x: max_x + radius_deg,
+            y: max_y + radius_deg,
         },
     )
 }
@@ -159,6 +196,7 @@ where
     fn select_candidates(&self, request: &SolveRequest) -> Vec<(PointOfInterest, f32)> {
         let bbox = bounding_box(
             request.start,
+            request.end,
             request.duration_minutes,
             self.config.average_speed_kmh,
         );
@@ -196,33 +234,46 @@ fn build_poi_index(all_pois: &[PointOfInterest]) -> std::collections::HashMap<u6
         .collect()
 }
 
-fn return_to_depot_duration(from_index: usize, matrix: &[Vec<Duration>]) -> Duration {
-    if from_index == 0 {
+fn final_leg_duration(from_index: usize, end_index: usize, matrix: &[Vec<Duration>]) -> Duration {
+    if from_index == end_index {
         return Duration::ZERO;
     }
+
     matrix
         .get(from_index)
-        .and_then(|row| row.first())
+        .and_then(|row| row.get(end_index))
         .copied()
-        .unwrap_or(Duration::ZERO)
+        .map_or_else(
+            || {
+                log::warn!(
+                    "Matrix access failed for final leg from index {from_index} to index {end_index}; falling back to zero duration"
+                );
+                debug_assert!(
+                    false,
+                    "Matrix access failed for final leg from index {from_index} to index {end_index}"
+                );
+                Duration::ZERO
+            },
+            |duration| duration,
+        )
 }
 
 fn route_duration(
     route_pois: &[PointOfInterest],
     all_pois: &[PointOfInterest],
     matrix: &[Vec<Duration>],
+    end_index: usize,
 ) -> Duration {
     let mut duration = Duration::ZERO;
     let mut prev_index = 0_usize;
     let poi_index = build_poi_index(all_pois);
     for poi in route_pois {
-        let next_index = poi_index.get(&poi.id).copied().unwrap_or_else(|| {
+        let poi_id = poi.id;
+        let next_index = poi_index.get(&poi_id).copied().unwrap_or_else(|| {
             log::warn!(
-                "POI {} not found in POI index; falling back to previous index {}",
-                poi.id,
-                prev_index
+                "POI {poi_id} not found in POI index; falling back to previous index {prev_index}"
             );
-            debug_assert!(false, "POI {} not found in index", poi.id);
+            debug_assert!(false, "POI {poi_id} not found in index");
             prev_index
         });
         if let Some(row) = matrix.get(prev_index)
@@ -232,94 +283,8 @@ fn route_duration(
         }
         prev_index = next_index;
     }
-    duration + return_to_depot_duration(prev_index, matrix)
+    duration + final_leg_duration(prev_index, end_index, matrix)
 }
 
 #[cfg(test)]
-mod tests {
-    //! Tests for the `VrpSolver`.
-
-    use super::*;
-    use geo::Coord;
-    use rstest::rstest;
-    use wildside_core::test_support::{MemoryStore, TagScorer, UnitTravelTimeProvider};
-    use wildside_core::{InterestProfile, Theme};
-
-    use crate::test_support::poi;
-
-    #[rstest]
-    fn candidate_selection_respects_max_nodes() {
-        let pois = vec![
-            poi(1, 0.0, 0.0, "art"),
-            poi(2, 0.001, 0.0, "history"),
-            poi(3, 0.002, 0.0, "nature"),
-        ];
-        let store = MemoryStore::with_pois(pois);
-        let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
-        let interests = InterestProfile::new()
-            .with_weight(Theme::Art, 0.9)
-            .with_weight(Theme::History, 0.4)
-            .with_weight(Theme::Nature, 0.1);
-
-        let request = SolveRequest {
-            start: Coord { x: 0.0, y: 0.0 },
-            duration_minutes: 10,
-            interests,
-            seed: 1,
-            max_nodes: Some(2),
-        };
-
-        let candidates = solver.select_candidates(&request);
-        assert_eq!(candidates.len(), 2);
-        let first = candidates
-            .first()
-            .map(|(poi, _)| poi)
-            .expect("expected first candidate");
-        assert_eq!(first.id, 1);
-        let second = candidates
-            .get(1)
-            .map(|(poi, _)| poi)
-            .expect("expected second candidate");
-        assert_eq!(second.id, 2);
-    }
-
-    #[rstest]
-    fn solve_returns_route_with_positive_score() {
-        let pois = vec![poi(1, 0.0, 0.0, "art"), poi(2, 0.001, 0.0, "history")];
-        let store = MemoryStore::with_pois(pois);
-        let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
-        let interests = InterestProfile::new()
-            .with_weight(Theme::Art, 0.8)
-            .with_weight(Theme::History, 0.5);
-        let request = SolveRequest {
-            start: Coord { x: 0.0, y: 0.0 },
-            duration_minutes: 10,
-            interests,
-            seed: 1,
-            max_nodes: None,
-        };
-
-        let response = solver.solve(&request).expect("solve should succeed");
-        assert!(!response.route.pois().is_empty());
-        assert!(response.score > 0.0);
-        assert!(response.route.total_duration() <= Duration::from_secs(600));
-    }
-
-    #[rstest]
-    fn invalid_request_is_rejected() {
-        let store = MemoryStore::default();
-        let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
-        let request = SolveRequest {
-            start: Coord { x: 0.0, y: 0.0 },
-            duration_minutes: 0,
-            interests: InterestProfile::new(),
-            seed: 1,
-            max_nodes: None,
-        };
-
-        let err = solver
-            .solve(&request)
-            .expect_err("expected invalid request error");
-        assert!(matches!(err, SolveError::InvalidRequest));
-    }
-}
+mod tests;

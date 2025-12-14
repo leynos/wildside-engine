@@ -8,7 +8,8 @@ use crate::{InterestProfile, Route};
 /// Parameters for a solve request.
 ///
 /// The request captures the starting point, the time budget in minutes, the
-/// caller's interests and a random seed for deterministic results.
+/// caller's interests and a random seed for deterministic results. Optionally,
+/// callers can provide an end location to request point-to-point routing.
 ///
 /// # Examples
 /// ```rust
@@ -17,6 +18,7 @@ use crate::{InterestProfile, Route};
 ///
 /// let request = SolveRequest {
 ///     start: Coord { x: 0.0, y: 0.0 },
+///     end: None,
 ///     duration_minutes: 30,
 ///     interests: InterestProfile::new(),
 ///     seed: 1,
@@ -29,6 +31,15 @@ use crate::{InterestProfile, Route};
 pub struct SolveRequest {
     /// Start location for the tour.
     pub start: geo::Coord<f64>,
+    /// Optional end location for point-to-point routes.
+    ///
+    /// When set, solvers should treat the tour as starting at [`SolveRequest::start`]
+    /// and finishing at `end` rather than returning to the start location.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub end: Option<geo::Coord<f64>>,
     /// Time budget in minutes.
     pub duration_minutes: u16,
     /// Visitor interest profile guiding POI selection.
@@ -48,12 +59,17 @@ impl SolveRequest {
     ///
     /// Returns [`SolveError::InvalidRequest`] when the time budget is zero or the
     /// start coordinates are non-finite. A provided `max_nodes` hint must be
-    /// greater than zero.
+    /// greater than zero. When set, `end` must also be finite.
     pub fn validate(&self) -> Result<(), SolveError> {
         if self.duration_minutes == 0 {
             return Err(SolveError::InvalidRequest);
         }
         if !(self.start.x.is_finite() && self.start.y.is_finite()) {
+            return Err(SolveError::InvalidRequest);
+        }
+        if let Some(end) = self.end
+            && !(end.x.is_finite() && end.y.is_finite())
+        {
             return Err(SolveError::InvalidRequest);
         }
         if matches!(self.max_nodes, Some(0)) {

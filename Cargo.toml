@@ -11,14 +11,20 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
+license = "ISC"
+repository = "https://github.com/leynos/wildside-engine"
+rust-version = "1.92"
 
 [workspace.dependencies]
 wildside-core = { path = "wildside-core" }
 wildside-data = { path = "wildside-data" }
+geo = "0.31.0"
 log = "0.4.22"
+paste = "1"
 rstest = "0.26.1"
 rstest-bdd = "0.2.0"
 rstest-bdd-macros = "0.2.0"
+vrp-core = "1.25.0"
 camino = { version = "1.2.1", features = ["serde1"] }
 cap-std = { version = "3.4.5", features = ["fs_utf8"] }
 

@@ -52,6 +52,7 @@ impl VrpWorld {
             provider: RefCell::new(ProviderChoice::default()),
             request: RefCell::new(SolveRequest {
                 start: Coord { x: 0.0, y: 0.0 },
+                end: None,
                 duration_minutes: 10,
                 interests: InterestProfile::new(),
                 seed: 1,
@@ -115,6 +116,7 @@ fn given_valid_request(world: &VrpWorld) {
         .with_weight(Theme::History, 0.5);
     world.request.replace(SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests,
         seed: 1,

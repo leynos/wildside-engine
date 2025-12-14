@@ -5,7 +5,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-geo = "0.31.0"
+geo = { workspace = true }
 log = { workspace = true }
 osmpbf = "0.3.6"
 thiserror = "1"

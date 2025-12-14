@@ -2,12 +2,15 @@
 name = "wildside-solver-vrp"
 version = "0.1.0"
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 publish = false
 
 [dependencies]
-geo = "0.31.0"
-paste = "1"
-vrp-core = "1.25.0"
+geo = { workspace = true }
+paste = { workspace = true }
+vrp-core = { workspace = true }
 wildside-core = { workspace = true }
 log = { workspace = true }
 
@@ -21,4 +24,4 @@ rstest-bdd-macros = { workspace = true }
 wildside-core = { workspace = true, features = ["test-support"] }
 
 [features]
-test-support = []
+test-support = ["wildside-core/test-support"]

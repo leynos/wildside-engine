@@ -655,6 +655,7 @@ primary interaction will be through a request/response model.
 ```rust
 pub struct SolveRequest {
     pub start: geo::Coord,      // f64 lat/lon
+    pub end: Option<geo::Coord>, // Optional end lat/lon for point-to-point routing
     pub duration_minutes: u16,  // Tmax
     pub interests: InterestProfile,
     pub seed: u64,              // For deterministic, reproducible heuristic runs
@@ -683,9 +684,12 @@ benchmarking, and diagnosing production incidents. A lightweight
 `SolveRequest::validate` helper enforces the core invariant: a duration of zero
 minutes is rejected with `SolveError::InvalidRequest`. The optional `max_nodes`
 pruning hint must be greater than zero when supplied; `None` leaves solver
-implementations free to choose candidate limits. The `Diagnostics` struct
-captures solver telemetry, including elapsed time and the number of candidates
-evaluated, enabling performance monitoring and debugging.
+implementations free to choose candidate limits. When provided, the optional
+`end` location enables point-to-point routing: solvers should model tours as
+starting at `start` and finishing at `end` rather than returning to the start
+location. The `Diagnostics` struct captures solver telemetry, including elapsed
+time and the number of candidates evaluated, enabling performance monitoring
+and debugging.
 
 ### 3.4. Data and Computation Boundaries: Offline vs. Online
 
@@ -779,19 +783,22 @@ within the required few-second timeframe.15 This implementation will live in the
 The first-cut `wildside-solver-vrp` implementation makes the following
 pragmatic choices:
 
-- Candidate search uses a rectangular bounding box centred on
-  `SolveRequest::start`. The half-width is derived from `duration_minutes` and
-  an assumed average walking speed of 5 km/h, using a coarse conversion of 111
-  km per latitude degree. This keeps selection synchronous and deterministic;
-  callers can override the speed via `VrpSolverConfig`.
+- Candidate search uses a rectangular bounding box derived from
+  `duration_minutes` and an assumed average walking speed of 5 km/h, using a
+  coarse conversion of 111 km per latitude degree. The box is anchored on
+  `SolveRequest::start`, and if `SolveRequest::end` is provided, it expands to
+  cover both the start and end points. This keeps selection synchronous and
+  deterministic; callers can override the speed via `VrpSolverConfig`.
 
 - Candidates are scored using the injected `Scorer` and sorted by score
   (descending, POI id tie-break). The optional `max_nodes` hint truncates this
   list before routing.
 
-- The VRP model uses a single vehicle starting and ending at the depot with an
-  end time equal to the request budget in seconds. Service times at POIs are
-  assumed to be zero for now.
+- The VRP model uses a single vehicle starting at the depot with an end time
+  equal to the request budget in seconds. By default the vehicle returns to the
+  depot, but when `SolveRequest::end` is set the vehicle ends at that distinct
+  location (point-to-point routing). Service times at POIs are assumed to be
+  zero for now.
 
 - A custom `vrp-core` objective minimizes the negative sum of per-job scores.
   This is equivalent to maximizing total collected score, with travel time
@@ -827,7 +834,9 @@ solver itself is an abstract mathematical engine; it requires an external
 component to provide the walking time between every pair of candidate POIs.
 
 This is handled by the synchronous `TravelTimeProvider` trait defined in
-`wildside-core`. The trait has the signature:
+`wildside-core`. The solver supplies a list of POIs including the start,
+candidate POIs, and (when present) the distinct end location so that the matrix
+covers all required legs. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
 `fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
  Keeping the solver synchronous preserves object safety and makes the core

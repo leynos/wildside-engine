@@ -69,6 +69,7 @@ struct ProblemSpec<'a> {
     transport: Arc<dyn TransportCost>,
     goal: GoalContext,
     budget_seconds: Duration,
+    end_location: Location,
 }
 
 fn define_problem(spec: ProblemSpec<'_>) -> GenericResult<Problem> {
@@ -78,6 +79,7 @@ fn define_problem(spec: ProblemSpec<'_>) -> GenericResult<Problem> {
         transport,
         goal,
         budget_seconds,
+        end_location,
     } = spec;
 
     let jobs = candidates
@@ -103,7 +105,7 @@ fn define_problem(spec: ProblemSpec<'_>) -> GenericResult<Problem> {
             VehicleDetailBuilder::default()
                 .set_start_location(0)
                 .set_start_time(0.0)
-                .set_end_location(0)
+                .set_end_location(end_location)
                 .set_end_time(budget)
                 .build()?,
         )
@@ -219,6 +221,7 @@ impl<'a> VrpSolveContext<'a> {
     pub(super) fn solve(
         &self,
         instance: &VrpInstance<'_>,
+        end_location: Location,
     ) -> Result<(Vec<PointOfInterest>, f32), SolveError> {
         let transport = Arc::new(TravelTimeTransportCost::new(instance.matrix));
         // TODO: Preserve underlying error details once `SolveError` gains richer variants.
@@ -229,6 +232,7 @@ impl<'a> VrpSolveContext<'a> {
             transport,
             goal,
             budget_seconds: instance.budget_seconds,
+            end_location,
         };
         let problem =
             Arc::new(define_problem(problem_spec).map_err(|_| SolveError::InvalidRequest)?);
