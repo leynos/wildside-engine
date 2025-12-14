@@ -64,19 +64,25 @@ impl SolveRequest {
         if self.duration_minutes == 0 {
             return Err(SolveError::InvalidRequest);
         }
-        if !(self.start.x.is_finite() && self.start.y.is_finite()) {
+        if !is_valid_coord(&self.start) {
             return Err(SolveError::InvalidRequest);
         }
-        if let Some(end) = self.end
-            && !(end.x.is_finite() && end.y.is_finite())
-        {
-            return Err(SolveError::InvalidRequest);
+        if let Some(end) = self.end {
+            let end_is_valid = is_valid_coord(&end);
+            if !end_is_valid {
+                return Err(SolveError::InvalidRequest);
+            }
         }
         if matches!(self.max_nodes, Some(0)) {
             return Err(SolveError::InvalidRequest);
         }
         Ok(())
     }
+}
+
+/// Checks whether both x and y coordinates are finite.
+fn is_valid_coord(coord: &geo::Coord<f64>) -> bool {
+    coord.x.is_finite() && coord.y.is_finite()
 }
 
 /// Telemetry from a solve operation.
