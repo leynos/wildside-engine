@@ -127,7 +127,7 @@ where
             .map(|end_coord| PointOfInterest::with_empty_tags(u64::MAX, end_coord));
         let mut all_pois =
             Vec::with_capacity(candidates.len() + 1 + usize::from(end_poi.is_some()));
-        all_pois.push(depot.clone());
+        all_pois.push(depot);
         all_pois.extend(candidates.iter().cloned());
         if let Some(end_poi_value) = end_poi.clone() {
             all_pois.push(end_poi_value);

@@ -82,6 +82,15 @@ fn define_problem(spec: ProblemSpec<'_>) -> GenericResult<Problem> {
         end_location,
     } = spec;
 
+    debug_assert_eq!(
+        candidates.len(),
+        scores.len(),
+        "VRP problem invariant violated: candidates.len() != scores.len()"
+    );
+    if candidates.len() != scores.len() {
+        return Err("VRP problem invariant violated: candidates.len() != scores.len()".into());
+    }
+
     let jobs = candidates
         .iter()
         .zip(scores.iter())
@@ -248,11 +257,7 @@ impl<'a> VrpSolveContext<'a> {
             .solve()
             .map_err(|_| SolveError::InvalidRequest)?;
 
-        let locations: Vec<Location> = solution
-            .get_locations()
-            .next()
-            .map(Iterator::collect)
-            .unwrap_or_default();
+        let locations: Vec<Location> = solution.get_locations().flatten().collect();
 
         let mut pois = Vec::new();
         let mut chosen_scores = Vec::new();

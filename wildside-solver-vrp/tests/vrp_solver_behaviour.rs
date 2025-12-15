@@ -105,7 +105,7 @@ fn given_failing_provider(world: &VrpWorld) {
 
 #[given("a tag scorer")]
 fn given_tag_scorer(world: &VrpWorld) {
-    // TagScorer has no state to initialise.
+    // TagScorer has no state to initialize.
     let _ = world;
 }
 
