@@ -873,7 +873,7 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
   parse errors (`ParseError`), and service-level errors (`ServiceError`). All
   variants are marked `#[non_exhaustive]` for future expansion.
 
-- **Configuration:** `HttpTravelTimeProviderConfig` supports customising the
+- **Configuration:** `HttpTravelTimeProviderConfig` supports customizing the
   base URL, request timeout, and user agent string via a builder pattern.
 
 - **Testing:** A `StubTravelTimeProvider` in `routing::test_support` allows

@@ -215,12 +215,16 @@ impl HttpTravelTimeProvider {
             })?;
 
         // Convert f64 seconds to Duration, treating null as Duration::MAX
-        // to indicate unreachable pairs.
+        // to indicate unreachable pairs. Invalid values (negative, NaN, infinite)
+        // are also treated as unreachable to avoid panics from Duration::from_secs_f64.
         let matrix = durations
             .into_iter()
             .map(|row| {
                 row.into_iter()
-                    .map(|cell| cell.map_or(Duration::MAX, Duration::from_secs_f64))
+                    .map(|cell| {
+                        cell.filter(|&v| v >= 0.0 && v.is_finite())
+                            .map_or(Duration::MAX, Duration::from_secs_f64)
+                    })
                     .collect()
             })
             .collect();
@@ -260,8 +264,9 @@ impl TravelTimeProvider for HttpTravelTimeProvider {
 mod tests {
     use super::*;
     use geo::Coord;
-    use rstest::rstest;
+    use rstest::{fixture, rstest};
 
+    #[fixture]
     fn sample_pois() -> Vec<PointOfInterest> {
         vec![
             PointOfInterest::with_empty_tags(1, Coord { x: -0.1, y: 51.5 }),
@@ -270,11 +275,10 @@ mod tests {
     }
 
     #[rstest]
-    fn build_table_url_formats_coordinates() {
+    fn build_table_url_formats_coordinates(sample_pois: Vec<PointOfInterest>) {
         let provider = HttpTravelTimeProvider::new("http://osrm.example.com");
-        let pois = sample_pois();
 
-        let url = provider.build_table_url(&pois);
+        let url = provider.build_table_url(&sample_pois);
 
         assert_eq!(
             url,
@@ -283,11 +287,10 @@ mod tests {
     }
 
     #[rstest]
-    fn build_table_url_strips_trailing_slash() {
+    fn build_table_url_strips_trailing_slash(sample_pois: Vec<PointOfInterest>) {
         let provider = HttpTravelTimeProvider::new("http://osrm.example.com/");
-        let pois = sample_pois();
 
-        let url = provider.build_table_url(&pois);
+        let url = provider.build_table_url(&sample_pois);
 
         assert!(url.starts_with("http://osrm.example.com/table/"));
         assert!(!url.contains("//table"));
@@ -327,6 +330,34 @@ mod tests {
 
         assert_eq!(matrix[0][1], Duration::MAX);
         assert_eq!(matrix[1][0], Duration::MAX);
+    }
+
+    #[rstest]
+    fn convert_response_handles_invalid_durations() {
+        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let response = TableResponse {
+            code: "Ok".to_string(),
+            message: None,
+            durations: Some(vec![
+                vec![Some(0.0), Some(-1.0), Some(f64::NAN)],
+                vec![Some(f64::INFINITY), Some(0.0), Some(f64::NEG_INFINITY)],
+                vec![Some(100.0), Some(200.0), Some(0.0)],
+            ]),
+        };
+
+        let matrix = provider.convert_response(response).expect("should parse");
+
+        // Negative values become Duration::MAX
+        assert_eq!(matrix[0][1], Duration::MAX);
+        // NaN becomes Duration::MAX
+        assert_eq!(matrix[0][2], Duration::MAX);
+        // Positive infinity becomes Duration::MAX
+        assert_eq!(matrix[1][0], Duration::MAX);
+        // Negative infinity becomes Duration::MAX
+        assert_eq!(matrix[1][2], Duration::MAX);
+        // Valid values are converted correctly
+        assert_eq!(matrix[2][0], Duration::from_secs(100));
+        assert_eq!(matrix[2][1], Duration::from_secs(200));
     }
 
     #[rstest]
