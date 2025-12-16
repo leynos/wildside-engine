@@ -30,7 +30,8 @@
 use std::time::Duration;
 
 use reqwest::Client;
-use tokio::runtime::Builder;
+use tokio::runtime::Handle;
+use tokio::runtime::Runtime;
 use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 use super::osrm::TableResponse;
@@ -90,8 +91,14 @@ impl HttpTravelTimeProviderConfig {
 /// HTTP-based travel time provider using OSRM Table API.
 ///
 /// This provider implements the synchronous [`TravelTimeProvider`] trait
-/// by internally blocking on asynchronous HTTP requests. It creates a
-/// current-thread Tokio runtime for each request.
+/// by internally blocking on asynchronous HTTP requests. It owns a Tokio
+/// runtime that is reused across calls, avoiding the overhead and potential
+/// panics of creating a new runtime per request.
+///
+/// # Runtime behaviour
+///
+/// If called from within an existing Tokio runtime, the provider uses that
+/// runtime's handle instead of its own, avoiding nested runtime panics.
 ///
 /// # Supported routing modes
 ///
@@ -99,10 +106,20 @@ impl HttpTravelTimeProviderConfig {
 /// Both round-trip and point-to-point routing are supported; the routing
 /// mode is determined by the caller (solver) which includes synthetic
 /// start/end POIs in the request as needed.
-#[derive(Debug)]
 pub struct HttpTravelTimeProvider {
     client: Client,
     config: HttpTravelTimeProviderConfig,
+    runtime: Runtime,
+}
+
+impl std::fmt::Debug for HttpTravelTimeProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HttpTravelTimeProvider")
+            .field("client", &self.client)
+            .field("config", &self.config)
+            .field("runtime", &"<tokio::runtime::Runtime>")
+            .finish()
+    }
 }
 
 impl HttpTravelTimeProvider {
@@ -125,7 +142,15 @@ impl HttpTravelTimeProvider {
             .timeout(config.timeout)
             .build()
             .expect("client builder only fails with invalid configuration");
-        Self { client, config }
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build Tokio runtime");
+        Self {
+            client,
+            config,
+            runtime,
+        }
     }
 
     /// Build the OSRM Table API URL for the given POIs.
@@ -233,20 +258,6 @@ impl HttpTravelTimeProvider {
     }
 }
 
-/// Block on an async future using a current-thread Tokio runtime.
-///
-/// This is used to bridge the async HTTP calls to the sync trait interface.
-fn block_on<F>(future: F) -> F::Output
-where
-    F: std::future::Future,
-{
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build Tokio runtime")
-        .block_on(future)
-}
-
 impl TravelTimeProvider for HttpTravelTimeProvider {
     fn get_travel_time_matrix(
         &self,
@@ -256,7 +267,13 @@ impl TravelTimeProvider for HttpTravelTimeProvider {
             return Err(TravelTimeError::EmptyInput);
         }
 
-        block_on(self.fetch_matrix_async(pois))
+        // If we're already inside a Tokio runtime, use its handle to avoid
+        // nested runtime panics. Otherwise, use our own runtime.
+        let future = self.fetch_matrix_async(pois);
+        match Handle::try_current() {
+            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(future)),
+            Err(_) => self.runtime.block_on(future),
+        }
     }
 }
 

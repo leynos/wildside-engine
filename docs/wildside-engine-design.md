@@ -855,10 +855,11 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
 `TravelTimeProvider` trait using the OSRM Table API. Key design decisions:
 
 - **Synchronous trait, async internals:** The trait method is synchronous, but
-  HTTP calls are inherently async. The implementation bridges this by creating
-  a current-thread Tokio runtime and blocking on the async work within the sync
-  method. This approach follows the pattern established by `block_on_for_tests`
-  in the Wikidata dump test support.
+  HTTP calls are inherently async. The implementation owns a current-thread
+  Tokio runtime that is reused across calls, avoiding the overhead and potential
+  panics of creating a new runtime per request. When called from within an
+  existing Tokio runtime (detected via `Handle::try_current()`), it uses that
+  runtime's handle with `block_in_place` to avoid nested runtime panics.
 
 - **OSRM Table API:** The provider calls `GET /table/v1/walking/{coordinates}`
   where coordinates are semicolon-separated `lon,lat` pairs. The response
