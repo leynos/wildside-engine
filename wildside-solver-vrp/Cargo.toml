@@ -1,0 +1,27 @@
+[package]
+name = "wildside-solver-vrp"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+geo = { workspace = true }
+paste = { workspace = true }
+vrp-core = { workspace = true }
+wildside-core = { workspace = true }
+log = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rstest = { workspace = true }
+rstest-bdd = { workspace = true }
+rstest-bdd-macros = { workspace = true }
+wildside-core = { workspace = true, features = ["test-support"] }
+
+[features]
+test-support = ["wildside-core/test-support"]

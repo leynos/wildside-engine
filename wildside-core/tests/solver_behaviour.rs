@@ -1,5 +1,10 @@
 //! Tests for the `Solver` trait using a dummy implementation.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::Coord;
 use rstest::{fixture, rstest};
 use rstest_bdd_macros::{given, scenario, then, when};
@@ -31,6 +36,7 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
     let solver = DummySolver;
     let req = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: duration,
         interests: InterestProfile::new(),
         seed: 1,
@@ -56,6 +62,7 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
 #[rstest]
 #[case::zero_duration(SolveRequest {
     start: Coord { x: 0.0, y: 0.0 },
+    end: None,
     duration_minutes: 0,
     interests: InterestProfile::new(),
     seed: 1,
@@ -63,6 +70,7 @@ fn solver_returns_expected(#[case] duration: u16, #[case] should_succeed: bool) 
 })]
 #[case::zero_max_nodes(SolveRequest {
     start: Coord { x: 0.0, y: 0.0 },
+    end: None,
     duration_minutes: 10,
     interests: InterestProfile::new(),
     seed: 1,
@@ -87,6 +95,30 @@ fn non_finite_start_is_invalid(#[case] start: Coord<f64>) {
     let solver = DummySolver;
     let req = SolveRequest {
         start,
+        end: None,
+        duration_minutes: 10,
+        interests: InterestProfile::new(),
+        seed: 1,
+        max_nodes: None,
+    };
+
+    let err = req.validate().expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
+
+    let err = solver.solve(&req).expect_err("expected InvalidRequest");
+    assert!(matches!(err, SolveError::InvalidRequest));
+}
+
+#[rstest]
+#[case(Coord { x: f64::NAN, y: 0.0 })]
+#[case(Coord { x: f64::INFINITY, y: 0.0 })]
+#[case(Coord { x: 0.0, y: f64::NAN })]
+#[case(Coord { x: 0.0, y: f64::NEG_INFINITY })]
+fn non_finite_end_is_invalid(#[case] end: Coord<f64>) {
+    let solver = DummySolver;
+    let req = SolveRequest {
+        start: Coord { x: 0.0, y: 0.0 },
+        end: Some(end),
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -105,6 +137,7 @@ fn positive_max_nodes_is_accepted() {
     let solver = DummySolver;
     let req = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -122,6 +155,7 @@ fn response_includes_diagnostics() {
     let solver = DummySolver;
     let req = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -182,6 +216,7 @@ fn solver() -> DummySolver {
 fn request() -> RefCell<SolveRequest> {
     RefCell::new(SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -207,6 +242,7 @@ fn given_solver(#[from(solver)] _solver: &DummySolver) {
 fn given_valid_request(#[from(request)] request: &RefCell<SolveRequest>) {
     *request.borrow_mut() = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -218,6 +254,7 @@ fn given_valid_request(#[from(request)] request: &RefCell<SolveRequest>) {
 fn given_zero_duration_request(#[from(request)] request: &RefCell<SolveRequest>) {
     *request.borrow_mut() = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 0,
         interests: InterestProfile::new(),
         seed: 1,
@@ -232,6 +269,7 @@ fn given_non_finite_request(#[from(request)] request: &RefCell<SolveRequest>) {
             x: f64::NAN,
             y: 0.0,
         },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,
@@ -243,6 +281,7 @@ fn given_non_finite_request(#[from(request)] request: &RefCell<SolveRequest>) {
 fn given_zero_max_nodes_request(#[from(request)] request: &RefCell<SolveRequest>) {
     *request.borrow_mut() = SolveRequest {
         start: Coord { x: 0.0, y: 0.0 },
+        end: None,
         duration_minutes: 10,
         interests: InterestProfile::new(),
         seed: 1,

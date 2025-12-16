@@ -1,5 +1,10 @@
 //! Behavioural coverage for the Wikidata dump downloader.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use crate::wikidata::dump::test_support::{StubSource, block_on_for_tests};
 use crate::wikidata::dump::{DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump};
 use rstest::fixture;

@@ -1,5 +1,10 @@
 //! Behavioural tests for `TravelTimeProvider` implementations.
 
+#![expect(
+    non_snake_case,
+    reason = "rstest-bdd generates guard variables derived from fixture parameter names"
+)]
+
 use geo::Coord;
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
