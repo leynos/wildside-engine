@@ -849,6 +849,37 @@ separate microservice. This adapter will use `tokio` and an HTTP client like
 free of a specific async runtime, making it more broadly embeddable, while
 still allowing it to communicate with the necessary external services.
 
+#### 4.4.1. HttpTravelTimeProvider implementation
+
+The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
+`TravelTimeProvider` trait using the OSRM Table API. Key design decisions:
+
+- **Synchronous trait, async internals:** The trait method is synchronous, but
+  HTTP calls are inherently async. The implementation bridges this by creating
+  a current-thread Tokio runtime and blocking on the async work within the sync
+  method. This approach follows the pattern established by `block_on_for_tests`
+  in the Wikidata dump test support.
+
+- **OSRM Table API:** The provider calls `GET /table/v1/walking/{coordinates}`
+  where coordinates are semicolon-separated `lon,lat` pairs. The response
+  contains a `durations` array with travel times in seconds.
+
+- **Unreachable pairs:** OSRM returns `null` for coordinate pairs where no
+  route exists. These are mapped to `Duration::MAX` to indicate unreachable
+  routes, allowing the solver to handle them appropriately.
+
+- **Error handling:** The `TravelTimeError` enum includes variants for HTTP
+  errors (`HttpError`), network failures (`NetworkError`), timeouts (`Timeout`),
+  parse errors (`ParseError`), and service-level errors (`ServiceError`). All
+  variants are marked `#[non_exhaustive]` for future expansion.
+
+- **Configuration:** `HttpTravelTimeProviderConfig` supports customising the
+  base URL, request timeout, and user agent string via a builder pattern.
+
+- **Testing:** A `StubTravelTimeProvider` in `routing::test_support` allows
+  unit and behavioural tests to verify provider consumers without requiring a
+  running OSRM service. BDD scenarios cover happy paths and error conditions.
+
 ## Section 5: Implementation, Testing, and Deployment Strategy
 
 This final section consolidates the architectural decisions into an actionable

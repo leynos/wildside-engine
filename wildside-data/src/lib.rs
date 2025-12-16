@@ -14,6 +14,7 @@
 //! - No global mutable state.
 
 mod ingest;
+pub mod routing;
 pub mod wikidata;
 
 pub use crate::ingest::{
