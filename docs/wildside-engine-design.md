@@ -796,7 +796,7 @@ pragmatic choices:
 
 - The VRP model uses a single vehicle starting at the depot with an end time
   equal to the request budget in seconds. By default, the vehicle returns to
-  the depot, but when `SolveRequest::end` is set the vehicle ends at that
+  the depot, but when `SolveRequest::end` is set, the vehicle ends at that
   distinct location (point-to-point routing). Service times at POIs are assumed
   to be zero for now.
 
