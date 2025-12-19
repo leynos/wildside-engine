@@ -146,9 +146,9 @@ This phase tackles the complex route-finding algorithm.
 
 - **Implement Travel Time Provider**
 
-  - [ ] Create a `HttpTravelTimeProvider` struct that implements the
+  - [x] Create a `HttpTravelTimeProvider` struct that implements the
         `TravelTimeProvider` trait.
-  - [ ] Using `tokio` and `reqwest`, implement the `get_travel_time_matrix`
+  - [x] Using `tokio` and `reqwest`, implement the `get_travel_time_matrix`
         method to make concurrent requests to an external OSRM API's `table`
         service.
 

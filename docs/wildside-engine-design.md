@@ -849,6 +849,46 @@ separate microservice. This adapter will use `tokio` and an HTTP client like
 free of a specific async runtime, making it more broadly embeddable, while
 still allowing it to communicate with the necessary external services.
 
+#### 4.4.1. HttpTravelTimeProvider implementation
+
+The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
+`TravelTimeProvider` trait using the OSRM Table API. Key design decisions:
+
+- **Synchronous trait, async internals:** The trait method is synchronous, but
+  HTTP calls are inherently async. The implementation owns a current-thread
+  Tokio runtime that is reused across calls, avoiding the overhead of creating
+  a new runtime per request. When called from within an existing multi-threaded
+  Tokio runtime (detected via `Handle::try_current()` and `RuntimeFlavor`), it
+  uses that runtime's handle with `block_in_place` to avoid nested runtime
+  panics. When called from within a `current_thread` runtime, it falls back to
+  using its own internal runtime to avoid the panic `block_in_place` would
+  cause; however, this may lead to deadlocks if the caller's runtime is driving
+  IO or timers that the request depends on.
+
+- **OSRM Table API:** The provider calls `GET /table/v1/walking/{coordinates}`
+  where coordinates are semicolon-separated `lon,lat` pairs. The response
+  contains a `durations` array with travel times in seconds.
+
+- **Unreachable pairs:** OSRM returns `null` for coordinate pairs where no
+  route exists. These are mapped to `Duration::MAX` to indicate unreachable
+  routes, allowing the solver to handle them appropriately.
+
+- **Error handling:** The `TravelTimeError` enum includes variants for HTTP
+  errors (`HttpError`), network failures (`NetworkError`), timeouts (`Timeout`),
+  parse errors (`ParseError`), and service-level errors (`ServiceError`). All
+  variants are marked `#[non_exhaustive]` for future expansion.
+
+- **Configuration:** `HttpTravelTimeProviderConfig` supports customizing the
+  base URL, request timeout, and user agent string via a builder pattern.
+
+- **Fallible construction:** The `new()` and `with_config()` constructors return
+  `Result<Self, ProviderBuildError>` to propagate HTTP client or Tokio runtime
+  build failures instead of panicking.
+
+- **Testing:** A `StubTravelTimeProvider` in `routing::test_support` allows
+  unit and behavioural tests to verify provider consumers without requiring a
+  running OSRM service. BDD scenarios cover happy paths and error conditions.
+
 ## Section 5: Implementation, Testing, and Deployment Strategy
 
 This final section consolidates the architectural decisions into an actionable
