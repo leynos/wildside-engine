@@ -119,13 +119,19 @@ impl HttpTravelTimeProviderConfig {
 ///
 /// This provider implements the synchronous [`TravelTimeProvider`] trait
 /// by internally blocking on asynchronous HTTP requests. It owns a Tokio
-/// runtime that is reused across calls, avoiding the overhead and potential
-/// panics of creating a new runtime per request.
+/// runtime that is reused across calls, avoiding the overhead of creating
+/// a new runtime per request.
 ///
 /// # Runtime behaviour
 ///
-/// If called from within an existing Tokio runtime, the provider uses that
-/// runtime's handle instead of its own, avoiding nested runtime panics.
+/// When called from outside any Tokio runtime, the provider uses its own
+/// stored runtime. When called from within an existing Tokio runtime
+/// (detected via [`Handle::try_current()`]), it uses that runtime's handle
+/// with [`tokio::task::block_in_place`] to avoid nested runtime panics.
+///
+/// **Important:** The `block_in_place` call requires the existing runtime
+/// to be a multi-threaded runtime. Calling this provider from within a
+/// `current_thread` Tokio runtime will panic. This is a known limitation.
 ///
 /// # Supported routing modes
 ///
