@@ -857,11 +857,13 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
 - **Synchronous trait, async internals:** The trait method is synchronous, but
   HTTP calls are inherently async. The implementation owns a current-thread
   Tokio runtime that is reused across calls, avoiding the overhead of creating
-  a new runtime per request. When called from within an existing Tokio runtime
-  (detected via `Handle::try_current()`), it uses that runtime's handle with
-  `block_in_place` to avoid nested runtime panics. **Note:** The `block_in_place`
-  call requires the existing runtime to be multi-threaded; calling from within a
-  `current_thread` Tokio runtime will panic (a known limitation).
+  a new runtime per request. When called from within an existing multi-threaded
+  Tokio runtime (detected via `Handle::try_current()` and `RuntimeFlavor`), it
+  uses that runtime's handle with `block_in_place` to avoid nested runtime
+  panics. When called from within a `current_thread` runtime, it falls back to
+  using its own internal runtime to avoid the panic `block_in_place` would
+  cause; however, this may lead to deadlocks if the caller's runtime is driving
+  IO or timers that the request depends on.
 
 - **OSRM Table API:** The provider calls `GET /table/v1/walking/{coordinates}`
   where coordinates are semicolon-separated `lon,lat` pairs. The response

@@ -30,8 +30,7 @@
 use std::time::Duration;
 
 use reqwest::Client;
-use tokio::runtime::Handle;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime, RuntimeFlavor};
 use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 use super::osrm::TableResponse;
@@ -125,13 +124,15 @@ impl HttpTravelTimeProviderConfig {
 /// # Runtime behaviour
 ///
 /// When called from outside any Tokio runtime, the provider uses its own
-/// stored runtime. When called from within an existing Tokio runtime
-/// (detected via [`Handle::try_current()`]), it uses that runtime's handle
-/// with [`tokio::task::block_in_place`] to avoid nested runtime panics.
+/// stored runtime. When called from within an existing multi-threaded Tokio
+/// runtime (detected via [`Handle::try_current()`] and
+/// [`RuntimeFlavor::MultiThread`]), it uses that runtime's handle with
+/// [`tokio::task::block_in_place`] to avoid nested runtime panics.
 ///
-/// **Important:** The `block_in_place` call requires the existing runtime
-/// to be a multi-threaded runtime. Calling this provider from within a
-/// `current_thread` Tokio runtime will panic. This is a known limitation.
+/// When called from within a `current_thread` Tokio runtime, the provider
+/// falls back to using its own internal runtime. This avoids the panic that
+/// `block_in_place` would cause, but may lead to deadlocks if the caller's
+/// runtime is driving IO or timers that this request depends on.
 ///
 /// # Supported routing modes
 ///
@@ -298,6 +299,16 @@ impl HttpTravelTimeProvider {
 }
 
 impl TravelTimeProvider for HttpTravelTimeProvider {
+    /// Fetch the travel time matrix for the given POIs.
+    ///
+    /// # Runtime requirements
+    ///
+    /// When called from within an existing Tokio runtime, the runtime must be
+    /// multi-threaded (`flavor = "multi_thread"`). If called from within a
+    /// `current_thread` runtime, the method falls back to using its own
+    /// internal runtime, which may block the caller's runtime and cause
+    /// deadlocks if the caller's runtime is driving IO or timers needed by
+    /// this request.
     fn get_travel_time_matrix(
         &self,
         pois: &[PointOfInterest],
@@ -306,12 +317,16 @@ impl TravelTimeProvider for HttpTravelTimeProvider {
             return Err(TravelTimeError::EmptyInput);
         }
 
-        // If we're already inside a Tokio runtime, use its handle to avoid
-        // nested runtime panics. Otherwise, use our own runtime.
+        // If we're already inside a Tokio runtime, check the runtime flavour.
+        // block_in_place requires a multi-threaded runtime; for current_thread
+        // runtimes we fall back to our own stored runtime.
         let future = self.fetch_matrix_async(pois);
         match Handle::try_current() {
-            Ok(handle) => tokio::task::block_in_place(|| handle.block_on(future)),
-            Err(_) => self.runtime.block_on(future),
+            Ok(handle) if handle.runtime_flavor() == RuntimeFlavor::MultiThread => {
+                tokio::task::block_in_place(|| handle.block_on(future))
+            }
+            // No runtime detected, or current_thread runtime: use our own runtime.
+            _ => self.runtime.block_on(future),
         }
     }
 }
