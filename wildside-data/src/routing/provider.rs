@@ -17,14 +17,14 @@
 //! use wildside_core::{PointOfInterest, TravelTimeProvider};
 //! use geo::Coord;
 //!
-//! let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+//! let provider = HttpTravelTimeProvider::new("http://localhost:5000")?;
 //! let pois = vec![
 //!     PointOfInterest::with_empty_tags(1, Coord { x: -0.1, y: 51.5 }),
 //!     PointOfInterest::with_empty_tags(2, Coord { x: -0.2, y: 51.6 }),
 //! ];
 //!
 //! let matrix = provider.get_travel_time_matrix(&pois)?;
-//! # Ok::<(), wildside_core::TravelTimeError>(())
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 use std::time::Duration;
@@ -35,6 +35,33 @@ use tokio::runtime::Runtime;
 use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
 use super::osrm::TableResponse;
+
+/// Error type for [`HttpTravelTimeProvider`] construction failures.
+#[derive(Debug)]
+pub enum ProviderBuildError {
+    /// Failed to build the HTTP client.
+    HttpClient(reqwest::Error),
+    /// Failed to build the Tokio runtime.
+    Runtime(std::io::Error),
+}
+
+impl std::fmt::Display for ProviderBuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::HttpClient(err) => write!(f, "failed to build HTTP client: {err}"),
+            Self::Runtime(err) => write!(f, "failed to build Tokio runtime: {err}"),
+        }
+    }
+}
+
+impl std::error::Error for ProviderBuildError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::HttpClient(err) => Some(err),
+            Self::Runtime(err) => Some(err),
+        }
+    }
+}
 
 /// Default user agent for OSRM requests.
 pub const DEFAULT_USER_AGENT: &str = "wildside-routing/0.1";
@@ -128,29 +155,35 @@ impl HttpTravelTimeProvider {
     /// # Arguments
     ///
     /// * `base_url` - Base URL for the OSRM service (e.g., `"http://localhost:5000"`)
-    #[must_use]
-    pub fn new(base_url: impl Into<String>) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client or Tokio runtime fails to build.
+    pub fn new(base_url: impl Into<String>) -> Result<Self, ProviderBuildError> {
         Self::with_config(HttpTravelTimeProviderConfig::new(base_url))
     }
 
     /// Create a new provider with explicit configuration.
-    #[must_use]
-    pub fn with_config(config: HttpTravelTimeProviderConfig) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client or Tokio runtime fails to build.
+    pub fn with_config(config: HttpTravelTimeProviderConfig) -> Result<Self, ProviderBuildError> {
         let client = Client::builder()
             .user_agent(&config.user_agent)
             .connect_timeout(config.timeout)
             .timeout(config.timeout)
             .build()
-            .expect("client builder only fails with invalid configuration");
+            .map_err(ProviderBuildError::HttpClient)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .expect("failed to build Tokio runtime");
-        Self {
+            .map_err(ProviderBuildError::Runtime)?;
+        Ok(Self {
             client,
             config,
             runtime,
-        }
+        })
     }
 
     /// Build the OSRM Table API URL for the given POIs.
@@ -293,7 +326,8 @@ mod tests {
 
     #[rstest]
     fn build_table_url_formats_coordinates(sample_pois: Vec<PointOfInterest>) {
-        let provider = HttpTravelTimeProvider::new("http://osrm.example.com");
+        let provider =
+            HttpTravelTimeProvider::new("http://osrm.example.com").expect("provider should build");
 
         let url = provider.build_table_url(&sample_pois);
 
@@ -305,7 +339,8 @@ mod tests {
 
     #[rstest]
     fn build_table_url_strips_trailing_slash(sample_pois: Vec<PointOfInterest>) {
-        let provider = HttpTravelTimeProvider::new("http://osrm.example.com/");
+        let provider =
+            HttpTravelTimeProvider::new("http://osrm.example.com/").expect("provider should build");
 
         let url = provider.build_table_url(&sample_pois);
 
@@ -315,7 +350,8 @@ mod tests {
 
     #[rstest]
     fn convert_response_handles_success() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
         let response = TableResponse {
             code: "Ok".to_string(),
             message: None,
@@ -336,7 +372,8 @@ mod tests {
 
     #[rstest]
     fn convert_response_handles_null_durations() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
         let response = TableResponse {
             code: "Ok".to_string(),
             message: None,
@@ -351,7 +388,8 @@ mod tests {
 
     #[rstest]
     fn convert_response_handles_invalid_durations() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
         let response = TableResponse {
             code: "Ok".to_string(),
             message: None,
@@ -379,7 +417,8 @@ mod tests {
 
     #[rstest]
     fn convert_response_handles_service_error() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
         let response = TableResponse {
             code: "InvalidQuery".to_string(),
             message: Some("Too many coordinates".to_string()),
@@ -401,7 +440,8 @@ mod tests {
 
     #[rstest]
     fn convert_response_handles_missing_durations() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
         let response = TableResponse {
             code: "Ok".to_string(),
             message: None,
@@ -417,7 +457,8 @@ mod tests {
 
     #[rstest]
     fn empty_input_returns_error() {
-        let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+        let provider =
+            HttpTravelTimeProvider::new("http://localhost:5000").expect("provider should build");
 
         let err = provider
             .get_travel_time_matrix(&[])

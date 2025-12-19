@@ -877,6 +877,10 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
 - **Configuration:** `HttpTravelTimeProviderConfig` supports customizing the
   base URL, request timeout, and user agent string via a builder pattern.
 
+- **Fallible construction:** The `new()` and `with_config()` constructors return
+  `Result<Self, ProviderBuildError>` to propagate HTTP client or Tokio runtime
+  build failures instead of panicking.
+
 - **Testing:** A `StubTravelTimeProvider` in `routing::test_support` allows
   unit and behavioural tests to verify provider consumers without requiring a
   running OSRM service. BDD scenarios cover happy paths and error conditions.

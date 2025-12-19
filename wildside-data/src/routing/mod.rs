@@ -23,10 +23,10 @@
 //! let config = HttpTravelTimeProviderConfig::new("http://localhost:5000")
 //!     .with_timeout(Duration::from_secs(60))
 //!     .with_user_agent("my-app/1.0");
-//! let provider = HttpTravelTimeProvider::with_config(config);
+//! let provider = HttpTravelTimeProvider::with_config(config)?;
 //!
 //! // Or use the simple constructor
-//! let provider = HttpTravelTimeProvider::new("http://localhost:5000");
+//! let provider = HttpTravelTimeProvider::new("http://localhost:5000")?;
 //!
 //! let pois = vec![
 //!     PointOfInterest::with_empty_tags(1, Coord { x: -0.1, y: 51.5 }),
@@ -35,7 +35,7 @@
 //!
 //! let matrix = provider.get_travel_time_matrix(&pois)?;
 //! println!("Travel time: {:?}", matrix[0][1]);
-//! # Ok::<(), wildside_core::TravelTimeError>(())
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
 mod osrm;
@@ -44,4 +44,6 @@ mod provider;
 #[doc(hidden)]
 pub mod test_support;
 
-pub use provider::{DEFAULT_USER_AGENT, HttpTravelTimeProvider, HttpTravelTimeProviderConfig};
+pub use provider::{
+    DEFAULT_USER_AGENT, HttpTravelTimeProvider, HttpTravelTimeProviderConfig, ProviderBuildError,
+};
