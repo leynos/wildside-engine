@@ -122,7 +122,7 @@ fn configure_ingest(#[from(world)] world: &IngestWorld) {
     let file_layer = world.config_layer().borrow().clone();
     let env_layer = world.env_layer().borrow().clone();
     let outcome = Cli::try_parse_from(invocation)
-        .map_err(CliError::ArgumentParsing)
+        .map_err(CliError::from)
         .and_then(|cli| match cli.command {
             Command::Ingest(cmd) => {
                 if file_layer.is_some() || env_layer.is_some() {
@@ -131,6 +131,7 @@ fn configure_ingest(#[from(world)] world: &IngestWorld) {
                     resolve_ingest_config(cmd)
                 }
             }
+            Command::Solve(_) => panic!("expected ingest command"),
         });
     world.cli_result().replace(Some(outcome));
 }
