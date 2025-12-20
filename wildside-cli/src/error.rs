@@ -1,8 +1,7 @@
 //! Error types emitted by the Wildside CLI.
 //!
-//! Some variants box their sources to keep `CliError` small enough for the
-//! workspace `clippy::result_large_err` lint (many CLI helpers return
-//! `Result<_, CliError>`). Only heavy error payloads are boxed.
+//! Keep this error type reasonably small, as many CLI helpers return
+//! `Result<_, CliError>` and the workspace enables `clippy::result_large_err`.
 
 use std::sync::Arc;
 
@@ -97,29 +96,17 @@ pub enum CliError {
         source: SolveRequestValidationError,
     },
     /// Opening the POI store artefacts failed.
-    #[error("failed to open POI store (db {database_path:?}, index {index_path:?}): {source}")]
-    OpenPoiStore {
-        database_path: Utf8PathBuf,
-        index_path: Utf8PathBuf,
-        #[source]
-        source: Box<wildside_core::SqlitePoiStoreError>,
-    },
+    #[error(transparent)]
+    OpenPoiStore(#[from] wildside_core::SqlitePoiStoreError),
     /// Constructing the user relevance scorer failed.
-    #[error(
-        "failed to build scorer (db {database_path:?}, popularity {popularity_path:?}): {source}"
-    )]
-    BuildScorer {
-        database_path: Utf8PathBuf,
-        popularity_path: Utf8PathBuf,
-        #[source]
-        source: Box<UserRelevanceError>,
-    },
+    #[error(transparent)]
+    BuildScorer(#[from] UserRelevanceError),
     /// Constructing the travel time provider failed.
     #[error("failed to build travel time provider for {base_url:?}: {source}")]
     BuildTravelTimeProvider {
         base_url: String,
         #[source]
-        source: Box<ProviderBuildError>,
+        source: ProviderBuildError,
     },
     /// The solver rejected the request.
     #[error("solver failed: {source}")]

@@ -140,23 +140,13 @@ impl SolveSolverBuilder for DefaultSolveSolverBuilder {
         let store = SqlitePoiStore::open(
             config.pois_db.as_std_path(),
             config.spatial_index.as_std_path(),
-        )
-        .map_err(|source| CliError::OpenPoiStore {
-            database_path: config.pois_db.clone(),
-            index_path: config.spatial_index.clone(),
-            source: Box::new(source),
-        })?;
-        let scorer = UserRelevanceScorer::with_defaults(&config.pois_db, &config.popularity)
-            .map_err(|source| CliError::BuildScorer {
-                database_path: config.pois_db.clone(),
-                popularity_path: config.popularity.clone(),
-                source: Box::new(source),
-            })?;
+        )?;
+        let scorer = UserRelevanceScorer::with_defaults(&config.pois_db, &config.popularity)?;
         let provider =
             HttpTravelTimeProvider::new(config.osrm_base_url.clone()).map_err(|source| {
                 CliError::BuildTravelTimeProvider {
                     base_url: config.osrm_base_url.clone(),
-                    source: Box::new(source),
+                    source,
                 }
             })?;
         Ok(Box::new(VrpSolver::new(store, provider, scorer)))
