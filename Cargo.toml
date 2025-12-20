@@ -18,6 +18,8 @@ rust-version = "1.92"
 [workspace.dependencies]
 wildside-core = { path = "wildside-core" }
 wildside-data = { path = "wildside-data" }
+wildside-scorer = { path = "wildside-scorer" }
+wildside-solver-vrp = { path = "wildside-solver-vrp" }
 geo = "0.31.0"
 log = "0.4.22"
 paste = "1"

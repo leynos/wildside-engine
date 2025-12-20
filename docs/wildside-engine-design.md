@@ -641,9 +641,19 @@ clear boundaries while allowing for atomic changes across crates when necessary.
   - (Planned) `score`: Triggers the batch computation of global popularity
     scores.
 
-  - (Planned) `solve`: A utility to run the solver from the command line by
-    feeding it a JSON request, which is invaluable for performance testing and
-    offline debugging.
+  - `solve`: Runs the route solver from the command line by loading a
+    JSON-encoded `SolveRequest` and printing a formatted JSON `SolveResponse`.
+
+    The command loads pre-built artefacts (`pois.db`, `pois.rstar`,
+    `popularity.bin`) from the current directory by default, or from an
+    explicit `--artefacts-dir`. Each artefact path can be overridden via CLI
+    flags/config layers, and the OSRM base URL can be customized via
+    `--osrm-base-url`.
+
+    Design decision: the request JSON contains only the domain `SolveRequest`;
+    data and infrastructure paths are resolved via CLI/config to avoid
+    embedding environment-specific absolute paths inside otherwise portable
+    golden request files.
 
 ### 3.3. A Stable, Performant, and Boring API Surface
 
@@ -874,9 +884,10 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
   routes, allowing the solver to handle them appropriately.
 
 - **Error handling:** The `TravelTimeError` enum includes variants for HTTP
-  errors (`HttpError`), network failures (`NetworkError`), timeouts (`Timeout`),
-  parse errors (`ParseError`), and service-level errors (`ServiceError`). All
-  variants are marked `#[non_exhaustive]` for future expansion.
+  errors (`HttpError`), network failures (`NetworkError`), timeouts
+  (`Timeout`), parse errors (`ParseError`), and service-level errors
+  (`ServiceError`). All variants are marked `#[non_exhaustive]` for future
+  expansion.
 
 - **Configuration:** `HttpTravelTimeProviderConfig` supports customizing the
   base URL, request timeout, and user agent string via a builder pattern.

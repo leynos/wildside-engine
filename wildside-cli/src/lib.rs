@@ -7,34 +7,46 @@ use clap::{Parser, Subcommand};
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
 use std::io::BufReader;
-use std::sync::Arc;
-use thiserror::Error;
-use wildside_core::{
-    PointOfInterest,
-    store::{SpatialIndexWriteError, write_spatial_index},
-};
-use wildside_data::wikidata::etl::{
-    EntityClaims, PoiEntityLinks, WikidataEtlError, extract_linked_entity_claims,
-};
-use wildside_data::wikidata::store::{PersistClaimsError, persist_claims_to_path};
-use wildside_data::{
-    OsmIngestError, OsmIngestSummary, PersistPoisError, ingest_osm_pbf_report,
-    persist_pois_to_sqlite,
-};
+use wildside_core::{PointOfInterest, store::write_spatial_index};
+use wildside_data::wikidata::etl::{EntityClaims, PoiEntityLinks, extract_linked_entity_claims};
+use wildside_data::wikidata::store::persist_claims_to_path;
+use wildside_data::{OsmIngestSummary, ingest_osm_pbf_report, persist_pois_to_sqlite};
 use wildside_fs::open_utf8_file;
+
+mod error;
+mod solve;
+/// Errors emitted by the Wildside CLI.
+pub use error::CliError;
+
+use solve::SolveArgs;
+#[cfg(test)]
+use solve::{
+    SolveConfig, SolveSolverBuilder, config_from_layers_for_test, load_solve_request,
+    run_solve_with,
+};
 
 const ARG_OSM_PBF: &str = "osm-pbf";
 const ARG_WIKIDATA_DUMP: &str = "wikidata-dump";
 const ARG_OUTPUT_DIR: &str = "output-dir";
 const ENV_OSM_PBF: &str = "WILDSIDE_CMDS_INGEST_OSM_PBF";
 const ENV_WIKIDATA_DUMP: &str = "WILDSIDE_CMDS_INGEST_WIKIDATA_DUMP";
+const ARG_SOLVE_REQUEST: &str = "request";
+const ARG_SOLVE_ARTEFACTS_DIR: &str = "artefacts-dir";
+const ARG_SOLVE_POIS_DB: &str = "pois-db";
+const ARG_SOLVE_SPATIAL_INDEX: &str = "spatial-index";
+const ARG_SOLVE_POPULARITY: &str = "popularity";
+const ARG_SOLVE_OSRM_BASE_URL: &str = "osrm-base-url";
+const ENV_SOLVE_REQUEST: &str = "WILDSIDE_CMDS_SOLVE_REQUEST_PATH";
 
 /// Run the Wildside CLI with the current process arguments and environment.
 pub fn run() -> Result<(), CliError> {
-    let cli = Cli::try_parse().map_err(CliError::ArgumentParsing)?;
+    let cli = Cli::try_parse().map_err(CliError::from)?;
     match cli.command {
         Command::Ingest(args) => {
             let _outcome = run_ingest(args)?;
+        }
+        Command::Solve(args) => {
+            solve::run_solve(args)?;
         }
     }
     Ok(())
@@ -94,7 +106,7 @@ fn ingest_wikidata_claims(
         return Ok(Vec::new());
     }
     let reader = open_wikidata_dump(&config.wikidata_dump)?;
-    extract_linked_entity_claims(reader, &links).map_err(CliError::WikidataEtl)
+    extract_linked_entity_claims(reader, &links).map_err(CliError::from)
 }
 
 fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliError> {
@@ -130,6 +142,8 @@ struct Cli {
 enum Command {
     /// Build artefacts from existing OSM and Wikidata datasets.
     Ingest(IngestArgs),
+    /// Solve a tour request using pre-built artefacts.
+    Solve(SolveArgs),
 }
 
 /// CLI arguments for the `ingest` subcommand.
@@ -221,63 +235,6 @@ struct IngestOutcome {
     pub poi_count: usize,
     pub claims_count: usize,
     pub summary: OsmIngestSummary,
-}
-
-/// Errors emitted by the Wildside CLI.
-#[derive(Debug, Error)]
-pub enum CliError {
-    /// Provided arguments failed Clap validation.
-    #[error(transparent)]
-    ArgumentParsing(#[from] clap::Error),
-    /// Configuration layering failed (files, env, CLI).
-    #[error("failed to load configuration: {0}")]
-    Configuration(#[from] Arc<ortho_config::OrthoError>),
-    /// A required option is missing after configuration merging.
-    #[error("missing {field} (set --{field} or {env})")]
-    MissingArgument {
-        field: &'static str,
-        env: &'static str,
-    },
-    /// A referenced input path does not exist on disk or is not a file.
-    #[error("{field} path {path:?} does not exist or is not a file")]
-    MissingSourceFile {
-        field: &'static str,
-        path: Utf8PathBuf,
-    },
-    /// The output directory exists but is not a directory.
-    #[error("output directory {path:?} is not a directory")]
-    OutputDirectoryNotDirectory { path: Utf8PathBuf },
-    /// OSM ingestion failed.
-    #[error("failed to ingest OSM data: {0}")]
-    OsmIngest(#[from] OsmIngestError),
-    /// Persisting POIs to SQLite failed.
-    #[error("failed to persist POIs to {path:?}: {source}")]
-    PersistPois {
-        path: Utf8PathBuf,
-        source: PersistPoisError,
-    },
-    /// Opening the Wikidata dump failed.
-    #[error("failed to open Wikidata dump at {path:?}: {source}")]
-    OpenWikidataDump {
-        path: Utf8PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    /// Extracting linked claims from the Wikidata dump failed.
-    #[error("failed to extract Wikidata claims: {0}")]
-    WikidataEtl(#[from] WikidataEtlError),
-    /// Persisting Wikidata claims to SQLite failed.
-    #[error("failed to persist Wikidata claims into {path:?}: {source}")]
-    PersistClaims {
-        path: Utf8PathBuf,
-        source: PersistClaimsError,
-    },
-    /// Writing the spatial index artefact failed.
-    #[error("failed to write spatial index to {path:?}: {source}")]
-    WriteSpatialIndex {
-        path: Utf8PathBuf,
-        source: SpatialIndexWriteError,
-    },
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie
+.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie typecheck
 
 APP ?= wildside-engine
 CARGO ?= cargo
@@ -23,6 +23,9 @@ target/%/$(APP): ## Build binary in debug or release mode
 
 lint: ## Run Clippy with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
+
+typecheck: ## Typecheck the workspace
+	RUSTFLAGS="-D warnings" $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)
 
 fmt: ## Format Rust and Markdown sources
 	$(CARGO) fmt --all

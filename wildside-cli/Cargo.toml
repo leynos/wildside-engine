@@ -14,10 +14,13 @@ clap = { version = "4.5.4", features = ["derive"] }
 eyre = "0.6"
 ortho_config = "0.6.0"
 serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1"
 thiserror = "1.0.69"
 bzip2 = "0.4"
 wildside-core = { workspace = true }
 wildside-data = { workspace = true }
+wildside-scorer = { workspace = true }
+wildside-solver-vrp = { workspace = true }
 camino = { workspace = true }
 cap-std = { workspace = true }
 wildside-fs = { path = "../wildside-fs" }

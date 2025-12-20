@@ -154,9 +154,9 @@ This phase tackles the complex route-finding algorithm.
 
 - **Integrate Solver into CLI**
 
-  - [ ] Add a `solve` command to `wildside-cli` that accepts a path to a
+  - [x] Add a `solve` command to `wildside-cli` that accepts a path to a
         JSON file.
-  - [ ] The command will deserialize the JSON into a `SolveRequest`, instantiate
+  - [x] The command will deserialize the JSON into a `SolveRequest`, instantiate
         the necessary components (store, scorer, solver), call the solver, and
         print the resulting `SolveResponse` as formatted JSON.
 
