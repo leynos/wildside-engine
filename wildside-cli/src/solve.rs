@@ -218,7 +218,7 @@ pub(super) fn load_solve_request(path: &Utf8Path) -> Result<SolveRequest, CliErr
 
 fn write_solve_response(writer: &mut dyn Write, response: &SolveResponse) -> Result<(), CliError> {
     let payload =
-        serde_json::to_string_pretty(response).map_err(CliError::SerialiseSolveResponse)?;
+        serde_json::to_string_pretty(response).map_err(CliError::SerializeSolveResponse)?;
     writer
         .write_all(payload.as_bytes())
         .map_err(CliError::WriteSolveOutput)?;

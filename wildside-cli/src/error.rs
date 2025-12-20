@@ -127,7 +127,7 @@ pub enum CliError {
     Solve { source: SolveError },
     /// Serializing the solve response failed.
     #[error("failed to serialize solve response: {0}")]
-    SerialiseSolveResponse(#[source] serde_json::Error),
+    SerializeSolveResponse(#[source] serde_json::Error),
     /// Writing the solve output failed.
     #[error("failed to write solve output: {0}")]
     WriteSolveOutput(#[source] std::io::Error),
