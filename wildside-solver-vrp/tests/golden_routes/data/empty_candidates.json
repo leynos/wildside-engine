@@ -1,0 +1,36 @@
+{
+  "name": "empty_candidates",
+  "description": "All POIs are located far from the start point and outside the bounding box. Tests that the solver returns an empty route with zero score.",
+  "pois": [
+    {
+      "id": 1,
+      "x": 10.0,
+      "y": 10.0,
+      "tags": { "art": "" }
+    },
+    {
+      "id": 2,
+      "x": 11.0,
+      "y": 10.0,
+      "tags": { "history": "" }
+    }
+  ],
+  "travel_time_matrix_seconds": [
+    [0, 3600],
+    [3600, 0]
+  ],
+  "request": {
+    "start": { "x": 0.0, "y": 0.0 },
+    "end": null,
+    "duration_minutes": 10,
+    "interests": { "art": 1.0 },
+    "seed": 42,
+    "max_nodes": null
+  },
+  "expected": {
+    "route_poi_ids": [],
+    "min_score": 0.0,
+    "max_score": 0.0,
+    "respects_budget": true
+  }
+}

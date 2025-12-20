@@ -1,0 +1,30 @@
+{
+  "name": "trivial_single_poi",
+  "description": "Simplest case: a single POI that fits within the time budget. The solver must return a route containing exactly this POI. Matrix is 2x2: depot at index 0, POI at index 1.",
+  "pois": [
+    {
+      "id": 1,
+      "x": 0.001,
+      "y": 0.0,
+      "tags": { "art": "" }
+    }
+  ],
+  "travel_time_matrix_seconds": [
+    [0, 30],
+    [30, 0]
+  ],
+  "request": {
+    "start": { "x": 0.0, "y": 0.0 },
+    "end": null,
+    "duration_minutes": 10,
+    "interests": { "art": 1.0 },
+    "seed": 42,
+    "max_nodes": null
+  },
+  "expected": {
+    "route_poi_ids": [1],
+    "min_score": 0.9,
+    "max_score": 1.1,
+    "respects_budget": true
+  }
+}

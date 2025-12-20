@@ -166,7 +166,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 
 - **Establish Testing Discipline**
 
-  - [ ] Create a `tests/golden_routes` directory with small, well-defined
+  - [x] Create a `tests/golden_routes` directory with small, well-defined
     problem instances and their known optimal solutions in JSON format to act
     as regression tests.
   - [ ] Use `proptest` to write property-based tests for the solver, asserting

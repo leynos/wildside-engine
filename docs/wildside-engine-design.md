@@ -936,7 +936,7 @@ discipline is non-negotiable.
 
 - **Golden Tests:** Small graph instances (5–20 POIs) with hand-verified or
   exhaustively calculated optimal solutions will be used to validate the
-  correctness of the solver's output.
+  correctness of the solver's output. See §5.2.1 for implementation details.
 
 - **Property Tests:** The `proptest` crate will be used to assert invariants
   that must always hold true (e.g., a route must always start and end at the
@@ -955,6 +955,47 @@ discipline is non-negotiable.
 - **API Contract Tests:** The serialization format of `SolveRequest` and
   `SolveResponse` will be tested to ensure the "wire schema" remains stable
   across versions, preventing breaking changes for consumers.
+
+#### 5.2.1. Golden routes implementation
+
+Golden route tests live in `wildside-solver-vrp/tests/golden_routes/`. Each
+test case is stored as a JSON file containing a complete problem instance and
+its expected solution. The schema captures:
+
+- `pois`: Array of POIs with id, coordinates, and tags.
+- `travel_time_matrix_seconds`: Integer matrix of travel times (avoids float
+  precision issues).
+- `request`: A complete `SolveRequest` specification including start/end
+  coordinates, duration, interest profile, seed, and optional max_nodes.
+- `expected`: The expected route POI IDs in order, score range (min/max to
+  accommodate metaheuristic variance), and invariants such as budget
+  compliance.
+
+The test infrastructure includes:
+
+- `FixedMatrixTravelTimeProvider`: A `TravelTimeProvider` implementation that
+  returns a caller-supplied matrix verbatim. This enables fully deterministic
+  tests without external routing dependencies.
+
+- rstest parameterised unit tests (`golden_routes.rs`): A single test function
+  iterates over all JSON fixtures, loads each problem instance, constructs the
+  solver with the fixed matrix, and asserts that the solution matches
+  expectations.
+
+- rstest-bdd behavioural tests (`golden_routes_behaviour.rs`): Gherkin scenarios
+  in `features/golden_routes.feature` document solver behaviour at a higher
+  abstraction level, covering happy paths and edge cases.
+
+Design decisions:
+
+| Decision | Rationale |
+|----------|-----------|
+| Travel times as integer seconds | Avoids floating-point precision issues |
+| Score ranges instead of exact values | Accommodates metaheuristic variance |
+| `FixedMatrixTravelTimeProvider` | Enables fully deterministic tests |
+| rstest `#[case]` parameterisation | Single test function scales to many fixtures |
+| Separate BDD layer | Documents behaviour at higher abstraction |
+| JSON for test data | Human-readable, easy to maintain |
 
 ### 5.3. Repository and Migration Strategy
 
