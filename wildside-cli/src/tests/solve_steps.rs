@@ -9,7 +9,8 @@ use std::cell::RefCell;
 use std::time::Duration;
 use tempfile::TempDir;
 use wildside_core::{
-    Diagnostics, InterestProfile, Route, SolveError, SolveRequest, SolveResponse, Solver, Theme,
+    Diagnostics, InterestProfile, Route, SolveError, SolveRequest, SolveRequestValidationError,
+    SolveResponse, Solver, Theme,
 };
 
 #[derive(Debug)]
@@ -192,7 +193,9 @@ fn command_fails_invalid_request(#[from(world)] world: &SolveWorld) {
         .as_ref()
         .expect_err("expected error");
     match error {
-        CliError::InvalidSolveRequest { .. } => {}
+        CliError::InvalidSolveRequest { source, .. } => {
+            assert_eq!(*source, SolveRequestValidationError::ZeroDuration);
+        }
         other => panic!("expected InvalidSolveRequest, found {other:?}"),
     }
 }

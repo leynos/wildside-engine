@@ -20,7 +20,10 @@ pub use error::CliError;
 
 use solve::SolveArgs;
 #[cfg(test)]
-use solve::{SolveConfig, SolveSolverBuilder, load_solve_request, run_solve_with};
+use solve::{
+    SolveConfig, SolveSolverBuilder, config_from_layers_for_test, load_solve_request,
+    run_solve_with,
+};
 
 const ARG_OSM_PBF: &str = "osm-pbf";
 const ARG_WIKIDATA_DUMP: &str = "wikidata-dump";
@@ -33,7 +36,7 @@ const ARG_SOLVE_POIS_DB: &str = "pois-db";
 const ARG_SOLVE_SPATIAL_INDEX: &str = "spatial-index";
 const ARG_SOLVE_POPULARITY: &str = "popularity";
 const ARG_SOLVE_OSRM_BASE_URL: &str = "osrm-base-url";
-const ENV_SOLVE_REQUEST: &str = "WILDSIDE_CMDS_SOLVE_REQUEST";
+const ENV_SOLVE_REQUEST: &str = "WILDSIDE_CMDS_SOLVE_REQUEST_PATH";
 
 /// Run the Wildside CLI with the current process arguments and environment.
 pub fn run() -> Result<(), CliError> {

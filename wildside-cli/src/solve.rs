@@ -54,7 +54,7 @@ pub(crate) struct SolveArgs {
 }
 
 impl SolveArgs {
-    fn into_config(self) -> Result<SolveConfig, CliError> {
+    pub(crate) fn into_config(self) -> Result<SolveConfig, CliError> {
         let merged = self.load_and_merge().map_err(CliError::Configuration)?;
         SolveConfig::try_from(merged)
     }
@@ -185,9 +185,10 @@ fn execute_solve(
     let config = resolve_solve_config(args)?;
     let request = load_solve_request(&config.request_path)?;
     request
-        .validate()
-        .map_err(|_| CliError::InvalidSolveRequest {
+        .validate_detailed()
+        .map_err(|source| CliError::InvalidSolveRequest {
             path: config.request_path.clone(),
+            source,
         })?;
     let solver = builder.build(&config)?;
     solver
@@ -224,4 +225,12 @@ fn write_solve_response(writer: &mut dyn Write, response: &SolveResponse) -> Res
         .write_all(b"\n")
         .map_err(CliError::WriteSolveOutput)?;
     Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn config_from_layers_for_test(
+    layers: Vec<ortho_config::MergeLayer<'static>>,
+) -> Result<SolveConfig, CliError> {
+    let merged = SolveArgs::merge_from_layers(layers).map_err(CliError::from)?;
+    SolveConfig::try_from(merged)
 }

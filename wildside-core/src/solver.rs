@@ -5,6 +5,26 @@ use thiserror::Error;
 
 use crate::{InterestProfile, Route};
 
+/// Detailed validation errors for [`SolveRequest`].
+///
+/// Solvers typically map invalid inputs to [`SolveError::InvalidRequest`], but
+/// command-line tooling and callers may prefer more actionable diagnostics.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Error)]
+pub enum SolveRequestValidationError {
+    /// The request has a zero-minute time budget.
+    #[error("duration_minutes must be greater than zero")]
+    ZeroDuration,
+    /// The start coordinate contains `NaN` or infinite values.
+    #[error("start coordinate must be finite")]
+    NonFiniteStart,
+    /// The end coordinate contains `NaN` or infinite values.
+    #[error("end coordinate must be finite")]
+    NonFiniteEnd,
+    /// A provided `max_nodes` hint was zero.
+    #[error("max_nodes must be greater than zero when supplied")]
+    ZeroMaxNodes,
+}
+
 /// Parameters for a solve request.
 ///
 /// The request captures the starting point, the time budget in minutes, the
@@ -61,20 +81,29 @@ impl SolveRequest {
     /// start coordinates are non-finite. A provided `max_nodes` hint must be
     /// greater than zero. When set, `end` must also be finite.
     pub fn validate(&self) -> Result<(), SolveError> {
+        self.validate_detailed()
+            .map_err(|_| SolveError::InvalidRequest)
+    }
+
+    /// Validates invariants required by solvers while returning actionable
+    /// diagnostics.
+    ///
+    /// This is a more detailed form of [`SolveRequest::validate`] which
+    /// preserves the precise reason that validation failed.
+    pub fn validate_detailed(&self) -> Result<(), SolveRequestValidationError> {
         if self.duration_minutes == 0 {
-            return Err(SolveError::InvalidRequest);
+            return Err(SolveRequestValidationError::ZeroDuration);
         }
         if !is_valid_coord(&self.start) {
-            return Err(SolveError::InvalidRequest);
+            return Err(SolveRequestValidationError::NonFiniteStart);
         }
-        if let Some(end) = self.end {
-            let end_is_valid = is_valid_coord(&end);
-            if !end_is_valid {
-                return Err(SolveError::InvalidRequest);
-            }
+        if let Some(end) = self.end
+            && !is_valid_coord(&end)
+        {
+            return Err(SolveRequestValidationError::NonFiniteEnd);
         }
         if matches!(self.max_nodes, Some(0)) {
-            return Err(SolveError::InvalidRequest);
+            return Err(SolveRequestValidationError::ZeroMaxNodes);
         }
         Ok(())
     }

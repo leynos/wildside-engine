@@ -1,10 +1,15 @@
 //! Error types emitted by the Wildside CLI.
+//!
+//! Some variants box their sources to keep `CliError` small enough for the
+//! workspace `clippy::result_large_err` lint (many CLI helpers return
+//! `Result<_, CliError>`).
 
 use std::sync::Arc;
 
 use camino::Utf8PathBuf;
 use thiserror::Error;
 use wildside_core::SolveError;
+use wildside_core::SolveRequestValidationError;
 use wildside_core::store::SpatialIndexWriteError;
 use wildside_data::routing::ProviderBuildError;
 use wildside_data::wikidata::etl::WikidataEtlError;
@@ -17,7 +22,7 @@ use wildside_scorer::UserRelevanceError;
 pub enum CliError {
     /// Provided arguments failed Clap validation.
     #[error(transparent)]
-    ArgumentParsing(Box<clap::Error>),
+    ArgumentParsing(#[from] clap::Error),
     /// Configuration layering failed (files, env, CLI).
     #[error("failed to load configuration: {0}")]
     Configuration(#[from] Arc<ortho_config::OrthoError>),
@@ -85,8 +90,12 @@ pub enum CliError {
         source: serde_json::Error,
     },
     /// The solve request payload failed validation.
-    #[error("solve request in {path:?} failed validation")]
-    InvalidSolveRequest { path: Utf8PathBuf },
+    #[error("solve request in {path:?} failed validation: {source}")]
+    InvalidSolveRequest {
+        path: Utf8PathBuf,
+        #[source]
+        source: SolveRequestValidationError,
+    },
     /// Opening the POI store artefacts failed.
     #[error("failed to open POI store (db {database_path:?}, index {index_path:?}): {source}")]
     OpenPoiStore {
@@ -115,18 +124,12 @@ pub enum CliError {
     /// The solver rejected the request.
     #[error("solver failed: {source}")]
     Solve { source: SolveError },
-    /// Serialising the solve response failed.
+    /// Serializing the solve response failed.
     #[error("failed to serialise solve response: {0}")]
     SerialiseSolveResponse(#[from] serde_json::Error),
     /// Writing the solve output failed.
     #[error("failed to write solve output: {0}")]
     WriteSolveOutput(#[source] std::io::Error),
-}
-
-impl From<clap::Error> for CliError {
-    fn from(source: clap::Error) -> Self {
-        Self::ArgumentParsing(Box::new(source))
-    }
 }
 
 impl From<OsmIngestError> for CliError {

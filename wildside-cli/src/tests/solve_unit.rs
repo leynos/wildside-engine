@@ -58,22 +58,47 @@ fn solve_config_derives_default_artefact_paths() {
 }
 
 #[rstest]
-fn validate_sources_reports_missing_artefacts() {
+#[case::missing_request(ARG_SOLVE_REQUEST, MissingArtefact::Request)]
+#[case::missing_db(ARG_SOLVE_POIS_DB, MissingArtefact::PoisDb)]
+#[case::missing_index(ARG_SOLVE_SPATIAL_INDEX, MissingArtefact::SpatialIndex)]
+#[case::missing_popularity(ARG_SOLVE_POPULARITY, MissingArtefact::Popularity)]
+fn validate_sources_reports_missing_artefacts(
+    #[case] expected_field: &'static str,
+    #[case] missing: MissingArtefact,
+) {
     let tmp = TempDir::new().expect("tempdir");
     let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
 
+    let request_path = root.join("request.json");
+    let db_path = root.join("pois.db");
+    let index_path = root.join("pois.rstar");
+    let popularity_path = root.join("popularity.bin");
+
+    if !matches!(missing, MissingArtefact::Request) {
+        write_utf8(&request_path, b"{}");
+    }
+    if !matches!(missing, MissingArtefact::PoisDb) {
+        write_utf8(&db_path, b"db");
+    }
+    if !matches!(missing, MissingArtefact::SpatialIndex) {
+        write_utf8(&index_path, b"index");
+    }
+    if !matches!(missing, MissingArtefact::Popularity) {
+        write_utf8(&popularity_path, b"popularity");
+    }
+
     let config = SolveConfig {
-        request_path: root.join("missing-request.json"),
-        pois_db: root.join("missing-pois.db"),
-        spatial_index: root.join("missing-pois.rstar"),
-        popularity: root.join("missing-popularity.bin"),
+        request_path,
+        pois_db: db_path,
+        spatial_index: index_path,
+        popularity: popularity_path,
         osrm_base_url: "http://localhost:5000".to_string(),
     };
 
     let err = config.validate_sources().expect_err("expected failure");
     match err {
-        CliError::MissingSourceFile { field, .. } => assert_eq!(field, ARG_SOLVE_REQUEST),
-        other => panic!("unexpected error {other:?}"),
+        CliError::MissingSourceFile { field, .. } => assert_eq!(field, expected_field),
+        other => panic!("expected MissingSourceFile, found {other:?}"),
     }
 }
 
@@ -111,4 +136,76 @@ fn load_solve_request_rejects_invalid_json() {
         CliError::ParseSolveRequest { path, .. } => assert_eq!(path, request_path),
         other => panic!("unexpected error {other:?}"),
     }
+}
+
+#[rstest]
+fn load_solve_request_io_error_returns_open_error() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
+    let request_path = root.join("missing-request.json");
+
+    let err = load_solve_request(&request_path).expect_err("missing request should error");
+    match err {
+        CliError::OpenSolveRequest { path, .. } => assert_eq!(path, request_path),
+        other => panic!("expected OpenSolveRequest, found {other:?}"),
+    }
+}
+
+#[rstest]
+fn merge_layers_maps_configuration_errors() {
+    use ortho_config::MergeComposer;
+    use serde_json::json;
+
+    let mut composer = MergeComposer::new();
+    composer.push_cli(json!({ "request_path": 42 }));
+
+    let err = config_from_layers_for_test(composer.layers())
+        .expect_err("invalid config layer should map to CliError::Configuration");
+    match err {
+        CliError::Configuration(_) => {}
+        other => panic!("expected CliError::Configuration, found {other:?}"),
+    }
+}
+
+#[rstest]
+fn merge_layers_honours_precedence_and_defaults_paths() {
+    use ortho_config::MergeComposer;
+    use serde_json::json;
+
+    let tmp = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
+
+    let env_request = root.join("from-env-request.json");
+    let cli_dir = root.join("from-cli");
+    let mut composer = MergeComposer::new();
+    composer.push_file(
+        json!({
+            "artefacts_dir": root.join("from-file").as_str(),
+            "osrm_base_url": "http://from-file:5000",
+        }),
+        None,
+    );
+    composer.push_environment(json!({
+        "request_path": env_request.as_str(),
+        "artefacts_dir": root.join("from-env").as_str(),
+    }));
+    composer.push_cli(json!({
+        "artefacts_dir": cli_dir.as_str(),
+    }));
+
+    let config =
+        config_from_layers_for_test(composer.layers()).expect("merged config should build");
+    assert_eq!(config.request_path, env_request);
+    assert_eq!(config.pois_db, cli_dir.join("pois.db"));
+    assert_eq!(config.spatial_index, cli_dir.join("pois.rstar"));
+    assert_eq!(config.popularity, cli_dir.join("popularity.bin"));
+    assert_eq!(config.osrm_base_url, "http://from-file:5000");
+}
+
+#[derive(Debug, Copy, Clone)]
+enum MissingArtefact {
+    Request,
+    PoisDb,
+    SpatialIndex,
+    Popularity,
 }
