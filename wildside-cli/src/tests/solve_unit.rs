@@ -8,6 +8,14 @@ use rstest::rstest;
 use tempfile::TempDir;
 use wildside_core::{InterestProfile, SolveRequest};
 
+#[derive(Debug, Copy, Clone)]
+enum MissingArtefact {
+    Request,
+    PoisDb,
+    SpatialIndex,
+    Popularity,
+}
+
 #[rstest]
 fn converting_solve_without_request_errors() {
     let args = SolveArgs {
@@ -99,6 +107,34 @@ fn validate_sources_reports_missing_artefacts(
     match err {
         CliError::MissingSourceFile { field, .. } => assert_eq!(field, expected_field),
         other => panic!("expected MissingSourceFile, found {other:?}"),
+    }
+}
+
+#[rstest]
+fn validate_sources_reports_not_file() {
+    let tmp = TempDir::new().expect("tempdir");
+    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
+
+    let request_path = root.join("request.json");
+    std::fs::create_dir(&request_path).expect("request directory");
+
+    let config = SolveConfig {
+        request_path: request_path.clone(),
+        pois_db: root.join("pois.db"),
+        spatial_index: root.join("pois.rstar"),
+        popularity: root.join("popularity.bin"),
+        osrm_base_url: "http://localhost:5000".to_string(),
+    };
+
+    let err = config
+        .validate_sources()
+        .expect_err("expected directory path to fail validation");
+    match err {
+        CliError::SourcePathNotFile { field, path } => {
+            assert_eq!(field, ARG_SOLVE_REQUEST);
+            assert_eq!(path, request_path);
+        }
+        other => panic!("expected SourcePathNotFile, found {other:?}"),
     }
 }
 
@@ -204,12 +240,4 @@ fn merge_layers_honours_precedence_and_defaults_paths() {
     assert_eq!(config.spatial_index, cli_dir.join("pois.rstar"));
     assert_eq!(config.popularity, cli_dir.join("popularity.bin"));
     assert_eq!(config.osrm_base_url, "http://from-file:5000");
-}
-
-#[derive(Debug, Copy, Clone)]
-enum MissingArtefact {
-    Request,
-    PoisDb,
-    SpatialIndex,
-    Popularity,
 }

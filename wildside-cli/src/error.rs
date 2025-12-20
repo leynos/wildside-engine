@@ -37,6 +37,20 @@ pub enum CliError {
         field: &'static str,
         path: Utf8PathBuf,
     },
+    /// A referenced input path exists but is not a file.
+    #[error("{field} path {path:?} exists but is not a file")]
+    SourcePathNotFile {
+        field: &'static str,
+        path: Utf8PathBuf,
+    },
+    /// A referenced input path could not be inspected due to an IO error.
+    #[error("failed to inspect {field} path {path:?}: {source}")]
+    InspectSourcePath {
+        field: &'static str,
+        path: Utf8PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     /// The output directory exists but is not a directory.
     #[error("output directory {path:?} is not a directory")]
     OutputDirectoryNotDirectory { path: Utf8PathBuf },
@@ -112,8 +126,8 @@ pub enum CliError {
     #[error("solver failed: {source}")]
     Solve { source: SolveError },
     /// Serializing the solve response failed.
-    #[error("failed to serialise solve response: {0}")]
-    SerialiseSolveResponse(#[from] serde_json::Error),
+    #[error("failed to serialize solve response: {0}")]
+    SerialiseSolveResponse(#[source] serde_json::Error),
     /// Writing the solve output failed.
     #[error("failed to write solve output: {0}")]
     WriteSolveOutput(#[source] std::io::Error),

@@ -87,9 +87,20 @@ impl SolveConfig {
     fn require_existing(path: &Utf8Path, field: &'static str) -> Result<(), CliError> {
         match wildside_fs::file_is_file(path) {
             Ok(true) => Ok(()),
-            Ok(false) | Err(_) => Err(CliError::MissingSourceFile {
+            Ok(false) => Err(CliError::SourcePathNotFile {
                 field,
                 path: path.to_path_buf(),
+            }),
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                Err(CliError::MissingSourceFile {
+                    field,
+                    path: path.to_path_buf(),
+                })
+            }
+            Err(source) => Err(CliError::InspectSourcePath {
+                field,
+                path: path.to_path_buf(),
+                source,
             }),
         }
     }

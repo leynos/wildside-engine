@@ -647,7 +647,7 @@ clear boundaries while allowing for atomic changes across crates when necessary.
     The command loads pre-built artefacts (`pois.db`, `pois.rstar`,
     `popularity.bin`) from the current directory by default, or from an
     explicit `--artefacts-dir`. Each artefact path can be overridden via CLI
-    flags/config layers, and the OSRM base URL can be customised via
+    flags/config layers, and the OSRM base URL can be customized via
     `--osrm-base-url`.
 
     Design decision: the request JSON contains only the domain `SolveRequest`;
