@@ -70,21 +70,21 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
 
     persist_pois_to_sqlite(&pois_db, &report.pois).map_err(|source| CliError::PersistPois {
         path: pois_db.clone(),
-        source: Box::new(source),
+        source,
     })?;
 
     let claims = ingest_wikidata_claims(config, &report.pois)?;
     persist_claims_to_path(pois_db.as_std_path(), &claims).map_err(|source| {
         CliError::PersistClaims {
             path: pois_db.clone(),
-            source: Box::new(source),
+            source,
         }
     })?;
 
     write_spatial_index(spatial_index.as_std_path(), &report.pois).map_err(|source| {
         CliError::WriteSpatialIndex {
             path: spatial_index.clone(),
-            source: Box::new(source),
+            source,
         }
     })?;
 

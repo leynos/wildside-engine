@@ -123,12 +123,17 @@ fn load_solve_request_decodes_json() {
     assert_eq!(decoded, request);
 }
 
-#[rstest]
-fn load_solve_request_rejects_invalid_json() {
+/// Helper to set up a temporary directory and request path for load_solve_request tests.
+fn setup_request_test() -> (TempDir, Utf8PathBuf) {
     let tmp = TempDir::new().expect("tempdir");
     let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
     let request_path = root.join("request.json");
+    (tmp, request_path)
+}
 
+#[rstest]
+fn load_solve_request_rejects_invalid_json() {
+    let (_tmp, request_path) = setup_request_test();
     write_utf8(&request_path, b"{ not valid json");
 
     let err = load_solve_request(&request_path).expect_err("invalid json should error");
@@ -140,9 +145,8 @@ fn load_solve_request_rejects_invalid_json() {
 
 #[rstest]
 fn load_solve_request_io_error_returns_open_error() {
-    let tmp = TempDir::new().expect("tempdir");
-    let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
-    let request_path = root.join("missing-request.json");
+    let (_tmp, request_path) = setup_request_test();
+    // Deliberately don't write the file to trigger IO error
 
     let err = load_solve_request(&request_path).expect_err("missing request should error");
     match err {

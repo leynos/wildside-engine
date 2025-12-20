@@ -2,7 +2,7 @@
 //!
 //! Some variants box their sources to keep `CliError` small enough for the
 //! workspace `clippy::result_large_err` lint (many CLI helpers return
-//! `Result<_, CliError>`).
+//! `Result<_, CliError>`). Only heavy error payloads are boxed.
 
 use std::sync::Arc;
 
@@ -43,13 +43,13 @@ pub enum CliError {
     OutputDirectoryNotDirectory { path: Utf8PathBuf },
     /// OSM ingestion failed.
     #[error("failed to ingest OSM data: {0}")]
-    OsmIngest(#[source] Box<OsmIngestError>),
+    OsmIngest(#[from] OsmIngestError),
     /// Persisting POIs to SQLite failed.
     #[error("failed to persist POIs to {path:?}: {source}")]
     PersistPois {
         path: Utf8PathBuf,
         #[source]
-        source: Box<PersistPoisError>,
+        source: PersistPoisError,
     },
     /// Opening the Wikidata dump failed.
     #[error("failed to open Wikidata dump at {path:?}: {source}")]
@@ -60,20 +60,20 @@ pub enum CliError {
     },
     /// Extracting linked claims from the Wikidata dump failed.
     #[error("failed to extract Wikidata claims: {0}")]
-    WikidataEtl(#[source] Box<WikidataEtlError>),
+    WikidataEtl(#[from] WikidataEtlError),
     /// Persisting Wikidata claims to SQLite failed.
     #[error("failed to persist Wikidata claims into {path:?}: {source}")]
     PersistClaims {
         path: Utf8PathBuf,
         #[source]
-        source: Box<PersistClaimsError>,
+        source: PersistClaimsError,
     },
     /// Writing the spatial index artefact failed.
     #[error("failed to write spatial index to {path:?}: {source}")]
     WriteSpatialIndex {
         path: Utf8PathBuf,
         #[source]
-        source: Box<SpatialIndexWriteError>,
+        source: SpatialIndexWriteError,
     },
     /// Opening the solve request file failed.
     #[error("failed to open solve request at {path:?}: {source}")]
@@ -130,16 +130,4 @@ pub enum CliError {
     /// Writing the solve output failed.
     #[error("failed to write solve output: {0}")]
     WriteSolveOutput(#[source] std::io::Error),
-}
-
-impl From<OsmIngestError> for CliError {
-    fn from(source: OsmIngestError) -> Self {
-        Self::OsmIngest(Box::new(source))
-    }
-}
-
-impl From<WikidataEtlError> for CliError {
-    fn from(source: WikidataEtlError) -> Self {
-        Self::WikidataEtl(Box::new(source))
-    }
 }
