@@ -968,8 +968,7 @@ its expected solution. The schema captures:
 - `request`: A complete `SolveRequest` specification including start/end
   coordinates, duration, interest profile, seed, and optional max_nodes.
 - `expected`: The expected route POI IDs in order, score range (min/max to
-  accommodate metaheuristic variance), and invariants such as budget
-  compliance.
+  accommodate metaheuristic variance), and invariants such as budget compliance.
 
 The test infrastructure includes:
 
@@ -988,14 +987,14 @@ The test infrastructure includes:
 
 Design decisions:
 
-| Decision | Rationale |
-|----------|-----------|
-| Travel times as integer seconds | Avoids floating-point precision issues |
-| Score ranges instead of exact values | Accommodates metaheuristic variance |
-| `FixedMatrixTravelTimeProvider` | Enables fully deterministic tests |
-| rstest `#[case]` parameterisation | Single test function scales to many fixtures |
-| Separate BDD layer | Documents behaviour at higher abstraction |
-| JSON for test data | Human-readable, easy to maintain |
+| Decision                             | Rationale                                    |
+| ------------------------------------ | -------------------------------------------- |
+| Travel times as integer seconds      | Avoids floating-point precision issues       |
+| Score ranges instead of exact values | Accommodates metaheuristic variance          |
+| `FixedMatrixTravelTimeProvider`      | Enables fully deterministic tests            |
+| rstest `#[case]` parameterisation    | Single test function scales to many fixtures |
+| Separate BDD layer                   | Documents behaviour at higher abstraction    |
+| JSON for test data                   | Human-readable, easy to maintain             |
 
 #### 5.2.2. Property-based testing implementation
 
@@ -1021,13 +1020,13 @@ pre-computing matrices for variable-sized candidate sets.
 
 Design trade-offs:
 
-| Decision | Rationale |
-|----------|-----------|
-| Small POI sets (3-10 nodes) | Fast execution while exercising core logic |
-| `UnitTravelTimeProvider` | Dynamic matrices adapt to filtered candidate counts |
-| `ProptestConfig::with_cases(100)` | Balances coverage against CI execution time |
-| Seed variation only | Fixed POI geometry, random seeds exercise heuristic |
-| Support module separation | `proptest_support.rs` keeps strategies reusable |
+| Decision                          | Rationale                                           |
+| --------------------------------- | --------------------------------------------------- |
+| Small POI sets (3-10 nodes)       | Fast execution while exercising core logic          |
+| `UnitTravelTimeProvider`          | Dynamic matrices adapt to filtered candidate counts |
+| `ProptestConfig::with_cases(100)` | Balances coverage against CI execution time         |
+| Seed variation only               | Fixed POI geometry, random seeds exercise heuristic |
+| Support module separation         | `proptest_support.rs` keeps strategies reusable     |
 
 ### 5.3. Repository and Migration Strategy
 

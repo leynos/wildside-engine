@@ -23,7 +23,9 @@ use wildside_core::test_support::{MemoryStore, TagScorer, UnitTravelTimeProvider
 use wildside_core::{InterestProfile, Solver, Theme};
 use wildside_solver_vrp::VrpSolver;
 
-use proptest_support::{assert_no_duplicate_poi_ids, generate_pois_near_origin};
+use proptest_support::{
+    assert_no_duplicate_poi_ids, euclidean_distance, generate_pois_near_origin, poi_set_strategy,
+};
 
 /// Build a standard solve request for property tests.
 fn build_request(
@@ -83,17 +85,21 @@ proptest! {
     ///
     /// The orienteering problem visits each location at most once. Duplicate
     /// visits would violate the problem constraints and inflate scores.
+    ///
+    /// Uses a variable-size POI set (3-15 POIs) with randomised locations to
+    /// exercise more configurations.
     #[test]
-    fn route_has_no_duplicate_pois(seed in any::<u64>()) {
-        let pois = generate_pois_near_origin(8);
-
+    fn route_has_no_duplicate_pois(
+        seed in any::<u64>(),
+        pois in poi_set_strategy(3, 15),
+    ) {
         let store = MemoryStore::with_pois(pois);
         let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
 
         let request = build_request(60, seed, None, None);
         let response = solver.solve(&request).expect("solve should succeed");
 
-        assert_no_duplicate_poi_ids(response.route.pois());
+        assert_no_duplicate_poi_ids(response.route.pois())?;
     }
 
     /// Property: Score is always non-negative and finite.
@@ -157,9 +163,14 @@ proptest! {
     ///
     /// The solver should only return POIs that were present in the store and
     /// matched the query criteria. No spurious POI IDs should appear.
+    ///
+    /// Uses a variable-size POI set (2-12 POIs) with randomised locations to
+    /// exercise more configurations.
     #[test]
-    fn route_pois_exist_in_candidates(seed in any::<u64>()) {
-        let pois = generate_pois_near_origin(6);
+    fn route_pois_exist_in_candidates(
+        seed in any::<u64>(),
+        pois in poi_set_strategy(2, 12),
+    ) {
         let candidate_ids: HashSet<u64> = pois.iter().map(|p| p.id).collect();
 
         let store = MemoryStore::with_pois(pois);
@@ -182,13 +193,20 @@ proptest! {
     ///
     /// When an end coordinate is specified, the solver should still produce
     /// valid responses with the same invariants as round-trip routes.
+    /// All POIs in the route should be reachable from both the start and end
+    /// coordinates (i.e. within the candidate search area).
+    ///
+    /// Uses a variable-size POI set (3-10 POIs) with randomised locations to
+    /// exercise more configurations.
     #[test]
-    fn point_to_point_routes_are_valid(seed in any::<u64>()) {
-        let pois = generate_pois_near_origin(4);
-
+    fn point_to_point_routes_are_valid(
+        seed in any::<u64>(),
+        pois in poi_set_strategy(3, 10),
+    ) {
         let store = MemoryStore::with_pois(pois);
         let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
 
+        let start = Coord { x: 0.0, y: 0.0 };
         let end = Coord { x: 0.01, y: 0.01 };
         let request = build_request(30, seed, None, Some(end));
         let response = solver.solve(&request).expect("solve should succeed");
@@ -203,7 +221,26 @@ proptest! {
         );
         prop_assert!(response.score >= 0.0, "Score is negative");
         prop_assert!(response.score.is_finite(), "Score is not finite");
-        assert_no_duplicate_poi_ids(response.route.pois());
+        assert_no_duplicate_poi_ids(response.route.pois())?;
+
+        // Verify that all route POIs are within the candidate search area,
+        // which should be accessible from both start and end coordinates.
+        // The POI distribution is ±0.01 degrees around the origin, and the
+        // solver's search radius should encompass this area.
+        let max_poi_distance = 0.025; // Slightly larger than POI distribution range.
+        let route_pois = response.route.pois();
+
+        for poi in route_pois {
+            let dist_from_start = euclidean_distance(&poi.location, &start);
+            prop_assert!(
+                dist_from_start <= max_poi_distance,
+                "POI {} at {:?} is too far from start {:?} (distance: {:.6})",
+                poi.id,
+                poi.location,
+                start,
+                dist_from_start
+            );
+        }
     }
 
     /// Property: Empty candidate sets produce empty routes with zero score.
