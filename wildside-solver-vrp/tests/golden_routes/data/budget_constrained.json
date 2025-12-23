@@ -1,6 +1,6 @@
 {
-  "name": "interest_weighted",
-  "description": "Three POIs with different interest weights; verifies scoring and optimal selection. Matrix is 4x4: depot at index 0, POIs at indices 1-3.",
+  "name": "budget_constrained",
+  "description": "Three POIs with equal scores to ensure stable ordering by ID. Verifies budget compliance. Matrix is 4x4: depot at index 0, POIs at indices 1-3.",
   "pois": [
     {
       "id": 1,
@@ -12,7 +12,7 @@
       "id": 2,
       "x": 0.002,
       "y": 0.0,
-      "tags": { "history": "" }
+      "tags": { "art": "" }
     },
     {
       "id": 3,
@@ -31,14 +31,14 @@
     "start": { "x": 0.0, "y": 0.0 },
     "end": null,
     "duration_minutes": 10,
-    "interests": { "art": 1.0, "history": 0.5 },
+    "interests": { "art": 1.0 },
     "seed": 42,
     "max_nodes": null
   },
   "expected": {
     "route_poi_ids": [1, 2, 3],
-    "min_score": 2.0,
-    "max_score": 3.0,
+    "min_score": 2.5,
+    "max_score": 3.5,
     "respects_budget": true
   }
 }

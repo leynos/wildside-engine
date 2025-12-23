@@ -98,15 +98,30 @@ impl TravelTimeProvider for FixedMatrixTravelTimeProvider {
         if pois.is_empty() {
             return Err(TravelTimeError::EmptyInput);
         }
-        if self.matrix.len() != pois.len() {
+        let expected_dim = pois.len();
+        if self.matrix.len() != expected_dim {
             return Err(TravelTimeError::ServiceError {
                 code: "DIMENSION_MISMATCH".to_owned(),
                 message: format!(
                     "matrix has {} rows but {} POIs provided",
                     self.matrix.len(),
-                    pois.len()
+                    expected_dim
                 ),
             });
+        }
+        // Validate each row has the correct number of columns.
+        for (row_idx, row) in self.matrix.iter().enumerate() {
+            if row.len() != expected_dim {
+                return Err(TravelTimeError::ServiceError {
+                    code: "DIMENSION_MISMATCH".to_owned(),
+                    message: format!(
+                        "row {} has {} columns but {} expected (matrix must be square)",
+                        row_idx,
+                        row.len(),
+                        expected_dim
+                    ),
+                });
+            }
         }
         Ok(self.matrix.clone())
     }
@@ -155,6 +170,53 @@ mod tests {
         match err {
             TravelTimeError::ServiceError { code, .. } => {
                 assert_eq!(code, "DIMENSION_MISMATCH");
+            }
+            _ => panic!("expected ServiceError with DIMENSION_MISMATCH"),
+        }
+    }
+
+    #[rstest]
+    fn errors_on_jagged_matrix() {
+        // Matrix with mismatched row lengths (first row has 2 cols, second has 1).
+        let provider = FixedMatrixTravelTimeProvider::from_seconds(vec![vec![0, 30], vec![30]]);
+        let pois = vec![
+            PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 }),
+            PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 0.0 }),
+        ];
+        let err = provider
+            .get_travel_time_matrix(&pois)
+            .expect_err("expected dimension mismatch for jagged matrix");
+        match err {
+            TravelTimeError::ServiceError { code, message } => {
+                assert_eq!(code, "DIMENSION_MISMATCH");
+                assert!(
+                    message.contains("row 1"),
+                    "error should identify the problematic row"
+                );
+            }
+            _ => panic!("expected ServiceError with DIMENSION_MISMATCH"),
+        }
+    }
+
+    #[rstest]
+    fn errors_on_non_square_matrix() {
+        // Matrix has correct row count but wrong column count in all rows.
+        let provider =
+            FixedMatrixTravelTimeProvider::from_seconds(vec![vec![0, 30, 60], vec![30, 0, 45]]);
+        let pois = vec![
+            PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 }),
+            PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 0.0 }),
+        ];
+        let err = provider
+            .get_travel_time_matrix(&pois)
+            .expect_err("expected dimension mismatch for non-square matrix");
+        match err {
+            TravelTimeError::ServiceError { code, message } => {
+                assert_eq!(code, "DIMENSION_MISMATCH");
+                assert!(
+                    message.contains("must be square"),
+                    "error should mention square requirement"
+                );
             }
             _ => panic!("expected ServiceError with DIMENSION_MISMATCH"),
         }

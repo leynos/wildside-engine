@@ -1,6 +1,6 @@
 {
   "name": "point_to_point",
-  "description": "Route with distinct start and end locations. Matrix is 5x5: depot at index 0, POIs 1-3 at indices 1-3, end at index 4.",
+  "description": "Route with distinct start and end locations. All POIs have equal scores for stable ordering. Matrix is 5x5: depot at index 0, POIs 1-3 at indices 1-3, end at index 4.",
   "pois": [
     {
       "id": 1,
@@ -12,7 +12,7 @@
       "id": 2,
       "x": 0.005,
       "y": 0.0,
-      "tags": { "history": "" }
+      "tags": { "art": "" }
     },
     {
       "id": 3,
@@ -32,14 +32,14 @@
     "start": { "x": 0.0, "y": 0.0 },
     "end": { "x": 0.01, "y": 0.0 },
     "duration_minutes": 10,
-    "interests": { "art": 0.8, "history": 0.5 },
+    "interests": { "art": 1.0 },
     "seed": 42,
     "max_nodes": null
   },
   "expected": {
     "route_poi_ids": [1, 2, 3],
-    "min_score": 1.5,
-    "max_score": 2.5,
+    "min_score": 2.5,
+    "max_score": 3.5,
     "respects_budget": true
   }
 }

@@ -21,8 +21,8 @@ workspace = true
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 wildside-core = { workspace = true, features = ["test-support"] }
 
 [features]

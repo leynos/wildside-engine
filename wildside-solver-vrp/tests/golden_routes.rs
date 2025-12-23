@@ -1,8 +1,3 @@
-#![expect(
-    clippy::expect_used,
-    reason = "regression tests use expect for readable failures"
-)]
-
 //! Golden routes regression tests for the VRP solver.
 //!
 //! Each test loads a problem instance from JSON, constructs the solver with a
@@ -12,118 +7,47 @@
 //! These tests guard against regressions in the solver's behaviour by asserting
 //! that well-defined, small problem instances produce consistent results.
 
-use std::collections::{HashMap, HashSet};
+mod golden_routes_support;
+
+use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
 use std::time::Duration;
 
-use geo::Coord;
 use rstest::rstest;
-use serde::Deserialize;
+use wildside_core::Solver;
 use wildside_core::test_support::{MemoryStore, TagScorer};
-use wildside_core::{InterestProfile, PointOfInterest, Solver, Tags, Theme};
 use wildside_solver_vrp::VrpSolver;
 use wildside_solver_vrp::test_support::FixedMatrixTravelTimeProvider;
 
-/// Deserialised golden route test case.
-#[derive(Debug, Deserialize)]
-struct GoldenRoute {
-    name: String,
-    #[expect(dead_code, reason = "kept for documentation in JSON files")]
-    description: String,
-    pois: Vec<PoiSpec>,
-    travel_time_matrix_seconds: Vec<Vec<u64>>,
-    request: RequestSpec,
-    expected: ExpectedResult,
-}
+use golden_routes_support::{build_pois, build_request, load_golden_route};
 
-/// POI specification from JSON.
-#[derive(Debug, Deserialize)]
-struct PoiSpec {
-    id: u64,
-    x: f64,
-    y: f64,
-    tags: HashMap<String, String>,
-}
-
-/// Request specification from JSON.
-#[derive(Debug, Deserialize)]
-struct RequestSpec {
-    start: CoordSpec,
-    end: Option<CoordSpec>,
-    duration_minutes: u16,
-    interests: HashMap<String, f32>,
-    seed: u64,
-    max_nodes: Option<u16>,
-}
-
-/// Coordinate specification from JSON.
-#[derive(Debug, Deserialize)]
-struct CoordSpec {
-    x: f64,
-    y: f64,
-}
-
-/// Expected result from JSON.
-#[derive(Debug, Deserialize)]
-struct ExpectedResult {
-    route_poi_ids: Vec<u64>,
-    min_score: f32,
-    max_score: f32,
-    respects_budget: bool,
-}
-
-/// Load a golden route from the data directory.
-fn load_golden_route(filename: &str) -> GoldenRoute {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/golden_routes/data")
-        .join(filename);
-    let content = fs::read_to_string(&path).expect("failed to read golden route file");
-    serde_json::from_str(&content).expect("failed to parse golden route JSON")
-}
-
-/// Convert POI specs to domain POIs.
-fn build_pois(specs: &[PoiSpec]) -> Vec<PointOfInterest> {
-    specs
-        .iter()
-        .map(|s| {
-            let tags: Tags = s.tags.clone().into_iter().collect();
-            PointOfInterest::new(s.id, Coord { x: s.x, y: s.y }, tags)
+/// Returns the list of golden route fixture names (without .json extension).
+fn list_golden_route_fixtures() -> Vec<String> {
+    let data_dir =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden_routes/data");
+    fs::read_dir(&data_dir)
+        .unwrap_or_else(|err| panic!("failed to read golden routes data dir: {err}"))
+        .filter_map(|result| {
+            let dir_entry = result.ok()?;
+            let path = dir_entry.path();
+            if path.extension().is_some_and(|ext| ext == "json") {
+                path.file_stem().and_then(|s| s.to_str()).map(String::from)
+            } else {
+                None
+            }
         })
         .collect()
 }
 
-/// Convert request spec to domain request.
-fn build_request(spec: &RequestSpec) -> wildside_core::SolveRequest {
-    let mut interests = InterestProfile::new();
-    for (theme_str, weight) in &spec.interests {
-        let theme: Theme = theme_str
-            .parse()
-            .expect("golden route contains invalid theme");
-        interests.set_weight(theme, *weight);
-    }
-    wildside_core::SolveRequest {
-        start: Coord {
-            x: spec.start.x,
-            y: spec.start.y,
-        },
-        end: spec.end.as_ref().map(|e| Coord { x: e.x, y: e.y }),
-        duration_minutes: spec.duration_minutes,
-        interests,
-        seed: spec.seed,
-        max_nodes: spec.max_nodes,
-    }
-}
-
 #[rstest]
-#[case("trivial_single_poi.json")]
-#[case("linear_three_poi.json")]
-#[case("budget_constrained.json")]
-#[case("point_to_point.json")]
-#[case("max_nodes_pruning.json")]
-#[case("empty_candidates.json")]
-fn golden_route_regression(#[case] filename: &str) {
-    let golden = load_golden_route(filename);
+#[case("trivial_single_poi")]
+#[case("linear_three_poi")]
+#[case("budget_constrained")]
+#[case("point_to_point")]
+#[case("max_nodes_pruning")]
+#[case("empty_candidates")]
+fn golden_route_regression(#[case] name: &str) {
+    let golden = load_golden_route(name);
     let pois = build_pois(&golden.pois);
     let request = build_request(&golden.request);
 
@@ -134,15 +58,15 @@ fn golden_route_regression(#[case] filename: &str) {
 
     let response = solver
         .solve(&request)
-        .expect("golden route should solve successfully");
+        .unwrap_or_else(|e| panic!("golden route should solve successfully: {e:?}"));
 
     // Verify route contains expected POIs (order may vary for equivalent-cost solutions).
     let actual_ids: HashSet<u64> = response.route.pois().iter().map(|p| p.id).collect();
     let expected_ids: HashSet<u64> = golden.expected.route_poi_ids.iter().copied().collect();
     assert_eq!(
         actual_ids, expected_ids,
-        "{}: route POI set mismatch (actual: {:?}, expected: {:?})",
-        golden.name, actual_ids, expected_ids
+        "{}: route POI set mismatch (actual: {actual_ids:?}, expected: {expected_ids:?})",
+        golden.name
     );
 
     // Verify score within expected range.
@@ -160,10 +84,36 @@ fn golden_route_regression(#[case] filename: &str) {
         let budget = Duration::from_secs(u64::from(request.duration_minutes) * 60);
         assert!(
             response.route.total_duration() <= budget,
-            "{}: route duration {:?} exceeds budget {:?}",
+            "{}: route duration {:?} exceeds budget {budget:?}",
             golden.name,
-            response.route.total_duration(),
-            budget
+            response.route.total_duration()
         );
     }
+}
+
+/// Ensure all JSON fixtures in the data directory are covered by test cases.
+#[rstest]
+fn all_fixtures_are_tested() {
+    let expected_fixtures: HashSet<&str> = [
+        "trivial_single_poi",
+        "linear_three_poi",
+        "budget_constrained",
+        "point_to_point",
+        "max_nodes_pruning",
+        "empty_candidates",
+    ]
+    .into_iter()
+    .collect();
+
+    let actual_fixtures: HashSet<String> = list_golden_route_fixtures().into_iter().collect();
+
+    let missing: Vec<_> = actual_fixtures
+        .iter()
+        .filter(|f| !expected_fixtures.contains(f.as_str()))
+        .collect();
+
+    assert!(
+        missing.is_empty(),
+        "golden route fixtures exist but are not tested: {missing:?}. Add them to the #[case] list."
+    );
 }
