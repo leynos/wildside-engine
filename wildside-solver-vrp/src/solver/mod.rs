@@ -79,16 +79,52 @@ where
     }
 }
 
+impl<S, T, C> VrpSolver<S, T, C>
+where
+    S: PoiStore + Send + Sync,
+    T: TravelTimeProvider + Send + Sync,
+    C: Scorer + Send + Sync,
+{
+    fn handle_empty_candidates(
+        &self,
+        request: &SolveRequest,
+        started_at: Instant,
+    ) -> Result<SolveResponse, SolveError> {
+        if let Some(end_coord) = request.end {
+            let start = PointOfInterest::with_empty_tags(0, request.start);
+            let end_poi = PointOfInterest::with_empty_tags(u64::MAX, end_coord);
+            let all_pois = vec![start, end_poi];
+            let matrix = self
+                .travel_time_provider
+                .get_travel_time_matrix(&all_pois)
+                .map_err(|_| SolveError::InvalidRequest)?;
+            let total_duration = final_leg_duration(0, 1, &matrix);
+            return Ok(SolveResponse {
+                route: Route::with_endpoints(request.start, end_coord, Vec::new(), total_duration),
+                score: 0.0,
+                diagnostics: Diagnostics {
+                    solve_time: started_at.elapsed(),
+                    candidates_evaluated: 0,
+                },
+            });
+        }
+        Ok(SolveResponse {
+            route: Route::with_endpoints(request.start, request.start, Vec::new(), Duration::ZERO),
+            score: 0.0,
+            diagnostics: Diagnostics {
+                solve_time: started_at.elapsed(),
+                candidates_evaluated: 0,
+            },
+        })
+    }
+}
+
 impl<S, T, C> Solver for VrpSolver<S, T, C>
 where
     S: PoiStore + Send + Sync,
     T: TravelTimeProvider + Send + Sync,
     C: Scorer + Send + Sync,
 {
-    #[expect(
-        clippy::too_many_lines,
-        reason = "solver orchestration is inherently sequential and splitting would reduce clarity"
-    )]
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError> {
         request.validate()?;
         let started_at = Instant::now();
@@ -97,42 +133,7 @@ where
         let route_end = request.end.unwrap_or(request.start);
 
         if scored_candidates.is_empty() {
-            if let Some(end_coord) = request.end {
-                let start = PointOfInterest::with_empty_tags(0, request.start);
-                let end_poi = PointOfInterest::with_empty_tags(u64::MAX, end_coord);
-                let all_pois = vec![start, end_poi];
-                let matrix = self
-                    .travel_time_provider
-                    .get_travel_time_matrix(&all_pois)
-                    .map_err(|_| SolveError::InvalidRequest)?;
-                let total_duration = final_leg_duration(0, 1, &matrix);
-                return Ok(SolveResponse {
-                    route: Route::with_endpoints(
-                        request.start,
-                        end_coord,
-                        Vec::new(),
-                        total_duration,
-                    ),
-                    score: 0.0,
-                    diagnostics: Diagnostics {
-                        solve_time: started_at.elapsed(),
-                        candidates_evaluated: 0,
-                    },
-                });
-            }
-            return Ok(SolveResponse {
-                route: Route::with_endpoints(
-                    request.start,
-                    request.start,
-                    Vec::new(),
-                    Duration::ZERO,
-                ),
-                score: 0.0,
-                diagnostics: Diagnostics {
-                    solve_time: started_at.elapsed(),
-                    candidates_evaluated: 0,
-                },
-            });
+            return self.handle_empty_candidates(request, started_at);
         }
 
         let (candidates, scores): (Vec<PointOfInterest>, Vec<f32>) =
