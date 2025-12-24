@@ -85,11 +85,17 @@ where
     T: TravelTimeProvider + Send + Sync,
     C: Scorer + Send + Sync,
 {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "solver orchestration is inherently sequential and splitting would reduce clarity"
+    )]
     fn solve(&self, request: &SolveRequest) -> Result<SolveResponse, SolveError> {
         request.validate()?;
         let started_at = Instant::now();
 
         let scored_candidates = self.select_candidates(request);
+        let route_end = request.end.unwrap_or(request.start);
+
         if scored_candidates.is_empty() {
             if let Some(end_coord) = request.end {
                 let start = PointOfInterest::with_empty_tags(0, request.start);
@@ -101,7 +107,12 @@ where
                     .map_err(|_| SolveError::InvalidRequest)?;
                 let total_duration = final_leg_duration(0, 1, &matrix);
                 return Ok(SolveResponse {
-                    route: Route::new(Vec::new(), total_duration),
+                    route: Route::with_endpoints(
+                        request.start,
+                        end_coord,
+                        Vec::new(),
+                        total_duration,
+                    ),
                     score: 0.0,
                     diagnostics: Diagnostics {
                         solve_time: started_at.elapsed(),
@@ -110,7 +121,12 @@ where
                 });
             }
             return Ok(SolveResponse {
-                route: Route::empty(),
+                route: Route::with_endpoints(
+                    request.start,
+                    request.start,
+                    Vec::new(),
+                    Duration::ZERO,
+                ),
                 score: 0.0,
                 diagnostics: Diagnostics {
                     solve_time: started_at.elapsed(),
@@ -151,7 +167,7 @@ where
         };
 
         Ok(SolveResponse {
-            route: Route::new(route_pois, total_duration),
+            route: Route::with_endpoints(request.start, route_end, route_pois, total_duration),
             score: total_score,
             diagnostics,
         })

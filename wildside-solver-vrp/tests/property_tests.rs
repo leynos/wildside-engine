@@ -193,15 +193,8 @@ proptest! {
     ///
     /// When an end coordinate is specified, the solver should still produce
     /// valid responses with the same invariants as round-trip routes.
-    ///
-    /// Note: The `Route` struct contains only the POI waypoints visited, not
-    /// the start/end coordinates themselves. The solver routes from `start`
-    /// through POIs to `end`, but the `Route` only exposes the intermediate
-    /// POI stops. We verify:
-    /// - Core invariants (budget, score, no duplicates)
-    /// - All POIs are within the candidate search area
-    /// - The first POI is reachable from the start coordinate
-    /// - The last POI can reach the end coordinate (within search area bounds)
+    /// Additionally, the route's start and end coordinates must match the
+    /// request's start and end values.
     ///
     /// Uses a variable-size POI set (3-10 POIs) with randomised locations to
     /// exercise more configurations.
@@ -230,17 +223,34 @@ proptest! {
         prop_assert!(response.score.is_finite(), "Score is not finite");
         assert_no_duplicate_poi_ids(response.route.pois())?;
 
-        // The POI distribution is ±0.01 degrees around the origin. With the
-        // end at (0.01, 0.01), the maximum distance from origin to any POI
-        // is ~0.014, and from end to the farthest POI is ~0.028. The solver's
-        // search radius is based on walking speed and duration, which should
-        // encompass this area.
-        let max_distance_from_start = 0.02; // POI distribution range
-        let route_pois = response.route.pois();
+        // Verify that the route's start and end coordinates match the request.
+        // Using a small tolerance for floating-point comparison.
+        let tolerance = 0.0001;
+        let route_start = response.route.start();
+        let route_end = response.route.end();
+
+        let start_distance = euclidean_distance(&route_start, &start);
+        prop_assert!(
+            start_distance <= tolerance,
+            "Route start {:?} is too far from requested start {:?} (distance: {:.6})",
+            route_start,
+            start,
+            start_distance
+        );
+
+        let end_distance = euclidean_distance(&route_end, &end);
+        prop_assert!(
+            end_distance <= tolerance,
+            "Route end {:?} is too far from requested end {:?} (distance: {:.6})",
+            route_end,
+            end,
+            end_distance
+        );
 
         // Verify all POIs are within reasonable distance of the start,
         // confirming they're in the candidate search area.
-        for poi in route_pois {
+        let max_distance_from_start = 0.02; // POI distribution range
+        for poi in response.route.pois() {
             let dist_from_start = euclidean_distance(&poi.location, &start);
             prop_assert!(
                 dist_from_start <= max_distance_from_start,
@@ -250,28 +260,6 @@ proptest! {
                 dist_from_start
             );
         }
-
-        // Verify the first POI is reachable from the start coordinate.
-        // This ensures the route begins at the requested start location.
-        if let Some(first_poi) = route_pois.first() {
-            let dist_from_start = euclidean_distance(&first_poi.location, &start);
-            prop_assert!(
-                dist_from_start <= max_distance_from_start,
-                "First POI at {:?} is not reachable from start {:?} (distance: {:.6})",
-                first_poi.location,
-                start,
-                dist_from_start
-            );
-        }
-
-        // The end coordinate at (0.01, 0.01) is within the search area.
-        // While we can't directly verify the route ends at 'end' (since Route
-        // only contains POI waypoints), the solver internally routes from the
-        // last POI to the end coordinate. The total_duration includes this
-        // final leg, so budget compliance implicitly validates reachability.
-        //
-        // Note: A stronger test would require extending Route to expose the
-        // actual start/end coordinates, which is an architectural enhancement.
     }
 
     /// Property: Empty candidate sets produce empty routes with zero score.
