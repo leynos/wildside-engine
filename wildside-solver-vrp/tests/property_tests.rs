@@ -8,9 +8,14 @@
 //!
 //! - **Budget compliance:** Route duration never exceeds the time budget.
 //! - **No duplicates:** Each POI ID appears at most once in the route.
-//! - **Score validity:** Scores are non-negative and finite.
+//! - **Score validity:** Scores are non-negative, finite, and bounded.
 //! - **Constraint adherence:** `max_nodes` limits are respected.
 //! - **POI validity:** All route POIs exist in the candidate set.
+
+#![expect(
+    clippy::cast_precision_loss,
+    reason = "POI counts are small in tests; precision loss is negligible"
+)]
 
 mod proptest_support;
 
@@ -102,13 +107,14 @@ proptest! {
         assert_no_duplicate_poi_ids(response.route.pois())?;
     }
 
-    /// Property: Score is always non-negative and finite.
+    /// Property: Score always respects contract bounds and is finite.
     ///
-    /// The scoring contract requires all scores to be in `[0.0, 1.0]`. The
+    /// The scoring contract requires all POI scores to be in `[0.0, 1.0]`. The
     /// total route score is a sum of individual POI scores, so it must be
-    /// non-negative. Additionally, scores must never be NaN or infinite.
+    /// non-negative and must not exceed the number of POIs in the route.
+    /// Additionally, scores must never be NaN or infinite.
     #[test]
-    fn score_is_non_negative_and_finite(seed in any::<u64>()) {
+    fn score_respects_bounds_and_is_finite(seed in any::<u64>()) {
         let pois = generate_pois_near_origin(3);
 
         let store = MemoryStore::with_pois(pois);
@@ -117,10 +123,22 @@ proptest! {
         let request = build_request(30, seed, None, None);
         let response = solver.solve(&request).expect("solve should succeed");
 
+        let poi_count = response.route.pois().len();
+
         prop_assert!(
             response.score >= 0.0,
             "Score {} is negative",
             response.score
+        );
+        // Since each POI score is in [0.0, 1.0], the total score cannot
+        // exceed the number of POIs. We compare using integer bounds to
+        // avoid floating-point arithmetic lint issues.
+        prop_assert!(
+            response.score <= poi_count as f32,
+            "Score {} exceeds upper bound {} for {} POIs",
+            response.score,
+            poi_count,
+            poi_count
         );
         prop_assert!(
             response.score.is_finite(),
@@ -135,7 +153,7 @@ proptest! {
     /// candidate POIs considered by the solver. The resulting route should
     /// respect this constraint.
     ///
-    /// Uses `UnitTravelTimeProvider` which generates matrices dynamically based
+    /// Uses `UnitTravelTimeProvider`, which generates matrices dynamically based
     /// on the actual number of candidates after filtering.
     #[test]
     fn max_nodes_constraint_is_respected(
@@ -154,6 +172,42 @@ proptest! {
         prop_assert!(
             response.route.pois().len() <= usize::from(max_nodes),
             "Route has {} POIs but max_nodes is {}",
+            response.route.pois().len(),
+            max_nodes
+        );
+    }
+
+    /// Property: When `max_nodes` >= candidate count, no pruning occurs but
+    /// constraint is still respected.
+    ///
+    /// This covers the boundary where `max_nodes` is at least the number of
+    /// candidate POIs, so pruning should not reduce the candidate set. The
+    /// resulting route must still not contain more POIs than allowed.
+    ///
+    /// Uses `UnitTravelTimeProvider`, which generates matrices dynamically based
+    /// on the actual number of candidates after filtering.
+    #[test]
+    fn max_nodes_constraint_respected_without_pruning(
+        seed in any::<u64>(),
+        // Ensure `max_nodes` is always >= candidate_count (10) to exercise
+        // the no-pruning path.
+        max_nodes in 10_u16..=20_u16,
+    ) {
+        // Same candidate count as the pruning test, but now `max_nodes` >=
+        // candidate_count.
+        let pois = generate_pois_near_origin(10);
+
+        let store = MemoryStore::with_pois(pois);
+        let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
+
+        let request = build_request(120, seed, Some(max_nodes), None);
+        let response = solver.solve(&request).expect("solve should succeed");
+
+        // Even in the no-pruning case, the route must never violate
+        // `max_nodes`.
+        prop_assert!(
+            response.route.pois().len() <= usize::from(max_nodes),
+            "Route has {} POIs but max_nodes is {} in no-pruning scenario",
             response.route.pois().len(),
             max_nodes
         );
@@ -247,17 +301,33 @@ proptest! {
             end_distance
         );
 
-        // Verify all POIs are within reasonable distance of the start,
-        // confirming they're in the candidate search area.
-        let max_distance_from_start = 0.02; // POI distribution range
+        // Verify all POIs are within reasonable distance of both start and end,
+        // confirming they're in the candidate search area and reachable from
+        // both endpoints.
+        //
+        // POIs are distributed ±0.01 around origin, start is at origin, end is
+        // at (0.01, 0.01). Maximum distance from start is 0.02 (diagonal).
+        // Maximum distance from end is ~0.03 (POI at (-0.01, -0.01) to end at
+        // (0.01, 0.01)).
+        let max_distance_from_start = 0.02;
+        let max_distance_from_end = 0.03;
         for poi in response.route.pois() {
             let dist_from_start = euclidean_distance(&poi.location, &start);
             prop_assert!(
                 dist_from_start <= max_distance_from_start,
-                "POI {} at {:?} is outside the search area (distance from start: {:.6})",
+                "POI {} at {:?} is too far from start (distance: {:.6})",
                 poi.id,
                 poi.location,
                 dist_from_start
+            );
+
+            let dist_from_end = euclidean_distance(&poi.location, &end);
+            prop_assert!(
+                dist_from_end <= max_distance_from_end,
+                "POI {} at {:?} is too far from end (distance: {:.6})",
+                poi.id,
+                poi.location,
+                dist_from_end
             );
         }
     }

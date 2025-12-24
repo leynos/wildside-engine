@@ -992,7 +992,7 @@ Design decisions:
 | Travel times as integer seconds      | Avoids floating-point precision issues       |
 | Score ranges instead of exact values | Accommodates metaheuristic variance          |
 | `FixedMatrixTravelTimeProvider`      | Enables fully deterministic tests            |
-| rstest `#[case]` parameterisation    | Single test function scales to many fixtures |
+| rstest `#[case]` parameterization    | Single test function scales to many fixtures |
 | Separate BDD layer                   | Documents behaviour at higher abstraction    |
 | JSON for test data                   | Human-readable, easy to maintain             |
 
@@ -1013,7 +1013,7 @@ instances and verifies:
 7. **Empty candidates:** When no candidates match, an empty route with zero
    score is returned.
 
-The tests use `UnitTravelTimeProvider` from `wildside-core::test_support` which
+The tests use `UnitTravelTimeProvider` from `wildside-core::test_support`, which
 generates correctly-sized travel time matrices dynamically based on the actual
 number of candidates after filtering. This avoids the complexity of
 pre-computing matrices for variable-sized candidate sets.
