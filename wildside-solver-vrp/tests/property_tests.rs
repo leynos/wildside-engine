@@ -8,9 +8,13 @@
 //!
 //! - **Budget compliance:** Route duration never exceeds the time budget.
 //! - **No duplicates:** Each POI ID appears at most once in the route.
-//! - **Score validity:** Scores are non-negative, finite, and bounded.
-//! - **Constraint adherence:** `max_nodes` limits are respected.
+//! - **Score validity:** Scores are non-negative, finite, and bounded by POI count.
+//! - **Constraint adherence:** `max_nodes` limits are respected (with and without pruning).
 //! - **POI validity:** All route POIs exist in the candidate set.
+//! - **Point-to-point validity:** Routes with distinct end locations maintain all
+//!   core invariants and have correctly set start/end coordinates.
+//! - **Empty candidates:** When no candidates match, an empty route with zero score
+//!   is returned.
 
 #![expect(
     clippy::cast_precision_loss,
