@@ -25,7 +25,7 @@ use std::time::Duration;
 use geo::Coord;
 use proptest::prelude::*;
 use wildside_core::test_support::{MemoryStore, TagScorer, UnitTravelTimeProvider};
-use wildside_core::{InterestProfile, Solver, Theme};
+use wildside_core::{InterestProfile, Scorer, Solver, Theme};
 use wildside_solver_vrp::VrpSolver;
 
 use proptest_support::{
@@ -145,6 +145,19 @@ proptest! {
             "Score {} is not finite",
             response.score
         );
+
+        // Verify that the scorer produces valid per-POI scores within [0.0, 1.0].
+        // This confirms the Scorer contract is upheld for each POI independently.
+        let scorer = TagScorer;
+        for poi in response.route.pois() {
+            let poi_score = scorer.score(poi, &request.interests);
+            prop_assert!(
+                (0.0..=1.0).contains(&poi_score),
+                "POI {} has score {} outside [0.0, 1.0]",
+                poi.id,
+                poi_score
+            );
+        }
     }
 
     /// Property: When `max_nodes` is set, the route never contains more POIs.
@@ -335,16 +348,13 @@ proptest! {
     /// Property: Empty candidate sets produce empty routes with zero score.
     ///
     /// When no POIs match the query, the solver should return an empty route
-    /// rather than failing.
+    /// rather than failing. Uses an empty store to guarantee no candidates,
+    /// making this test independent of the solver's search radius heuristic.
     #[test]
     fn empty_candidates_produce_empty_route(seed in any::<u64>()) {
-        // Create POIs far from the origin so they won't be selected.
-        let pois = vec![
-            proptest_support::poi_with_theme(1, Coord { x: 100.0, y: 100.0 }, &Theme::Art),
-            proptest_support::poi_with_theme(2, Coord { x: 100.0, y: 100.0 }, &Theme::History),
-        ];
-
-        let store = MemoryStore::with_pois(pois);
+        // Use an empty store to guarantee no candidates are found.
+        // This approach is independent of the solver's search radius heuristic.
+        let store = MemoryStore::default();
         let solver = VrpSolver::new(store, UnitTravelTimeProvider, TagScorer);
 
         let request = build_request(10, seed, None, None);
