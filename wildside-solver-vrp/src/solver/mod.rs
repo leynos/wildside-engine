@@ -1,8 +1,34 @@
 //! `VrpSolver` implementation backed by `vrp-core`.
 //!
 //! Supports point-to-point routing when `SolveRequest::end` is set.
+//!
+//! # Synthetic POI IDs
+//!
+//! The solver creates synthetic [`PointOfInterest`] entries for the depot (start
+//! location) and optional end location. These are used internally for travel time
+//! matrix computation and are not included in the returned route's POI list.
+//!
+//! - [`DEPOT_POI_ID`]: ID `0`, used for the start location (depot).
+//! - [`END_POI_ID`]: ID `u64::MAX - 1`, used for the end location in point-to-point routes.
+//!
+//! These IDs are chosen to avoid collision with real POI IDs from the data layer.
+//! Note: `u64::MAX` is rejected by the sqlite persistence layer, so we use
+//! `u64::MAX - 1` for the end location to remain within valid bounds should these
+//! POIs ever need to be persisted (though currently they are not).
 
 use std::time::{Duration, Instant};
+
+/// Synthetic POI ID for the depot (start location).
+///
+/// This ID is used internally for travel time matrix computation and is never
+/// included in the returned route.
+const DEPOT_POI_ID: u64 = 0;
+
+/// Synthetic POI ID for the end location in point-to-point routes.
+///
+/// Uses `u64::MAX - 1` to avoid collision with real POI IDs and to remain within
+/// the valid range for the sqlite persistence layer (which rejects `u64::MAX`).
+const END_POI_ID: u64 = u64::MAX - 1;
 
 use geo::{Coord, Rect};
 use wildside_core::{
@@ -79,6 +105,46 @@ where
     }
 }
 
+impl<S, T, C> VrpSolver<S, T, C>
+where
+    S: PoiStore + Send + Sync,
+    T: TravelTimeProvider + Send + Sync,
+    C: Scorer + Send + Sync,
+{
+    fn handle_empty_candidates(
+        &self,
+        request: &SolveRequest,
+        started_at: Instant,
+    ) -> Result<SolveResponse, SolveError> {
+        if let Some(end_coord) = request.end {
+            let start = PointOfInterest::with_empty_tags(DEPOT_POI_ID, request.start);
+            let end_poi = PointOfInterest::with_empty_tags(END_POI_ID, end_coord);
+            let all_pois = vec![start, end_poi];
+            let matrix = self
+                .travel_time_provider
+                .get_travel_time_matrix(&all_pois)
+                .map_err(|_| SolveError::InvalidRequest)?;
+            let total_duration = final_leg_duration(0, 1, &matrix);
+            return Ok(SolveResponse {
+                route: Route::with_endpoints(request.start, end_coord, Vec::new(), total_duration),
+                score: 0.0,
+                diagnostics: Diagnostics {
+                    solve_time: started_at.elapsed(),
+                    candidates_evaluated: 0,
+                },
+            });
+        }
+        Ok(SolveResponse {
+            route: Route::with_endpoints(request.start, request.start, Vec::new(), Duration::ZERO),
+            score: 0.0,
+            diagnostics: Diagnostics {
+                solve_time: started_at.elapsed(),
+                candidates_evaluated: 0,
+            },
+        })
+    }
+}
+
 impl<S, T, C> Solver for VrpSolver<S, T, C>
 where
     S: PoiStore + Send + Sync,
@@ -90,41 +156,18 @@ where
         let started_at = Instant::now();
 
         let scored_candidates = self.select_candidates(request);
+        let route_end = request.end.unwrap_or(request.start);
+
         if scored_candidates.is_empty() {
-            if let Some(end_coord) = request.end {
-                let start = PointOfInterest::with_empty_tags(0, request.start);
-                let end_poi = PointOfInterest::with_empty_tags(u64::MAX, end_coord);
-                let all_pois = vec![start, end_poi];
-                let matrix = self
-                    .travel_time_provider
-                    .get_travel_time_matrix(&all_pois)
-                    .map_err(|_| SolveError::InvalidRequest)?;
-                let total_duration = final_leg_duration(0, 1, &matrix);
-                return Ok(SolveResponse {
-                    route: Route::new(Vec::new(), total_duration),
-                    score: 0.0,
-                    diagnostics: Diagnostics {
-                        solve_time: started_at.elapsed(),
-                        candidates_evaluated: 0,
-                    },
-                });
-            }
-            return Ok(SolveResponse {
-                route: Route::empty(),
-                score: 0.0,
-                diagnostics: Diagnostics {
-                    solve_time: started_at.elapsed(),
-                    candidates_evaluated: 0,
-                },
-            });
+            return self.handle_empty_candidates(request, started_at);
         }
 
         let (candidates, scores): (Vec<PointOfInterest>, Vec<f32>) =
             scored_candidates.into_iter().unzip();
-        let depot = PointOfInterest::with_empty_tags(0, request.start);
+        let depot = PointOfInterest::with_empty_tags(DEPOT_POI_ID, request.start);
         let end_poi = request
             .end
-            .map(|end_coord| PointOfInterest::with_empty_tags(u64::MAX, end_coord));
+            .map(|end_coord| PointOfInterest::with_empty_tags(END_POI_ID, end_coord));
         let mut all_pois =
             Vec::with_capacity(candidates.len() + 1 + usize::from(end_poi.is_some()));
         all_pois.push(depot);
@@ -151,7 +194,7 @@ where
         };
 
         Ok(SolveResponse {
-            route: Route::new(route_pois, total_duration),
+            route: Route::with_endpoints(request.start, route_end, route_pois, total_duration),
             score: total_score,
             diagnostics,
         })

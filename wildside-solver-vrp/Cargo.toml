@@ -18,6 +18,7 @@ log = { workspace = true }
 workspace = true
 
 [dev-dependencies]
+proptest = { workspace = true }
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }

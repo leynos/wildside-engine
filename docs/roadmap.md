@@ -169,7 +169,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
   - [x] Create a `tests/golden_routes` directory with small, well-defined
     problem instances and their known optimal solutions in JSON format to act
     as regression tests.
-  - [ ] Use `proptest` to write property-based tests for the solver, asserting
+  - [x] Use `proptest` to write property-based tests for the solver, asserting
         invariants like "total route duration must not exceed Tmax" and "route
         must start and end at the same point".
   - [ ] Use `criterion` to create a benchmark suite that measures the P95 and

@@ -968,8 +968,7 @@ its expected solution. The schema captures:
 - `request`: A complete `SolveRequest` specification including start/end
   coordinates, duration, interest profile, seed, and optional max_nodes.
 - `expected`: The expected route POI IDs in order, score range (min/max to
-  accommodate metaheuristic variance), and invariants such as budget
-  compliance.
+  accommodate metaheuristic variance), and invariants such as budget compliance.
 
 The test infrastructure includes:
 
@@ -988,14 +987,46 @@ The test infrastructure includes:
 
 Design decisions:
 
-| Decision | Rationale |
-|----------|-----------|
-| Travel times as integer seconds | Avoids floating-point precision issues |
-| Score ranges instead of exact values | Accommodates metaheuristic variance |
-| `FixedMatrixTravelTimeProvider` | Enables fully deterministic tests |
-| rstest `#[case]` parameterisation | Single test function scales to many fixtures |
-| Separate BDD layer | Documents behaviour at higher abstraction |
-| JSON for test data | Human-readable, easy to maintain |
+| Decision                             | Rationale                                    |
+| ------------------------------------ | -------------------------------------------- |
+| Travel times as integer seconds      | Avoids floating-point precision issues       |
+| Score ranges instead of exact values | Accommodates metaheuristic variance          |
+| `FixedMatrixTravelTimeProvider`      | Enables fully deterministic tests            |
+| rstest `#[case]` parameterization    | Single test function scales to many fixtures |
+| Separate BDD layer                   | Documents behaviour at higher abstraction    |
+| JSON for test data                   | Human-readable, easy to maintain             |
+
+#### 5.2.2. Property-based testing implementation
+
+Property-based tests live in `wildside-solver-vrp/tests/property_tests.rs` and
+use the `proptest` crate to assert invariants that must hold for all valid
+solver inputs. The test suite generates random but valid `SolveRequest`
+instances and verifies:
+
+1. **Budget compliance:** Route duration never exceeds the time budget (Tmax).
+2. **No duplicates:** Each POI appears at most once in the route.
+3. **Score validity:** Scores are non-negative and finite.
+4. **Constraint adherence:** `max_nodes` limits are respected.
+5. **POI validity:** All route POIs exist in the candidate set.
+6. **Point-to-point validity:** Routes with distinct end locations maintain
+   all core invariants.
+7. **Empty candidates:** When no candidates match, an empty route with zero
+   score is returned.
+
+The tests use `UnitTravelTimeProvider` from `wildside-core::test_support`,
+which generates correctly sized travel time matrices dynamically based on the
+actual number of candidates after filtering. This avoids the complexity of
+pre-computing matrices for variable-sized candidate sets.
+
+Design trade-offs:
+
+| Decision                          | Rationale                                           |
+| --------------------------------- | --------------------------------------------------- |
+| Small POI sets (3-10 nodes)       | Fast execution while exercising core logic          |
+| `UnitTravelTimeProvider`          | Dynamic matrices adapt to filtered candidate counts |
+| `ProptestConfig::with_cases(100)` | Balances coverage against CI execution time         |
+| Seed variation only               | Fixed POI geometry, random seeds exercise heuristic |
+| Support module separation         | `proptest_support.rs` keeps strategies reusable     |
 
 ### 5.3. Repository and Migration Strategy
 
