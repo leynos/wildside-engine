@@ -172,7 +172,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
   - [x] Use `proptest` to write property-based tests for the solver, asserting
         invariants like "total route duration must not exceed Tmax" and "route
         must start and end at the same point".
-  - [ ] Use `criterion` to create a benchmark suite that measures the P95 and
+  - [x] Use `criterion` to create a benchmark suite that measures the P95 and
     P99 solve times for various problem sizes (e.g., 50, 100, 200 candidate
     POIs).
 
