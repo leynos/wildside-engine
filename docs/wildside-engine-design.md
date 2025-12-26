@@ -1013,9 +1013,9 @@ instances and verifies:
 7. **Empty candidates:** When no candidates match, an empty route with zero
    score is returned.
 
-The tests use `UnitTravelTimeProvider` from `wildside-core::test_support`, which
-generates correctly-sized travel time matrices dynamically based on the actual
-number of candidates after filtering. This avoids the complexity of
+The tests use `UnitTravelTimeProvider` from `wildside-core::test_support`,
+which generates correctly sized travel time matrices dynamically based on the
+actual number of candidates after filtering. This avoids the complexity of
 pre-computing matrices for variable-sized candidate sets.
 
 Design trade-offs:
