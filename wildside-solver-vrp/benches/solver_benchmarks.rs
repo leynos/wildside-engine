@@ -9,7 +9,7 @@
 //! cargo bench --package wildside-solver-vrp
 //! ```
 
-// Criterion macros generate code that triggers missing_docs warnings.
+// Criterion macros generate undocumented code. This cannot use #[expect] on macros.
 #![allow(missing_docs, reason = "Criterion macros generate undocumented code")]
 
 use std::time::Duration;

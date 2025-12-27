@@ -6,8 +6,9 @@
 use std::time::Duration;
 
 use geo::Coord;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
+use rand_distr::{Distribution, Normal, Uniform};
 use wildside_core::{PointOfInterest, Tags, Theme};
 
 /// Seed for deterministic random number generation in benchmarks.
@@ -36,9 +37,14 @@ const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
 /// Gaussian-like distribution around the cluster centre. Uses a deterministic
 /// seeded RNG for reproducibility.
 ///
+/// # Panics
+///
+/// This function cannot panic under normal usage. The internal `unwrap` on
+/// `Normal::new` is safe because the standard deviation is a positive constant.
+///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use wildside_solver_vrp::benches::bench_support::generate_clustered_pois;
 ///
 /// let pois = generate_clustered_pois(50, 42);
@@ -47,30 +53,35 @@ const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
 #[must_use]
 pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let area_dist = Uniform::new(0.0, AREA_SIZE);
 
     // Generate cluster centres deterministically.
     let cluster_centres: Vec<Coord<f64>> = (0..CLUSTER_COUNT)
         .map(|_| Coord {
-            x: rng.gen_range(0.0..AREA_SIZE),
-            y: rng.gen_range(0.0..AREA_SIZE),
+            x: area_dist.sample(&mut rng),
+            y: area_dist.sample(&mut rng),
         })
         .collect();
+
+    // Normal distribution for Gaussian spread around cluster centres.
+    // unwrap is safe: std_dev > 0
+    #[expect(clippy::unwrap_used, reason = "std_dev is a positive constant")]
+    let normal = Normal::new(0.0, CLUSTER_SPREAD).unwrap();
 
     (0..count)
         .map(|i| {
             // Assign to a cluster using round-robin.
+            // Indexing is safe: result of modulo is always < CLUSTER_COUNT.
             #[expect(
                 clippy::integer_division_remainder_used,
-                reason = "Modulo for cyclic assignment is intentional"
+                clippy::indexing_slicing,
+                reason = "Modulo for cyclic assignment is intentional and result is bounded"
             )]
-            let cluster_idx = i % CLUSTER_COUNT;
-            let centre = cluster_centres
-                .get(cluster_idx)
-                .copied()
-                .unwrap_or(Coord { x: 0.0, y: 0.0 });
+            let centre = cluster_centres[i % CLUSTER_COUNT];
 
-            // Generate position with Gaussian-like spread using Box-Muller.
-            let (dx, dy) = box_muller(&mut rng, CLUSTER_SPREAD);
+            // Generate position with Gaussian spread.
+            let dx: f64 = normal.sample(&mut rng);
+            let dy: f64 = normal.sample(&mut rng);
 
             #[expect(clippy::float_arithmetic, reason = "Required for coordinate offset")]
             let location = Coord {
@@ -79,12 +90,13 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
             };
 
             // Assign theme cyclically.
+            // Indexing is safe: result of modulo is always < THEMES.len().
             #[expect(
                 clippy::integer_division_remainder_used,
-                reason = "Modulo for cyclic theme assignment is intentional"
+                clippy::indexing_slicing,
+                reason = "Modulo for cyclic theme assignment is intentional and result is bounded"
             )]
-            let theme_idx = i % THEMES.len();
-            let theme = THEMES.get(theme_idx).cloned().unwrap_or(Theme::History);
+            let theme = THEMES[i % THEMES.len()].clone();
             let theme_str = theme.to_string().to_lowercase();
 
             #[expect(clippy::as_conversions, reason = "Safe conversion for small indices")]
@@ -103,7 +115,7 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use wildside_solver_vrp::benches::bench_support::{generate_clustered_pois, generate_travel_time_matrix};
 ///
 /// let pois = generate_clustered_pois(10, 42);
@@ -114,6 +126,7 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
 #[must_use]
 pub fn generate_travel_time_matrix(pois: &[PointOfInterest], seed: u64) -> Vec<Vec<Duration>> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let noise_dist = Uniform::new(0.8, 1.2);
     let n = pois.len();
 
     let mut matrix = vec![vec![Duration::ZERO; n]; n];
@@ -124,25 +137,22 @@ pub fn generate_travel_time_matrix(pois: &[PointOfInterest], seed: u64) -> Vec<V
                 continue;
             }
 
-            let poi_i = pois.get(i);
-            let poi_j = pois.get(j);
-
-            let (loc_i, loc_j) = match (poi_i, poi_j) {
-                (Some(a), Some(b)) => (a.location, b.location),
-                _ => continue,
-            };
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "Indices are bounded by loop over pois.len()"
+            )]
+            let loc_i = pois[i].location;
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "Indices are bounded by loop over pois.len()"
+            )]
+            let loc_j = pois[j].location;
 
             // Euclidean distance in degrees.
-            #[expect(
-                clippy::float_arithmetic,
-                reason = "Required for coordinate difference"
-            )]
+            #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
             let dx = loc_j.x - loc_i.x;
 
-            #[expect(
-                clippy::float_arithmetic,
-                reason = "Required for coordinate difference"
-            )]
+            #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
             let dy = loc_j.y - loc_i.y;
 
             #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
@@ -152,52 +162,19 @@ pub fn generate_travel_time_matrix(pois: &[PointOfInterest], seed: u64) -> Vec<V
             #[expect(clippy::float_arithmetic, reason = "Required for time calculation")]
             let base_time_secs = distance / WALKING_SPEED_DEG_PER_SEC;
 
-            let noise_factor: f64 = rng.gen_range(0.8..1.2);
+            let noise_factor: f64 = noise_dist.sample(&mut rng);
 
             #[expect(clippy::float_arithmetic, reason = "Required for noise application")]
             let time_secs = base_time_secs * noise_factor;
 
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "Travel times are bounded and positive"
-            )]
-            let duration = Duration::from_secs(time_secs.max(1.0) as u64);
+            let duration = Duration::from_secs_f64(time_secs.max(1.0));
 
-            set_matrix_cell(&mut matrix, i, j, duration);
+            #[expect(clippy::indexing_slicing, reason = "Indices are bounded by loop")]
+            {
+                matrix[i][j] = duration;
+            }
         }
     }
 
     matrix
-}
-
-/// Set a cell in the travel time matrix, avoiding excessive nesting.
-fn set_matrix_cell(matrix: &mut [Vec<Duration>], i: usize, j: usize, duration: Duration) {
-    if let Some(row) = matrix.get_mut(i)
-        && let Some(cell) = row.get_mut(j)
-    {
-        *cell = duration;
-    }
-}
-
-/// Box-Muller transform to generate Gaussian-distributed values.
-///
-/// Returns a pair of independent standard normal variates scaled by `std_dev`.
-fn box_muller<R: Rng>(rng: &mut R, std_dev: f64) -> (f64, f64) {
-    let u1: f64 = rng.gen_range(0.0001..1.0);
-    let u2: f64 = rng.gen_range(0.0..1.0);
-
-    #[expect(clippy::float_arithmetic, reason = "Required for Box-Muller transform")]
-    let r = (-2.0 * u1.ln()).sqrt();
-
-    #[expect(clippy::float_arithmetic, reason = "Required for Box-Muller transform")]
-    let theta = 2.0 * std::f64::consts::PI * u2;
-
-    #[expect(clippy::float_arithmetic, reason = "Required for Box-Muller transform")]
-    let z0 = r * theta.cos() * std_dev;
-
-    #[expect(clippy::float_arithmetic, reason = "Required for Box-Muller transform")]
-    let z1 = r * theta.sin() * std_dev;
-
-    (z0, z1)
 }
