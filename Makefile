@@ -1,4 +1,4 @@
-.PHONY: help all clean test build release lint fmt check-fmt markdownlint nixie typecheck
+.PHONY: help all clean test bench build release lint fmt check-fmt markdownlint nixie typecheck
 
 APP ?= wildside-engine
 CARGO ?= cargo
@@ -17,6 +17,9 @@ clean: ## Remove build artifacts
 
 test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(BUILD_JOBS)
+
+bench: ## Run performance benchmarks
+	$(CARGO) bench --package wildside-solver-vrp
 
 target/%/$(APP): ## Build binary in debug or release mode
 	$(CARGO) build $(BUILD_JOBS) $(if $(findstring release,$(@)),--release) --bin $(APP)

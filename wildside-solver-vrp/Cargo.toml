@@ -18,7 +18,11 @@ log = { workspace = true }
 workspace = true
 
 [dev-dependencies]
+criterion = { workspace = true }
 proptest = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+rand_distr = { workspace = true }
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
@@ -28,3 +32,7 @@ wildside-core = { workspace = true, features = ["test-support"] }
 
 [features]
 test-support = ["wildside-core/test-support"]
+
+[[bench]]
+name = "solver_benchmarks"
+harness = false
