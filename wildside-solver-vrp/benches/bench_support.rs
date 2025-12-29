@@ -25,8 +25,8 @@ const CLUSTER_COUNT: usize = 5;
 const CLUSTER_SPREAD: f64 = 0.005;
 
 /// Area size for cluster centre distribution (in degrees).
-/// 0.1 degrees ~ 10km at the equator.
-const AREA_SIZE: f64 = 0.1;
+/// 0.08 degrees ~ 8km at the equator.
+const AREA_SIZE: f64 = 0.08;
 
 /// Walking speed in degrees per second (5 km/h ~ 0.0014 deg/s at equator).
 const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
@@ -105,7 +105,14 @@ pub fn create_depot(start: Coord<f64>) -> PointOfInterest {
 #[must_use]
 pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
-    let area_dist = Uniform::new(0.0, AREA_SIZE);
+
+    // Centre POI distribution around BENCHMARK_START to ensure all POIs fall
+    // within the solver's bounding box.
+    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    let half_area = AREA_SIZE / 2.0;
+    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    let (min_coord, max_coord) = (BENCHMARK_START.x - half_area, BENCHMARK_START.x + half_area);
+    let area_dist = Uniform::new(min_coord, max_coord);
 
     // Generate cluster centres deterministically.
     let cluster_centres: Vec<Coord<f64>> = (0..CLUSTER_COUNT)
