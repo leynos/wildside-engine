@@ -25,8 +25,8 @@ const CLUSTER_COUNT: usize = 5;
 const CLUSTER_SPREAD: f64 = 0.005;
 
 /// Area size for cluster centre distribution (in degrees).
-/// 0.08 degrees ~ 8km at the equator.
-const AREA_SIZE: f64 = 0.08;
+/// 0.06 degrees ~ 6km at the equator.
+const AREA_SIZE: f64 = 0.06;
 
 /// Walking speed in degrees per second (5 km/h ~ 0.0014 deg/s at equator).
 const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
