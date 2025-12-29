@@ -3,12 +3,6 @@
 //! Tests the `generate_clustered_pois` and `generate_travel_time_matrix` functions
 //! using BDD-style scenarios.
 
-// Allow dead_code for bench_support module items not used in this file.
-#![expect(
-    dead_code,
-    reason = "bench_support exports items used by other test files"
-)]
-
 use std::cell::RefCell;
 use std::time::Duration;
 
@@ -17,6 +11,13 @@ use rstest_bdd_macros::{given, scenario, then, when};
 use wildside_core::PointOfInterest;
 
 /// Include the benchmark support module from the benches directory.
+/// The `dead_code` suppression is narrowly scoped to this module declaration
+/// because bench_support exports items used by other test files but not all
+/// items are used in this specific file.
+#[expect(
+    dead_code,
+    reason = "bench_support exports items used by other test files"
+)]
 #[path = "../benches/bench_support.rs"]
 mod bench_support;
 

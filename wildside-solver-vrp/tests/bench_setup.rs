@@ -1,41 +1,21 @@
 //! Unit tests for benchmark setup functions.
 //!
 //! Tests the `build_benchmark_request` and `create_depot` functions from
-//! the benchmark module.
-
-// Allow float comparisons in tests since we're checking exact literal values.
-#![expect(clippy::float_cmp, reason = "Tests compare exact literal values")]
+//! the benchmark support module.
 
 use geo::Coord;
 use rstest::rstest;
-use wildside_core::{InterestProfile, PointOfInterest, SolveRequest, Theme};
+use wildside_core::Theme;
 
-/// Build a standard benchmark solve request.
-///
-/// Mirrors the function in `solver_benchmarks.rs` for testing.
-fn build_benchmark_request(seed: u64) -> SolveRequest {
-    const DURATION_MINUTES: u16 = 60;
+/// Include the benchmark support module from the benches directory.
+/// The `dead_code` suppression is narrowly scoped to this module declaration
+/// because bench_support exports items used by other test files but not all
+/// items are used in this specific file.
+#[expect(dead_code, reason = "bench_support exports items not all used here")]
+#[path = "../benches/bench_support.rs"]
+mod bench_support;
 
-    SolveRequest {
-        start: Coord { x: 0.05, y: 0.05 },
-        end: None,
-        duration_minutes: DURATION_MINUTES,
-        interests: InterestProfile::new()
-            .with_weight(Theme::Art, 0.8)
-            .with_weight(Theme::History, 0.5)
-            .with_weight(Theme::Nature, 0.3)
-            .with_weight(Theme::Culture, 0.2),
-        seed,
-        max_nodes: None,
-    }
-}
-
-/// Create a depot POI at the start location for the travel time matrix.
-///
-/// Mirrors the function in `solver_benchmarks.rs` for testing.
-fn create_depot(start: Coord<f64>) -> PointOfInterest {
-    PointOfInterest::with_empty_tags(0, start)
-}
+use bench_support::{BENCHMARK_START, DURATION_MINUTES, build_benchmark_request, create_depot};
 
 // =============================================================================
 // Unit tests for build_benchmark_request
@@ -44,7 +24,7 @@ fn create_depot(start: Coord<f64>) -> PointOfInterest {
 #[rstest]
 fn build_benchmark_request_uses_correct_duration() {
     let request = build_benchmark_request(42);
-    assert_eq!(request.duration_minutes, 60);
+    assert_eq!(request.duration_minutes, DURATION_MINUTES);
 }
 
 #[rstest]
@@ -56,10 +36,11 @@ fn build_benchmark_request_uses_seed() {
 }
 
 #[rstest]
+#[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
 fn build_benchmark_request_has_correct_start_position() {
     let request = build_benchmark_request(42);
-    assert_eq!(request.start.x, 0.05);
-    assert_eq!(request.start.y, 0.05);
+    assert_eq!(request.start.x, BENCHMARK_START.x);
+    assert_eq!(request.start.y, BENCHMARK_START.y);
 }
 
 #[rstest]
@@ -119,6 +100,7 @@ fn build_benchmark_request_includes_culture_interest() {
 // =============================================================================
 
 #[rstest]
+#[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
 fn create_depot_uses_correct_location() {
     let start = Coord { x: 0.05, y: 0.05 };
     let depot = create_depot(start);
@@ -147,6 +129,9 @@ fn create_depot_has_empty_tags() {
 fn create_depot_handles_various_coordinates(#[case] x: f64, #[case] y: f64) {
     let start = Coord { x, y };
     let depot = create_depot(start);
-    assert_eq!(depot.location.x, x);
-    assert_eq!(depot.location.y, y);
+    #[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
+    {
+        assert_eq!(depot.location.x, x);
+        assert_eq!(depot.location.y, y);
+    }
 }

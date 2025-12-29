@@ -9,7 +9,7 @@ use geo::Coord;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use rand_distr::{Distribution, Normal, Uniform};
-use wildside_core::{PointOfInterest, Tags, Theme};
+use wildside_core::{InterestProfile, PointOfInterest, SolveRequest, Tags, Theme};
 
 /// Seed for deterministic random number generation in benchmarks.
 pub const BENCHMARK_SEED: u64 = 42;
@@ -30,6 +30,58 @@ const AREA_SIZE: f64 = 0.1;
 
 /// Walking speed in degrees per second (5 km/h ~ 0.0014 deg/s at equator).
 const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
+
+/// Time budget for benchmark solve requests (minutes).
+pub const DURATION_MINUTES: u16 = 60;
+
+/// Start position for benchmarks (centre of the POI area).
+pub const BENCHMARK_START: Coord<f64> = Coord { x: 0.05, y: 0.05 };
+
+/// Build a standard benchmark solve request.
+///
+/// Uses a consistent interest profile and deterministic seed for reproducibility.
+///
+/// # Examples
+///
+/// ```ignore
+/// use wildside_solver_vrp::benches::bench_support::build_benchmark_request;
+///
+/// let request = build_benchmark_request(42);
+/// assert_eq!(request.duration_minutes, 60);
+/// ```
+#[must_use]
+pub fn build_benchmark_request(seed: u64) -> SolveRequest {
+    SolveRequest {
+        start: BENCHMARK_START,
+        end: None,
+        duration_minutes: DURATION_MINUTES,
+        interests: InterestProfile::new()
+            .with_weight(Theme::Art, 0.8)
+            .with_weight(Theme::History, 0.5)
+            .with_weight(Theme::Nature, 0.3)
+            .with_weight(Theme::Culture, 0.2),
+        seed,
+        max_nodes: None,
+    }
+}
+
+/// Create a depot POI at the start location for the travel time matrix.
+///
+/// The depot uses ID 0 and has no tags.
+///
+/// # Examples
+///
+/// ```ignore
+/// use geo::Coord;
+/// use wildside_solver_vrp::benches::bench_support::create_depot;
+///
+/// let depot = create_depot(Coord { x: 0.05, y: 0.05 });
+/// assert_eq!(depot.id, 0);
+/// ```
+#[must_use]
+pub fn create_depot(start: Coord<f64>) -> PointOfInterest {
+    PointOfInterest::with_empty_tags(0, start)
+}
 
 /// Generate a clustered POI distribution for benchmarks.
 ///
@@ -107,6 +159,33 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
         .collect()
 }
 
+/// Compute Euclidean distance between two coordinates.
+///
+/// Returns the straight-line distance in degrees.
+#[expect(
+    clippy::float_arithmetic,
+    reason = "Euclidean distance calculation requires float arithmetic"
+)]
+fn euclidean_distance(from: Coord<f64>, to: Coord<f64>) -> f64 {
+    let dx = to.x - from.x;
+    let dy = to.y - from.y;
+    (dx * dx + dy * dy).sqrt()
+}
+
+/// Compute travel time from distance with noise.
+///
+/// Converts distance to travel time based on walking speed, then applies
+/// a random noise factor (±20%) for realistic variation.
+#[expect(
+    clippy::float_arithmetic,
+    reason = "Travel time calculation requires float arithmetic"
+)]
+fn travel_time_with_noise(distance: f64, noise_factor: f64) -> Duration {
+    let base_time_secs = distance / WALKING_SPEED_DEG_PER_SEC;
+    let time_secs = base_time_secs * noise_factor;
+    Duration::from_secs_f64(time_secs.max(1.0))
+}
+
 /// Generate a distance-based travel time matrix for benchmarks.
 ///
 /// Computes travel times based on Euclidean distance between POI coordinates,
@@ -131,48 +210,27 @@ pub fn generate_travel_time_matrix(pois: &[PointOfInterest], seed: u64) -> Vec<V
 
     let mut matrix = vec![vec![Duration::ZERO; n]; n];
 
+    // Loop indices i and j are bounded by n = pois.len() = matrix.len(), so all
+    // slice accesses are within bounds. The #[expect] attributes document this
+    // invariant for the linter.
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "Loop indices are bounded by n = pois.len() = matrix.len()"
+    )]
     for i in 0..n {
         for j in 0..n {
             if i == j {
                 continue;
             }
 
-            #[expect(
-                clippy::indexing_slicing,
-                reason = "Indices are bounded by loop over pois.len()"
-            )]
             let loc_i = pois[i].location;
-            #[expect(
-                clippy::indexing_slicing,
-                reason = "Indices are bounded by loop over pois.len()"
-            )]
             let loc_j = pois[j].location;
 
-            // Euclidean distance in degrees.
-            #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
-            let dx = loc_j.x - loc_i.x;
-
-            #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
-            let dy = loc_j.y - loc_i.y;
-
-            #[expect(clippy::float_arithmetic, reason = "Required for distance calculation")]
-            let distance = (dx * dx + dy * dy).sqrt();
-
-            // Convert to travel time with some noise (+-20%).
-            #[expect(clippy::float_arithmetic, reason = "Required for time calculation")]
-            let base_time_secs = distance / WALKING_SPEED_DEG_PER_SEC;
-
+            let distance = euclidean_distance(loc_i, loc_j);
             let noise_factor: f64 = noise_dist.sample(&mut rng);
+            let duration = travel_time_with_noise(distance, noise_factor);
 
-            #[expect(clippy::float_arithmetic, reason = "Required for noise application")]
-            let time_secs = base_time_secs * noise_factor;
-
-            let duration = Duration::from_secs_f64(time_secs.max(1.0));
-
-            #[expect(clippy::indexing_slicing, reason = "Indices are bounded by loop")]
-            {
-                matrix[i][j] = duration;
-            }
+            matrix[i][j] = duration;
         }
     }
 

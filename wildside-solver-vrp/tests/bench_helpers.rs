@@ -3,17 +3,6 @@
 //! These tests verify the `generate_clustered_pois` and `generate_travel_time_matrix`
 //! functions produce correct, deterministic outputs.
 
-// Test-specific lint suppressions:
-// - float_cmp: tests use exact comparisons for determinism verification
-// - indexing_slicing: tests use bounded indices in controlled contexts
-// - needless_range_loop: matrix access patterns require indices
-#![expect(
-    clippy::float_cmp,
-    clippy::indexing_slicing,
-    clippy::needless_range_loop,
-    reason = "Test file uses exact float comparison and bounded indexing"
-)]
-
 use std::time::Duration;
 
 use geo::Coord;
@@ -22,6 +11,10 @@ use wildside_core::PointOfInterest;
 
 /// Include the benchmark support module from the benches directory.
 /// Note: This path works because Cargo compiles tests with the package root as base.
+/// The `dead_code` suppression is narrowly scoped to this module declaration
+/// because bench_support exports items used by other test files but not all
+/// items are used in this specific file.
+#[expect(dead_code, reason = "bench_support exports items not all used here")]
 #[path = "../benches/bench_support.rs"]
 mod bench_support;
 
@@ -48,6 +41,10 @@ fn generate_clustered_pois_handles_various_sizes(#[case] count: usize) {
 }
 
 #[rstest]
+#[expect(
+    clippy::float_cmp,
+    reason = "Determinism test requires exact float comparison"
+)]
 fn generate_clustered_pois_is_deterministic() {
     let pois1 = generate_clustered_pois(20, BENCHMARK_SEED);
     let pois2 = generate_clustered_pois(20, BENCHMARK_SEED);
@@ -73,6 +70,7 @@ fn generate_clustered_pois_assigns_sequential_ids() {
 }
 
 #[rstest]
+#[expect(clippy::indexing_slicing, reason = "Test uses known fixed indices")]
 fn generate_clustered_pois_assigns_themes_cyclically() {
     let pois = generate_clustered_pois(8, BENCHMARK_SEED);
     let themes: Vec<_> = pois.iter().map(|p| p.tags.iter().next()).collect();
@@ -86,6 +84,10 @@ fn generate_clustered_pois_assigns_themes_cyclically() {
 }
 
 #[rstest]
+#[expect(
+    clippy::float_cmp,
+    reason = "Test checks float inequality for different seeds"
+)]
 fn generate_clustered_pois_different_seeds_produce_different_results() {
     let pois1 = generate_clustered_pois(10, 42);
     let pois2 = generate_clustered_pois(10, 43);
@@ -118,6 +120,11 @@ fn generate_travel_time_matrix_returns_square_matrix() {
 }
 
 #[rstest]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::needless_range_loop,
+    reason = "Test uses loop index for matrix diagonal access"
+)]
 fn generate_travel_time_matrix_diagonal_is_zero() {
     let pois = generate_clustered_pois(10, BENCHMARK_SEED);
     let matrix = generate_travel_time_matrix(&pois, BENCHMARK_SEED);
@@ -132,6 +139,11 @@ fn generate_travel_time_matrix_diagonal_is_zero() {
 }
 
 #[rstest]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::needless_range_loop,
+    reason = "Test uses loop indices for matrix access"
+)]
 fn generate_travel_time_matrix_has_positive_off_diagonal() {
     let pois = generate_clustered_pois(5, BENCHMARK_SEED);
     let matrix = generate_travel_time_matrix(&pois, BENCHMARK_SEED);
@@ -149,6 +161,10 @@ fn generate_travel_time_matrix_has_positive_off_diagonal() {
 }
 
 #[rstest]
+#[expect(
+    clippy::indexing_slicing,
+    reason = "Test uses loop indices for matrix comparison"
+)]
 fn generate_travel_time_matrix_is_deterministic() {
     let pois = generate_clustered_pois(5, BENCHMARK_SEED);
     let matrix1 = generate_travel_time_matrix(&pois, BENCHMARK_SEED);
@@ -172,6 +188,7 @@ fn generate_travel_time_matrix_handles_empty_input() {
 }
 
 #[rstest]
+#[expect(clippy::indexing_slicing, reason = "Test uses known fixed index [0]")]
 fn generate_travel_time_matrix_handles_single_poi() {
     let pois = vec![PointOfInterest::with_empty_tags(
         1,
@@ -185,6 +202,7 @@ fn generate_travel_time_matrix_handles_single_poi() {
 }
 
 #[rstest]
+#[expect(clippy::indexing_slicing, reason = "Test uses known fixed indices")]
 fn generate_travel_time_matrix_reflects_distance() {
     // Create POIs at known locations with varying distances from origin
     let close = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
