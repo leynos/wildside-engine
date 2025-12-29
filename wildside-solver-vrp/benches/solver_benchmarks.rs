@@ -9,8 +9,10 @@
 //! cargo bench --package wildside-solver-vrp
 //! ```
 
-// Criterion macros generate undocumented code. This cannot use #[expect] on macros.
-#![allow(missing_docs, reason = "Criterion macros generate undocumented code")]
+// Criterion macros (criterion_group!, criterion_main!) generate items that cannot be documented.
+// Unlike function/struct attributes, #[expect] cannot be applied to macro invocations.
+// A crate-level suppression is the only viable option for this external macro limitation.
+#![expect(missing_docs, reason = "Criterion macros generate undocumented code")]
 
 use std::time::Duration;
 
@@ -61,14 +63,15 @@ fn create_depot(start: Coord<f64>) -> PointOfInterest {
 /// 2. Computes a distance-based travel time matrix
 /// 3. Measures the time to solve the orienteering problem
 ///
-/// The benchmark uses 100 samples and 10-second measurement windows for
-/// reliable P95/P99 estimation.
+/// The benchmark uses 10 samples and 3-second measurement windows for
+/// CI-friendly runtimes while maintaining statistical validity.
 fn bench_solve_times(c: &mut Criterion) {
     let mut group = c.benchmark_group("solve_time");
 
-    // Configure for reliable percentile estimation.
-    group.sample_size(100);
-    group.measurement_time(Duration::from_secs(10));
+    // Configure for CI-friendly runtimes while maintaining statistical validity.
+    // 10 samples is the criterion minimum; 3 seconds keeps total under 5 minutes.
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(3));
 
     for &size in PROBLEM_SIZES {
         // Pre-generate inputs outside the benchmark loop.
