@@ -93,24 +93,25 @@ fn benchmark_helpers_work_with_various_problem_sizes(#[case] size: usize) {
 
 /// Validates that different seeds produce different but valid solver inputs.
 #[rstest]
-fn different_seeds_produce_valid_solver_inputs() {
-    for seed in [42, 100, 999] {
-        let candidate_pois = generate_clustered_pois(20, seed);
-        let request = build_benchmark_request(seed);
+#[case(42)]
+#[case(100)]
+#[case(999)]
+fn different_seeds_produce_valid_solver_inputs(#[case] seed: u64) {
+    let candidate_pois = generate_clustered_pois(20, seed);
+    let request = build_benchmark_request(seed);
 
-        let depot = create_depot(request.start);
-        let mut all_pois = vec![depot];
-        all_pois.extend(candidate_pois.iter().cloned());
+    let depot = create_depot(request.start);
+    let mut all_pois = vec![depot];
+    all_pois.extend(candidate_pois.iter().cloned());
 
-        let matrix_durations = generate_travel_time_matrix(&all_pois, seed);
-        let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
-        let store = MemoryStore::with_pois(candidate_pois);
-        let solver = VrpSolver::new(store, provider, TagScorer);
+    let matrix_durations = generate_travel_time_matrix(&all_pois, seed);
+    let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
+    let store = MemoryStore::with_pois(candidate_pois);
+    let solver = VrpSolver::new(store, provider, TagScorer);
 
-        let result = solver.solve(&request);
-        assert!(
-            result.is_ok(),
-            "Solver should succeed with seed {seed}: {result:?}"
-        );
-    }
+    let result = solver.solve(&request);
+    assert!(
+        result.is_ok(),
+        "Solver should succeed with seed {seed}: {result:?}"
+    );
 }

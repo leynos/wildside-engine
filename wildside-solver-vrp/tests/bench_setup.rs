@@ -56,42 +56,16 @@ fn build_benchmark_request_has_no_max_nodes() {
 }
 
 #[rstest]
-fn build_benchmark_request_includes_art_interest() {
+#[case(Theme::Art)]
+#[case(Theme::History)]
+#[case(Theme::Nature)]
+#[case(Theme::Culture)]
+fn build_benchmark_request_includes_theme_interest(#[case] theme: Theme) {
     let request = build_benchmark_request(42);
-    let weight = request.interests.weight(&Theme::Art);
+    let weight = request.interests.weight(&theme);
     assert!(
         weight.is_some_and(|w| w > 0.0),
-        "Art interest should have positive weight"
-    );
-}
-
-#[rstest]
-fn build_benchmark_request_includes_history_interest() {
-    let request = build_benchmark_request(42);
-    let weight = request.interests.weight(&Theme::History);
-    assert!(
-        weight.is_some_and(|w| w > 0.0),
-        "History interest should have positive weight"
-    );
-}
-
-#[rstest]
-fn build_benchmark_request_includes_nature_interest() {
-    let request = build_benchmark_request(42);
-    let weight = request.interests.weight(&Theme::Nature);
-    assert!(
-        weight.is_some_and(|w| w > 0.0),
-        "Nature interest should have positive weight"
-    );
-}
-
-#[rstest]
-fn build_benchmark_request_includes_culture_interest() {
-    let request = build_benchmark_request(42);
-    let weight = request.interests.weight(&Theme::Culture);
-    assert!(
-        weight.is_some_and(|w| w > 0.0),
-        "Culture interest should have positive weight"
+        "{theme:?} interest should have positive weight"
     );
 }
 
