@@ -9,14 +9,9 @@
 //! cargo bench --package wildside-solver-vrp
 //! ```
 
-// Criterion macros (criterion_group!, criterion_main!) generate items that cannot be documented.
-// Unlike function/struct attributes, #[expect] cannot be applied to macro invocations.
-// A crate-level suppression is the only viable option for this external macro limitation.
-#![expect(missing_docs, reason = "Criterion macros generate undocumented code")]
-
 use std::time::Duration;
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput};
 use geo::Coord;
 use wildside_core::test_support::{MemoryStore, TagScorer};
 use wildside_core::{InterestProfile, PointOfInterest, Solver, Theme};
@@ -110,5 +105,18 @@ fn bench_solve_times(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_solve_times);
-criterion_main!(benches);
+// Private module containing the criterion_group! macro invocation.
+mod group {
+    use super::bench_solve_times;
+    use criterion::criterion_group;
+
+    criterion_group!(benches, bench_solve_times);
+
+    // Re-export the generated function for use by criterion_main!
+    pub use self::benches as run;
+}
+
+// The criterion_main! macro must be invoked at crate level to generate main().
+// It receives the benchmark group function from the module above.
+use criterion::criterion_main;
+criterion_main!(group::run);
