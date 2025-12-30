@@ -28,7 +28,7 @@ const CLUSTER_SPREAD: f64 = 0.005;
 /// 0.06 degrees ~ 6km at the equator.
 const AREA_SIZE: f64 = 0.06;
 
-/// Walking speed in degrees per second (5 km/h ~ 0.0014 deg/s at equator).
+/// Walking speed in degrees per second (5 km/h ~ 0.000014 deg/s at equator).
 const WALKING_SPEED_DEG_PER_SEC: f64 = 0.000_014;
 
 /// Time budget for benchmark solve requests (minutes).
@@ -107,18 +107,22 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
     // Centre POI distribution around BENCHMARK_START to ensure all POIs fall
-    // within the solver's bounding box.
+    // within the solver's bounding box. Use separate distributions for x and y
+    // in case BENCHMARK_START coordinates ever diverge.
     #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
     let half_area = AREA_SIZE / 2.0;
     #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
-    let (min_coord, max_coord) = (BENCHMARK_START.x - half_area, BENCHMARK_START.x + half_area);
-    let area_dist = Uniform::new(min_coord, max_coord);
+    let (min_x, max_x) = (BENCHMARK_START.x - half_area, BENCHMARK_START.x + half_area);
+    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    let (min_y, max_y) = (BENCHMARK_START.y - half_area, BENCHMARK_START.y + half_area);
+    let x_dist = Uniform::new(min_x, max_x);
+    let y_dist = Uniform::new(min_y, max_y);
 
     // Generate cluster centres deterministically.
     let cluster_centres: Vec<Coord<f64>> = (0..CLUSTER_COUNT)
         .map(|_| Coord {
-            x: area_dist.sample(&mut rng),
-            y: area_dist.sample(&mut rng),
+            x: x_dist.sample(&mut rng),
+            y: y_dist.sample(&mut rng),
         })
         .collect();
 

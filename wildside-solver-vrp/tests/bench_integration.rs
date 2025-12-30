@@ -65,10 +65,11 @@ fn benchmark_helpers_produce_solver_compatible_data() {
         .solve(&request)
         .expect("Solver should succeed with benchmark-generated data");
 
-    // Verify the response contains expected fields
+    // Verify the response contains expected fields (use candidates_evaluated
+    // rather than solve_time to avoid flakiness on extremely fast runs).
     assert!(
-        response.diagnostics.solve_time.as_nanos() > 0,
-        "Solve time should be recorded"
+        response.diagnostics.candidates_evaluated > 0,
+        "Candidates should be evaluated"
     );
 }
 
