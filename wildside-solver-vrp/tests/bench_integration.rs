@@ -4,8 +4,8 @@
 //! travel time matrix, solver invocation) works correctly end-to-end.
 
 use rstest::rstest;
-use wildside_core::Solver;
 use wildside_core::test_support::{MemoryStore, TagScorer};
+use wildside_core::{SolveRequest, Solver};
 use wildside_solver_vrp::VrpSolver;
 use wildside_solver_vrp::test_support::FixedMatrixTravelTimeProvider;
 
@@ -18,6 +18,36 @@ use bench_support::{
     generate_travel_time_matrix,
 };
 
+/// Build a solver and request from the given parameters.
+///
+/// This helper encapsulates the common setup pattern used across integration tests:
+/// 1. Generate candidate POIs
+/// 2. Build the benchmark request
+/// 3. Create depot and combine with candidates
+/// 4. Generate travel time matrix
+/// 5. Create provider, store, and solver
+fn build_solver_and_request(
+    size: usize,
+    seed: u64,
+) -> (
+    VrpSolver<MemoryStore, FixedMatrixTravelTimeProvider, TagScorer>,
+    SolveRequest,
+) {
+    let candidate_pois = generate_clustered_pois(size, seed);
+    let request = build_benchmark_request(seed);
+
+    let depot = create_depot(request.start);
+    let mut all_pois = vec![depot];
+    all_pois.extend(candidate_pois.iter().cloned());
+
+    let matrix_durations = generate_travel_time_matrix(&all_pois, seed);
+    let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
+    let store = MemoryStore::with_pois(candidate_pois);
+    let solver = VrpSolver::new(store, provider, TagScorer);
+
+    (solver, request)
+}
+
 /// Validates that benchmark data generation produces solver-compatible inputs.
 ///
 /// This integration test exercises the full pipeline:
@@ -28,38 +58,14 @@ use bench_support::{
 /// 5. Call `solve()` and verify it returns a valid result
 #[rstest]
 fn benchmark_helpers_produce_solver_compatible_data() {
-    // Generate candidate POIs
-    let candidate_pois = generate_clustered_pois(50, BENCHMARK_SEED);
-
-    // Build the benchmark request
-    let request = build_benchmark_request(BENCHMARK_SEED);
-
-    // Create depot at start location and combine with candidates
-    let depot = create_depot(request.start);
-    let mut all_pois = vec![depot];
-    all_pois.extend(candidate_pois.iter().cloned());
-
-    // Generate travel time matrix for all POIs (depot + candidates)
-    let matrix_durations = generate_travel_time_matrix(&all_pois, BENCHMARK_SEED);
-
-    // Create the travel time provider
-    let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
-
-    // Create memory store with candidate POIs (not depot)
-    let store = MemoryStore::with_pois(candidate_pois);
-
-    // Instantiate the solver
-    let solver = VrpSolver::new(store, provider, TagScorer);
+    let (solver, request) = build_solver_and_request(50, BENCHMARK_SEED);
 
     // Solve and verify we get a valid result (Ok variant)
-    let result = solver.solve(&request);
-    assert!(
-        result.is_ok(),
-        "Solver should succeed with benchmark-generated data: {result:?}"
-    );
+    let response = solver
+        .solve(&request)
+        .expect("Solver should succeed with benchmark-generated data");
 
     // Verify the response contains expected fields
-    let response = result.expect("already checked is_ok");
     assert!(
         response.diagnostics.solve_time.as_nanos() > 0,
         "Solve time should be recorded"
@@ -72,17 +78,7 @@ fn benchmark_helpers_produce_solver_compatible_data() {
 #[case(50)]
 #[case(100)]
 fn benchmark_helpers_work_with_various_problem_sizes(#[case] size: usize) {
-    let candidate_pois = generate_clustered_pois(size, BENCHMARK_SEED);
-    let request = build_benchmark_request(BENCHMARK_SEED);
-
-    let depot = create_depot(request.start);
-    let mut all_pois = vec![depot];
-    all_pois.extend(candidate_pois.iter().cloned());
-
-    let matrix_durations = generate_travel_time_matrix(&all_pois, BENCHMARK_SEED);
-    let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
-    let store = MemoryStore::with_pois(candidate_pois);
-    let solver = VrpSolver::new(store, provider, TagScorer);
+    let (solver, request) = build_solver_and_request(size, BENCHMARK_SEED);
 
     let result = solver.solve(&request);
     assert!(
@@ -97,17 +93,7 @@ fn benchmark_helpers_work_with_various_problem_sizes(#[case] size: usize) {
 #[case(100)]
 #[case(999)]
 fn different_seeds_produce_valid_solver_inputs(#[case] seed: u64) {
-    let candidate_pois = generate_clustered_pois(20, seed);
-    let request = build_benchmark_request(seed);
-
-    let depot = create_depot(request.start);
-    let mut all_pois = vec![depot];
-    all_pois.extend(candidate_pois.iter().cloned());
-
-    let matrix_durations = generate_travel_time_matrix(&all_pois, seed);
-    let provider = FixedMatrixTravelTimeProvider::new(matrix_durations);
-    let store = MemoryStore::with_pois(candidate_pois);
-    let solver = VrpSolver::new(store, provider, TagScorer);
+    let (solver, request) = build_solver_and_request(20, seed);
 
     let result = solver.solve(&request);
     assert!(
