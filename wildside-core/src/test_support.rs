@@ -4,20 +4,24 @@
 //! - TagScorer for tag-based relevance scoring
 
 use geo::{Intersects, Rect};
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
+use std::path::Path;
 #[cfg(any(test, feature = "test-support"))]
-use std::{path::Path, str::FromStr, time::Duration};
+use std::{str::FromStr, time::Duration};
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
 use rusqlite::{Connection, Error as SqliteError};
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
 use serde_json::to_string;
 
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
+use crate::store::{SpatialIndexWriteError, write_spatial_index};
 use crate::{
     InterestProfile, PoiStore, PointOfInterest, TravelTimeError, TravelTimeMatrix,
     TravelTimeProvider,
 };
 #[cfg(any(test, feature = "test-support"))]
-use crate::{Scorer, Theme, store::SpatialIndexWriteError, store::write_spatial_index};
+use crate::{Scorer, Theme};
 
 /// In-memory `PoiStore` implementation used in tests.
 ///
@@ -61,7 +65,7 @@ impl PoiStore for MemoryStore {
 }
 
 /// Persist a SQLite database containing the provided POIs.
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
 pub fn write_sqlite_database(path: &Path, pois: &[PointOfInterest]) -> Result<(), rusqlite::Error> {
     let mut connection = Connection::open(path)?;
     let transaction = connection.transaction()?;
@@ -88,7 +92,7 @@ pub fn write_sqlite_database(path: &Path, pois: &[PointOfInterest]) -> Result<()
 }
 
 /// Write the persisted R\*-tree artefact for the provided POIs.
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(all(any(test, feature = "test-support"), feature = "store-sqlite"))]
 pub fn write_sqlite_spatial_index(
     path: &Path,
     pois: &[PointOfInterest],

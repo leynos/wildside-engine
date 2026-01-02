@@ -2383,9 +2383,9 @@ dependencies = [
 
 [[package]]
 name = "rstest-bdd"
-version = "0.2.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fcefde6aee6db6d70c149d48e17111e9e088a1ff71da92234e986a23fb4c134"
+checksum = "b7451d147800bd8b0b8621116a2c553b13408f2b7914a5b818eccaa37240ed9a"
 dependencies = [
  "ctor",
  "derive_more",
@@ -2407,9 +2407,9 @@ dependencies = [
 
 [[package]]
 name = "rstest-bdd-macros"
-version = "0.2.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225ddea765e1f1b6491aef744475f5feaea2b4070c29fea0482155b643c09ee0"
+checksum = "c58aca0e441b276f7e52a6fe1b9bb8c341004110f610e7dfda112578c0c18837"
 dependencies = [
  "camino",
  "cap-std",
@@ -2430,10 +2430,11 @@ dependencies = [
 
 [[package]]
 name = "rstest-bdd-patterns"
-version = "0.2.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7da2291923de0d5f83564b4e6c193c67722129180983f0b3f424dc7e0580c0c0"
+checksum = "59a52766aaee3793eec30ff351a5ebddba34dddab8500b18891cddece364a66d"
 dependencies = [
+ "gherkin",
  "regex",
  "thiserror 1.0.69",
 ]
@@ -3568,6 +3569,7 @@ dependencies = [
  "wildside-data",
  "wildside-fs",
  "wildside-scorer",
+ "wildside-solver-ortools",
  "wildside-solver-vrp",
 ]
 
@@ -3620,6 +3622,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wildside-engine"
+version = "0.1.0"
+dependencies = [
+ "wildside-core",
+ "wildside-solver-ortools",
+ "wildside-solver-vrp",
+]
+
+[[package]]
 name = "wildside-fs"
 version = "0.1.0"
 dependencies = [
@@ -3645,6 +3656,13 @@ dependencies = [
  "thiserror 1.0.69",
  "wildside-core",
  "wildside-fs",
+]
+
+[[package]]
+name = "wildside-solver-ortools"
+version = "0.1.0"
+dependencies = [
+ "wildside-core",
 ]
 
 [[package]]

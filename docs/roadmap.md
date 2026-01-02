@@ -178,9 +178,9 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 
 - **Implement Feature Flags**
 
-  - [ ] In the root `Cargo.toml`, define features like `solver-vrp`,
+  - [x] In the root `Cargo.toml`, define features like `solver-vrp`,
         `solver-ortools`, and `store-sqlite`.
-  - [ ] Forward feature flags from member crates using `[features]` and
+  - [x] Forward feature flags from member crates using `[features]` and
         `dep:`-scoped entries to ensure a single source of truth.
 
     ```toml
@@ -197,7 +197,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
     store-sqlite = ["dep:wildside-data", "wildside-data/sqlite"]
     ```
 
-  - [ ] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
+  - [x] Use `#[cfg(feature = "...")]` attributes to conditionally compile the
         different solver and store implementations.
 
 - **Finalize Licensing and Versioning**
@@ -210,7 +210,7 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 - **(Optional) Implement OR-Tools Solver**
 
   - [ ] Create a `wildside-solver-ortools` crate, conditionally compiled
-        via the `ortools` feature flag.
+        via the `solver-ortools` feature flag.
   - [ ] Add a dependency on a suitable OR-Tools wrapper crate.
   - [ ] Implement the `Solver` trait using the CP-SAT solver, mapping the
         Orienteering Problem to its constraint model.

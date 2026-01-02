@@ -1,6 +1,7 @@
 //! Test helpers for composing ingest CLI datasets and layered overrides.
 
 use super::*;
+#[cfg(feature = "store-sqlite")]
 use base64::{Engine as _, engine::general_purpose};
 use camino::{Utf8Path, Utf8PathBuf};
 use tempfile::TempDir;
@@ -16,6 +17,7 @@ pub(super) fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
         .expect("write file");
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn read_utf8(path: &Utf8Path) -> String {
     let (dir, file_name) = open_ambient_path(path);
     dir.read_to_string(file_name.as_str()).expect("read file")
@@ -130,10 +132,12 @@ fn extract_field<T: Clone>(
     layer.as_ref().and_then(|entry| accessor(entry).clone())
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn fixtures_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/tests/fixtures")
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn decode_pbf_fixture(dest_dir: &Utf8Path, stem: &str) -> Utf8PathBuf {
     let encoded_path = fixtures_dir().join(format!("{stem}.osm.pbf.b64"));
     let encoded = read_utf8(&encoded_path);
@@ -149,6 +153,7 @@ pub(super) fn decode_pbf_fixture(dest_dir: &Utf8Path, stem: &str) -> Utf8PathBuf
     output_path
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn write_wikidata_dump(dir: &Utf8Path) -> Utf8PathBuf {
     let dump_path = dir.join("wikidata.json");
     let payload = r#"[

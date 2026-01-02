@@ -918,16 +918,25 @@ The engine will be structured for robust dependency management and deployment.
   updates for consumers of the library. A `CHANGELOG.md` file will be
   maintained from the start.
 
-- **Feature Flags:** The engine will make judicious use of feature flags to
-  allow consumers to select only the components they need.
+- **Feature Flags:** The engine uses feature flags so consumers can select the
+  solver and store implementations they need, while keeping the default build
+  conservative and easy to ship.
 
-  - `default-features = ["solver-vrp", "sqlite-store"]`: The default build will
-    include the native Rust solver and the SQLite backend for data storage.
+  - `default-features = ["solver-vrp", "store-sqlite", "serde"]`: The default
+    build includes the native VRP solver, the SQLite POI store, and serde
+    support for request/response types.
 
-  - Optional features will include `ortools` (to enable the OR-Tools solver),
-    `rocksdb` (to enable the RocksDB backend), `serde-bincode` (for potentially
-    faster zero-copy caching), and `wasm` (to enable future compilation for
-    on-device scoring).
+  - `solver-vrp`: Enables the native Rust solver backed by `vrp-core` and is
+    preferred when multiple solver features are enabled.
+
+  - `solver-ortools`: Enables the optional OR-Tools solver backend. The current
+    implementation is a placeholder until CP-SAT integration lands.
+
+  - `store-sqlite`: Enables the SQLite-backed POI store and the spatial index
+    format used to load persisted artefacts.
+
+  - Future optional features may include `rocksdb`, `serde-bincode`, and `wasm`
+    once alternative stores or targets are implemented.
 
 ### 5.2. A Non-Negotiable Testing and Benchmarking Discipline
 

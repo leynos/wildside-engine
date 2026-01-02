@@ -1,16 +1,24 @@
 //! Command-line interface for Wildside's offline tooling.
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "store-sqlite")]
 use bzip2::read::MultiBzDecoder;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::{Parser, Subcommand};
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "store-sqlite")]
 use std::io::BufReader;
+#[cfg(feature = "store-sqlite")]
 use wildside_core::{PointOfInterest, store::write_spatial_index};
+use wildside_data::OsmIngestSummary;
+#[cfg(feature = "store-sqlite")]
 use wildside_data::wikidata::etl::{EntityClaims, PoiEntityLinks, extract_linked_entity_claims};
+#[cfg(feature = "store-sqlite")]
 use wildside_data::wikidata::store::persist_claims_to_path;
-use wildside_data::{OsmIngestSummary, ingest_osm_pbf_report, persist_pois_to_sqlite};
+#[cfg(feature = "store-sqlite")]
+use wildside_data::{ingest_osm_pbf_report, persist_pois_to_sqlite};
+#[cfg(feature = "store-sqlite")]
 use wildside_fs::open_utf8_file;
 
 mod error;
@@ -63,6 +71,7 @@ fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {
     Ok(config)
 }
 
+#[cfg(feature = "store-sqlite")]
 fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
     let pois_db = config.output_dir.join("pois.db");
     let spatial_index = config.output_dir.join("pois.rstar");
@@ -97,6 +106,15 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
     })
 }
 
+#[cfg(not(feature = "store-sqlite"))]
+fn execute_ingest(_config: &IngestConfig) -> Result<IngestOutcome, CliError> {
+    Err(CliError::MissingFeature {
+        feature: "store-sqlite",
+        action: "ingest",
+    })
+}
+
+#[cfg(feature = "store-sqlite")]
 fn ingest_wikidata_claims(
     config: &IngestConfig,
     pois: &[PointOfInterest],
@@ -109,6 +127,7 @@ fn ingest_wikidata_claims(
     extract_linked_entity_claims(reader, &links).map_err(CliError::from)
 }
 
+#[cfg(feature = "store-sqlite")]
 fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliError> {
     let file = open_utf8_file(path).map_err(|source| CliError::OpenWikidataDump {
         path: path.to_path_buf(),
@@ -121,6 +140,7 @@ fn open_wikidata_dump(path: &Utf8Path) -> Result<Box<dyn std::io::Read>, CliErro
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 fn is_bz2(path: &Utf8Path) -> bool {
     path.extension()
         .map(|ext| ext.eq_ignore_ascii_case("bz2"))

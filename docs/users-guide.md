@@ -69,12 +69,13 @@ panicking.[^6]
 The `PoiStore` trait abstracts read-only access to points of interest via
 bounding-box queries.[^7] Implementations must accept rectangles in longitude,
 latitude order (WGS84) and treat boundary points as contained. The default
-store is `SqlitePoiStore`, which opens two artefacts: a read-only SQLite
-database and a serialised R\*-tree. The loader verifies both files by reading a
-`WSPI` magic header, checking the format version (`2`), and ensuring that every
-indexed point exists in the database. Failing checks raise
-`SqlitePoiStoreError`, covering problems such as missing records, malformed
-JSON tag payloads, and I/O or SQLite errors.[^8]
+store is `SqlitePoiStore`, which is available when the `store-sqlite` feature
+is enabled. It opens two artefacts: a read-only SQLite database and a
+serialised R\*-tree. The loader verifies both files by reading a `WSPI` magic
+header, checking the format version (`2`), and ensuring that every indexed
+point exists in the database. Failing checks raise `SqlitePoiStoreError`,
+covering problems such as missing records, malformed JSON tag payloads, and I/O
+or SQLite errors.[^8]
 
 ## Travel-time providers
 

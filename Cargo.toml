@@ -1,3 +1,27 @@
+[package]
+name = "wildside-engine"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+wildside-core = { path = "wildside-core", default-features = false }
+wildside-solver-vrp = { workspace = true, optional = true }
+wildside-solver-ortools = { workspace = true, optional = true }
+
+[features]
+default = ["serde", "solver-vrp", "store-sqlite"]
+serde = ["wildside-core/serde"]
+solver-vrp = ["dep:wildside-solver-vrp"]
+solver-ortools = ["dep:wildside-solver-ortools"]
+store-sqlite = ["serde", "wildside-core/store-sqlite"]
+
+[lints]
+workspace = true
+
 [workspace]
 members = [
     "wildside-core",
@@ -6,6 +30,7 @@ members = [
     "wildside-fs",
     "wildside-scorer",
     "wildside-solver-vrp",
+    "wildside-solver-ortools",
 ]
 resolver = "2"
 
@@ -20,12 +45,13 @@ wildside-core = { path = "wildside-core" }
 wildside-data = { path = "wildside-data" }
 wildside-scorer = { path = "wildside-scorer" }
 wildside-solver-vrp = { path = "wildside-solver-vrp" }
+wildside-solver-ortools = { path = "wildside-solver-ortools" }
 geo = "0.31.0"
 log = "0.4.22"
 paste = "1"
 rstest = "0.26.1"
-rstest-bdd = "0.2.0"
-rstest-bdd-macros = "0.2.0"
+rstest-bdd = "0.3.0"
+rstest-bdd-macros = "0.3.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 vrp-core = "1.25.0"

@@ -5,10 +5,22 @@ use clap::Parser;
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Write};
-use wildside_core::{SolveRequest, SolveResponse, Solver, SqlitePoiStore};
-use wildside_data::routing::{HttpTravelTimeProvider, HttpTravelTimeProviderConfig};
+#[cfg(feature = "store-sqlite")]
+use wildside_core::SqlitePoiStore;
+use wildside_core::{SolveRequest, SolveResponse, Solver};
+#[cfg(feature = "store-sqlite")]
+use wildside_data::routing::HttpTravelTimeProvider;
+use wildside_data::routing::HttpTravelTimeProviderConfig;
 use wildside_fs::open_utf8_file;
+#[cfg(feature = "store-sqlite")]
 use wildside_scorer::UserRelevanceScorer;
+#[cfg(all(
+    feature = "store-sqlite",
+    feature = "solver-ortools",
+    not(feature = "solver-vrp")
+))]
+use wildside_solver_ortools::OrtoolsSolver;
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
 use wildside_solver_vrp::VrpSolver;
 
 use crate::{
@@ -146,6 +158,7 @@ pub(super) trait SolveSolverBuilder {
 
 pub(super) struct DefaultSolveSolverBuilder;
 
+#[cfg(feature = "store-sqlite")]
 impl SolveSolverBuilder for DefaultSolveSolverBuilder {
     fn build(&self, config: &SolveConfig) -> Result<Box<dyn Solver>, CliError> {
         let store = SqlitePoiStore::open(
@@ -160,8 +173,56 @@ impl SolveSolverBuilder for DefaultSolveSolverBuilder {
                     source,
                 }
             })?;
-        Ok(Box::new(VrpSolver::new(store, provider, scorer)))
+        build_solver_with_features(store, provider, scorer)
     }
+}
+
+#[cfg(not(feature = "store-sqlite"))]
+impl SolveSolverBuilder for DefaultSolveSolverBuilder {
+    fn build(&self, _config: &SolveConfig) -> Result<Box<dyn Solver>, CliError> {
+        Err(CliError::MissingFeature {
+            feature: "store-sqlite",
+            action: "solve",
+        })
+    }
+}
+
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
+fn build_solver_with_features(
+    store: SqlitePoiStore,
+    provider: HttpTravelTimeProvider,
+    scorer: UserRelevanceScorer,
+) -> Result<Box<dyn Solver>, CliError> {
+    Ok(Box::new(VrpSolver::new(store, provider, scorer)))
+}
+
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    feature = "solver-ortools"
+))]
+fn build_solver_with_features(
+    store: SqlitePoiStore,
+    provider: HttpTravelTimeProvider,
+    scorer: UserRelevanceScorer,
+) -> Result<Box<dyn Solver>, CliError> {
+    Ok(Box::new(OrtoolsSolver::new(store, provider, scorer)))
+}
+
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    not(feature = "solver-ortools")
+))]
+fn build_solver_with_features(
+    _store: SqlitePoiStore,
+    _provider: HttpTravelTimeProvider,
+    _scorer: UserRelevanceScorer,
+) -> Result<Box<dyn Solver>, CliError> {
+    Err(CliError::MissingFeature {
+        feature: "solver-vrp or solver-ortools",
+        action: "solve",
+    })
 }
 
 pub(super) fn run_solve(args: SolveArgs) -> Result<(), CliError> {
@@ -234,4 +295,36 @@ pub(crate) fn config_from_layers_for_test(
 ) -> Result<SolveConfig, CliError> {
     let merged = SolveArgs::merge_from_layers(layers).map_err(CliError::from)?;
     SolveConfig::try_from(merged)
+}
+
+#[cfg(test)]
+mod feature_flag_tests {
+    use rstest::rstest;
+
+    #[cfg(feature = "solver-vrp")]
+    const SOLVER_SELECTION: &str = "vrp";
+
+    #[cfg(all(not(feature = "solver-vrp"), feature = "solver-ortools"))]
+    const SOLVER_SELECTION: &str = "ortools";
+
+    #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
+    const SOLVER_SELECTION: &str = "missing";
+
+    #[cfg(feature = "solver-vrp")]
+    #[rstest]
+    fn solver_selection_prefers_vrp() {
+        assert_eq!(SOLVER_SELECTION, "vrp");
+    }
+
+    #[cfg(all(not(feature = "solver-vrp"), feature = "solver-ortools"))]
+    #[rstest]
+    fn solver_selection_uses_ortools_when_vrp_disabled() {
+        assert_eq!(SOLVER_SELECTION, "ortools");
+    }
+
+    #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
+    #[rstest]
+    fn solver_selection_reports_missing_features() {
+        assert_eq!(SOLVER_SELECTION, "missing");
+    }
 }

@@ -18,46 +18,66 @@ and disabled paths.
 
 ## Progress
 
-- [ ] (YYYY-MM-DD HH:MMZ) Review existing Cargo manifests and feature usage.
-- [ ] (YYYY-MM-DD HH:MMZ) Decide on the root package strategy and implement
+- [x] (2026-01-02 05:46Z) Review existing Cargo manifests and feature usage.
+- [x] (2026-01-02 05:46Z) Decide on the root package strategy and implement
   root feature definitions.
-- [ ] (YYYY-MM-DD HH:MMZ) Add or stub the `wildside-solver-ortools` crate so
+- [x] (2026-01-02 05:46Z) Add or stub the `wildside-solver-ortools` crate so
   `--all-features` succeeds.
-- [ ] (YYYY-MM-DD HH:MMZ) Gate the SQLite store in `wildside-core` behind a
+- [x] (2026-01-02 05:46Z) Gate the SQLite store in `wildside-core` behind a
   feature and adjust exports/tests.
-- [ ] (YYYY-MM-DD HH:MMZ) Gate solver and store wiring in `wildside-cli` and
+- [x] (2026-01-02 05:46Z) Gate solver and store wiring in `wildside-cli` and
   update errors.
-- [ ] (YYYY-MM-DD HH:MMZ) Add rstest unit tests and rstest-bdd behavioural
+- [x] (2026-01-02 05:46Z) Add rstest unit tests and rstest-bdd behavioural
   scenarios for feature combinations.
-- [ ] (YYYY-MM-DD HH:MMZ) Update design and testing docs and mark the roadmap
+- [x] (2026-01-02 05:46Z) Update design and testing docs and mark the roadmap
   item as done.
-- [ ] (YYYY-MM-DD HH:MMZ) Run `make check-fmt`, `make lint`, `make test` and
-  capture logs.
+- [x] (2026-01-02 07:20Z) Run `make check-fmt`, `make lint`, `make test`, plus
+  the `--no-default-features` CLI checks and capture logs.
 
 ## Surprises & Discoveries
 
-- Observation: None yet. Update this section when unexpected behaviour is
-  discovered.
-  Evidence: N/A.
+- Observation: `cargo new` failed after introducing a root package because the
+  root dependency tried to override `default-features` on a workspace
+  dependency. Evidence: Cargo reported that `default-features = false` cannot
+  override the workspace dependency definition.
 
 ## Decision Log
 
 - Decision: Treat the workspace root as a package so it can own the canonical
-  `solver-vrp`, `solver-ortools`, and `store-sqlite` features.
-  Rationale: Cargo features are package-scoped, and the requirement explicitly
-  calls for feature definitions in the root manifest.
-  Date/Author: 2026-01-02 / plan author.
+  `solver-vrp`, `solver-ortools`, and `store-sqlite` features. Rationale: Cargo
+  features are package-scoped, and the requirement explicitly calls for feature
+  definitions in the root manifest. Date/Author: 2026-01-02 / plan author.
+
+- Decision: Use a direct path dependency for `wildside-core` in the root
+  package to disable default features without conflicting with workspace
+  dependency definitions. Rationale: Workspace dependency inheritance forbids
+  overriding `default-features`. Date/Author: 2026-01-02 / plan author.
+
+- Decision: Gate the SQLite store and spatial index helpers behind the
+  `store-sqlite` feature in `wildside-core` rather than introducing a no-op
+  feature in `wildside-data`. Rationale: The SQLite store lives in
+  `wildside-core`; `wildside-data` still requires SQLite for ETL regardless of
+  store configuration. Date/Author: 2026-01-02 / plan author.
+
+- Decision: Prefer the VRP solver when both solver features are enabled and
+  ship a placeholder OR-Tools solver that returns `SolveError::InvalidRequest`.
+  Rationale: Maintains current behaviour while reserving the API surface for a
+  future OR-Tools integration. Date/Author: 2026-01-02 / plan author.
 
 ## Outcomes & Retrospective
 
-Pending. Update once the feature flags are implemented and validated.
+Feature flags now guard solver and store implementations across the workspace,
+including CLI behaviour for missing capabilities. Default builds preserve the
+VRP solver and SQLite store, while `--no-default-features` builds exercise the
+missing-feature paths. Tests and docs were updated accordingly, and the roadmap
+entry was marked done.
 
 ## Context and Orientation
 
-The workspace is defined in `Cargo.toml` with multiple crates:
-`wildside-core`, `wildside-data`, `wildside-scorer`, `wildside-solver-vrp`,
-`wildside-cli`, and `wildside-fs`. The root manifest is currently a virtual
-workspace, but `src/lib.rs` exists and can become the root package if needed.
+The workspace is defined in `Cargo.toml` with multiple crates: `wildside-core`,
+`wildside-data`, `wildside-scorer`, `wildside-solver-vrp`, `wildside-cli`, and
+`wildside-fs`. The root manifest is currently a virtual workspace, but
+`src/lib.rs` exists and can become the root package if needed.
 
 Solver wiring lives in `wildside-cli/src/solve.rs`, which currently depends on
 `wildside-solver-vrp` and `wildside-core::SqlitePoiStore` unconditionally.
@@ -74,11 +94,11 @@ roadmap item in `docs/roadmap.md` must be marked done after completion.
 
 ## Plan of Work
 
-First, inspect the manifests and decide how to host features in the root.
-Cargo only allows features on packages, so the most direct path is to add a
+First, inspect the manifests and decide how to host features in the root. Cargo
+only allows features on packages, so the most direct path is to add a
 `[package]` section to the root manifest and turn `src/lib.rs` into a small
-facade crate (for example `wildside-engine`) that re-exports the core types
-and conditionally re-exports solver and store implementations. Define optional
+facade crate (for example `wildside-engine`) that re-exports the core types and
+conditionally re-exports solver and store implementations. Define optional
 dependencies in the root manifest using `dep:` syntax and declare features
 `solver-vrp`, `solver-ortools`, and `store-sqlite`, with defaults matching the
 existing behaviour (likely solver-vrp plus store-sqlite). Ensure the feature
@@ -109,25 +129,23 @@ select the solver implementation in `wildside-cli/src/solve.rs` (a small
 factory module can keep the conditional code contained). Similarly, gate
 `SqlitePoiStore` usage on the store feature and introduce an explicit error
 variant in `wildside-cli/src/error.rs` for missing feature support, so the CLI
-fails gracefully when built without a required feature. Add feature
-forwarding in `wildside-cli/Cargo.toml` so its features map to the root
-features via `dep:` dependencies, keeping the root manifest as the source of
-truth.
+fails gracefully when built without a required feature. Add feature forwarding
+in `wildside-cli/Cargo.toml` so its features map to the root features via
+`dep:` dependencies, keeping the root manifest as the source of truth.
 
 Add tests for both happy and unhappy paths. Use `rstest` for unit-level tests
 that exercise solver/store selection, and `rstest-bdd` for behavioural tests
 that assert the user-visible errors when a feature is disabled. Because the
 feature combinations are compile-time, plan to run targeted test commands for
-specific feature sets (for example, `--no-default-features` with solver-only
-or store-only). Ensure all test modules and scenarios are guarded with the
-same `#[cfg(feature = "...")]` selectors so they only compile under the
-matching feature set.
+specific feature sets (for example, `--no-default-features` with solver-only or
+store-only). Ensure all test modules and scenarios are guarded with the same
+`#[cfg(feature = "...")]` selectors so they only compile under the matching
+feature set.
 
-Finally, record the feature flag decisions in
-`docs/wildside-engine-design.md`, update any testing notes affected by the
-rstest-bdd version bump, and mark the Phase 4 feature-flag entry in
-`docs/roadmap.md` as done. Run formatting, linting, and tests via the Makefile
-and keep logs for review.
+Finally, record the feature flag decisions in `docs/wildside-engine-design.md`,
+update any testing notes affected by the rstest-bdd version bump, and mark the
+Phase 4 feature-flag entry in `docs/roadmap.md` as done. Run formatting,
+linting, and tests via the Makefile and keep logs for review.
 
 ## Concrete Steps
 
@@ -172,14 +190,13 @@ The change is acceptable when all of the following are true:
 - Behavioural tests written with `rstest-bdd` v0.3.0 cover both a successful
   solver/store path and at least one missing-feature path.
 - `docs/wildside-engine-design.md` documents the new feature flags and default
-  behaviour, and `docs/roadmap.md` marks the Phase 4 feature flag entry as
-  done.
+  behaviour, and `docs/roadmap.md` marks the Phase 4 feature flag entry as done.
 
 ## Idempotence and Recovery
 
 All steps are repeatable. If a feature-gated module fails to compile, confirm
-that the module is behind the intended `#[cfg(feature = "...")]` guard and
-that its dependencies are marked `optional = true` with feature activation via
+that the module is behind the intended `#[cfg(feature = "...")]` guard and that
+its dependencies are marked `optional = true` with feature activation via
 `dep:`. If a test run fails, re-run the specific feature-set command after the
 fix; the commands above are safe to repeat.
 
@@ -208,9 +225,11 @@ The root package should expose, at minimum:
 
 `wildside-core` must compile without `store-sqlite`, and only expose
 `SqlitePoiStore` and its errors when the feature is enabled. `wildside-cli`
-should compile under any feature combination, returning a dedicated
-`CliError` when a solver or store feature is missing.
+should compile under any feature combination, returning a dedicated `CliError`
+when a solver or store feature is missing.
 
 ## Revision note
 
-Initial plan authored to cover Phase 4 feature flags and testing.
+Updated progress, recorded the workspace dependency surprise, and logged the
+feature-gating decisions. Remaining work is the full formatting, linting, and
+test validation cycle plus any fixes they uncover.

@@ -6,6 +6,8 @@
 
 use super::*;
 
+mod feature_flag_steps;
+mod feature_flags;
 mod helpers;
 mod pipeline;
 mod pipeline_steps;
