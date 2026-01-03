@@ -193,14 +193,12 @@ fn load_pois_chunk(
 mod tests {
     use super::*;
     use crate::Tags;
-    use crate::store::spatial_index::{
-        SPATIAL_INDEX_MAGIC, SPATIAL_INDEX_VERSION, SpatialIndexFile,
-    };
+    use crate::store::spatial_index::{SPATIAL_INDEX_MAGIC, SPATIAL_INDEX_VERSION};
     use crate::test_support::{write_sqlite_database, write_sqlite_spatial_index};
     use bincode::serialize_into;
     use geo::Coord;
     use rstest::{fixture, rstest};
-    use std::{fs::File, path::PathBuf};
+    use std::{fs::File, io::Write, path::PathBuf};
     use tempfile::TempDir;
 
     fn poi(id: u64, x: f64, y: f64, name: &str) -> PointOfInterest {
@@ -315,12 +313,12 @@ mod tests {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
         {
             let mut file = File::create(&index_path).expect("create index file");
-            let payload = SpatialIndexFile {
-                magic: SPATIAL_INDEX_MAGIC,
-                version: SPATIAL_INDEX_VERSION + 1,
-                entries: Vec::new(),
-            };
-            serialize_into(&mut file, &payload).expect("write unsupported payload");
+            file.write_all(&SPATIAL_INDEX_MAGIC)
+                .expect("write magic header");
+            file.write_all(&(SPATIAL_INDEX_VERSION + 1).to_le_bytes())
+                .expect("write version");
+            serialize_into(&mut file, &Vec::<PointOfInterest>::new())
+                .expect("write unsupported payload");
         }
 
         let error = SqlitePoiStore::open(&db_path, &index_path)

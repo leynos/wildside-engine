@@ -59,8 +59,8 @@ and disabled paths.
   `wildside-core`; `wildside-data` still requires SQLite for ETL regardless of
   store configuration. Date/Author: 2026-01-02 / plan author.
 
-- Decision: Prefer the VRP solver when both solver features are enabled and
-  ship a placeholder OR-Tools solver that returns `SolveError::InvalidRequest`.
+- Decision: Prefer the VRP solver when both solver features are enabled, and
+  ship a placeholder OR-Tools solver that returns `SolveError::NotImplemented`.
   Rationale: Maintains current behaviour while reserving the API surface for a
   future OR-Tools integration. Date/Author: 2026-01-02 / plan author.
 
@@ -81,8 +81,8 @@ The workspace is defined in `Cargo.toml` with multiple crates: `wildside-core`,
 
 Solver wiring lives in `wildside-cli/src/solve.rs`, which currently depends on
 `wildside-solver-vrp` and `wildside-core::SqlitePoiStore` unconditionally.
-SQLite store logic is implemented in `wildside-core/src/store.rs` and re-
-exported from `wildside-core/src/lib.rs`. The roadmap requirement calls for
+SQLite store logic is implemented in `wildside-core/src/store.rs` and
+re-exported from `wildside-core/src/lib.rs`. The roadmap requirement calls for
 feature flags named `solver-vrp`, `solver-ortools`, and `store-sqlite`, with
 conditional compilation via `#[cfg(feature = "...")]`.
 
@@ -107,7 +107,7 @@ names align with the roadmap and update `Cargo.lock` as required.
 Next, ensure the solver-ortools feature can compile under
 `cargo clippy --all-features`. If no OR-Tools solver exists yet, add a minimal
 `wildside-solver-ortools` crate (library only) that implements `Solver` with a
-clear placeholder behaviour (for example returning `SolveError::InvalidRequest`
+clear placeholder behaviour (for example returning `SolveError::NotImplemented`
 with a documented rationale). Add module-level documentation and keep the
 implementation trivial but lint-clean. Add the new crate to the workspace
 members so `--all-features` resolves it.

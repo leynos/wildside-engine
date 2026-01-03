@@ -45,6 +45,6 @@ where
     C: Scorer + Send + Sync,
 {
     fn solve(&self, _request: &SolveRequest) -> Result<SolveResponse, SolveError> {
-        Err(SolveError::InvalidRequest)
+        Err(SolveError::NotImplemented)
     }
 }

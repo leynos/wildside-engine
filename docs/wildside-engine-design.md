@@ -1,7 +1,8 @@
 # A Technical Implementation Blueprint for the Wildside Recommendation Engine in Rust
 
 This design document is split into focused sections to keep each file under the
-400-line guideline. Start with the introduction and proceed sequentially.
+400-line guideline, improving readability and keeping reviews focused. Start
+with the introduction and proceed sequentially.
 
 ## Sections
 

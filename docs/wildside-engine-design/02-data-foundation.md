@@ -35,15 +35,15 @@ for this purpose, which is an essential feature for efficiently processing the
 country- or continent-sized PBF files that a service like Wildside would need
 to ingest.2 From a legal standpoint,
 
-`osmpbf` is dual-licensed under the Apache-2.0 and MIT licenses, which are
-standard, permissive licenses suitable for commercial software development.2
+`osmpbf` is dual-licensed under the Apache-2.0 and MIT licences, which are
+standard, permissive licences suitable for commercial software development.2
 
 Candidate 2: osmpbfreader
 
 The osmpbfreader crate is another popular and effective library for this task,
 with a track record of strong performance on large datasets.3 However, its
 licensing presents a challenge. The crate is licensed under the "Do What The
-Fuck You Want To Public License, Version 2" (WTFPLv2).3 While extremely
+Fuck You Want To Public Licence, Version 2" (WTFPLv2).3 While extremely
 permissive in spirit, its unconventional wording can be a point of friction for
 corporate legal review.
 
@@ -55,10 +55,10 @@ process.
 
 ### Table 1: Comparative Analysis of OSM PBF Parser Crates
 
-| Crate Name   | Primary License  | Key Technical Features                                                                              | Maintenance Status     | Suitability for Wildside                                                                                                                                                                             |
+| Crate Name   | Primary Licence  | Key Technical Features                                                                              | Maintenance Status     | Suitability for Wildside                                                                                                                                                                             |
 | ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | osmpbf       | MIT / Apache-2.0 | High-performance parallel processing (par_map_reduce), lazy decoding, clear API for PBF hierarchy.2 | Updated 5 months ago.4 | Highly Recommended. The combination of industry-standard permissive licensing and explicit support for parallelism makes it the ideal choice for a robust, commercial-grade data ingestion pipeline. |
-| osmpbfreader | WTFPLv2          | Proven performance on large files, support for resolving object dependencies.                       | Updated 2 months ago.  | Not Recommended. The WTFPLv2 license introduces unnecessary legal risk for a commercial project. While technically capable, the licensing issue is a critical blocker.                               |
+| osmpbfreader | WTFPLv2          | Proven performance on large files, support for resolving object dependencies.                       | Updated 2 months ago.  | Not Recommended. The WTFPLv2 licence introduces unnecessary legal risk for a commercial project. While technically capable, the licensing issue is a critical blocker.                               |
 
 **Final Recommendation:** The `osmpbf` crate is the unequivocally recommended
 library. Its combination of industry-standard permissive licensing and
@@ -69,7 +69,7 @@ responsible foundation for the Wildside OSM data ingestion pipeline.
 
 The initial ingestion surface now lives in the `wildside-data` crate. The
 `ingest_osm_pbf` function wraps `osmpbf::ElementReader::par_map_reduce` to
-count nodes, ways and relations while computing a `geo::Rect` bounding box for
+count nodes, ways, and relations while computing a `geo::Rect` bounding box for
 all node coordinates. The summary aggregates results from each blob in
 parallel, providing deterministic totals that are safe to merge across threads.
 The ingestion surface now exposes an `OsmIngestReport` layered atop the
@@ -85,7 +85,7 @@ invalid are skipped to prevent ghost POIs.
 A parallel scan records unresolved way nodes before a sequential follow-up
 hydrates only the coordinates still missing, keeping memory usage bounded by
 the relevant geometry. Identifiers left unresolved after both passes emit
-warnings so operators can investigate fixture gaps early.
+warnings, so operators can investigate fixture gaps early.
 
 ## 1.2. Semantic Enrichment: Strategies for Interfacing with Wikidata
 
@@ -98,15 +98,13 @@ detailed technical design for this ETL lives in
 
 This approach involves periodically downloading the complete Wikidata JSON dump
 and loading it into a local, indexed database. A fast, parallel parser is
-essential. The `wikidata-rust` crate is a purpose-built tool for this task.5
-For storage, the
-
-`wd2sql` tool provides an excellent template: it uses `simd-json` for
-high-speed parsing and loads the data into a queryable SQLite database. This
-strategy can be replicated or adapted, potentially using a higher-performance
-key-value store like RocksDB (for which Rust has mature bindings such as
-`librocksdb-sys`) to create custom indices tailored specifically to the
-properties required for POI scoring.
+essential. The `wikidata-rust` crate is a purpose-built tool for this task.5.
+For storage, the `wd2sql` tool provides an excellent template: it uses
+`simd-json` for high-speed parsing and loads the data into a queryable SQLite
+database. This strategy can be replicated or adapted, potentially using a
+higher-performance key-value store like RocksDB (for which Rust has mature
+bindings such as `librocksdb-sys`) to create custom indices tailored
+specifically to the properties required for POI scoring.
 
 The primary advantage of this approach is extremely low query latency, as all
 lookups happen against a local database. It enables complex, pre-calculated
@@ -122,7 +120,7 @@ auditing the upstream dump artefact. The `wildside-data` crate now exposes a
 `wikidata::dump` module that encapsulates three responsibilities:
 
 - **HTTP transport:** `HttpDumpSource` wraps the asynchronous `reqwest`
-  client, issues requests on the Tokio runtime, and always sends a descriptive
+  client, issues requests for the Tokio runtime, and always sends a descriptive
   `User-Agent` string. Responses stream through `tokio-util`'s `SyncIoBridge`,
   letting the downloader parse `dumpstatus.json` and copy the archive without
   materializing the payload in memory while still surfacing network faults as
@@ -152,7 +150,7 @@ the downstream parsing stages are implemented.
 
 The second increment introduces a streaming parser that connects the Wikidata
 dump to the POIs discovered during OSM ingestion. The `PoiEntityLinks`
-structure scans the ingested POIs, normalizes `wikidata=*` tag values (handling
+structure scans the ingested POIs, normalises `wikidata=*` tag values (handling
 common variants such as full URLs), and records the mapping from Wikidata
 entity identifiers to OSM ids. The parser accepts any `Read` implementation and
 wraps it in a `BufReader` so the huge JSON dump is never materialized in
@@ -188,7 +186,7 @@ sequenceDiagram
         BufReader-->>extract_linked_entity_claims: Line data or EOF
 
         alt Line read successfully
-            extract_linked_entity_claims->>JSONParser: Deserialise JSON
+            extract_linked_entity_claims->>JSONParser: Deserialize JSON
             alt JSON valid
                 JSONParser-->>extract_linked_entity_claims: RawEntity
                 extract_linked_entity_claims->>PoiEntityLinks: Check entity exists in links
@@ -216,7 +214,7 @@ sequenceDiagram
 ### 1.2.3. SQLite schema for Wikidata claims
 
 The extracted claims are stored in the shared `pois.db` database via the
-`wildside_data::wikidata::store` module. Schema initialisation is handled by
+`wildside_data::wikidata::store` module. Schema initialization is handled by
 the `initialise_schema` function, which enables foreign keys and creates a
 compact set of normalised tables:
 
@@ -229,7 +227,7 @@ compact set of normalised tables:
 
 Indexes on `poi_wikidata_links(entity_id, poi_id)` and
 `wikidata_entity_claims(property_id, value_entity_id, entity_id)` keep POI and
-property lookups fast. A view named `poi_wikidata_claims` joins both tables so
+property lookups fast. A view named `poi_wikidata_claims` joins both tables, so
 the scoring pipeline can resolve a POI's claims without handwritten joins. A
 `wikidata_schema_version` table records the schema version (`1` initially) so
 future migrations can detect outdated installations. Claim persistence performs

@@ -6,6 +6,7 @@ BUILD_JOBS ?=
 CLIPPY_FLAGS ?= --workspace --all-targets --all-features -- -D warnings
 MDLINT ?= markdownlint
 NIXIE ?= nixie
+TEST_FLAGS ?=
 
 build: target/debug/$(APP) ## Build debug binary
 release: target/release/$(APP) ## Build release binary
@@ -16,7 +17,7 @@ clean: ## Remove build artifacts
 	$(CARGO) clean
 
 test: ## Run tests with warnings treated as errors
-	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(BUILD_JOBS)
+	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
 bench: ## Run performance benchmarks
 	$(CARGO) bench --package wildside-solver-vrp

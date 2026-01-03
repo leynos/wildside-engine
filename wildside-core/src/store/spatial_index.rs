@@ -5,12 +5,11 @@
 
 use std::{
     fs::File,
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
 use bincode::{deserialize_from, serialize_into};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::PointOfInterest;
@@ -20,14 +19,6 @@ pub(crate) const SPATIAL_INDEX_MAGIC: [u8; 4] = *b"WSPI";
 
 /// Supported version of the persisted spatial index format.
 pub(crate) const SPATIAL_INDEX_VERSION: u16 = 2;
-
-/// Payload stored after the spatial index header.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SpatialIndexFile {
-    pub(crate) magic: [u8; 4],
-    pub(crate) version: u16,
-    pub(crate) entries: Vec<PointOfInterest>,
-}
 
 /// Error emitted when loading or validating the persisted spatial index.
 #[derive(Debug, Error)]
@@ -112,12 +103,18 @@ pub(crate) fn write_index(
         path: path.to_path_buf(),
         source,
     })?;
-    let payload = SpatialIndexFile {
-        magic: SPATIAL_INDEX_MAGIC,
-        version: SPATIAL_INDEX_VERSION,
-        entries: entries.to_vec(),
-    };
-    serialize_into(&mut file, &payload).map_err(|source| SpatialIndexWriteError::Encode {
+
+    file.write_all(&SPATIAL_INDEX_MAGIC)
+        .map_err(|source| SpatialIndexWriteError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    file.write_all(&SPATIAL_INDEX_VERSION.to_le_bytes())
+        .map_err(|source| SpatialIndexWriteError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    serialize_into(&mut file, entries).map_err(|source| SpatialIndexWriteError::Encode {
         path: path.to_path_buf(),
         source,
     })?;
@@ -175,7 +172,11 @@ mod tests {
     use bincode::{deserialize_from, serialize_into};
     use geo::Coord;
     use rstest::{fixture, rstest};
-    use std::{fs::File, io::Write, path::PathBuf};
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        path::PathBuf,
+    };
     use tempfile::TempDir;
 
     fn poi(id: u64, x: f64, y: f64, name: &str) -> PointOfInterest {
@@ -287,10 +288,14 @@ mod tests {
     ) {
         write_index(&index_path, &sample_pois).expect("persist index");
         let mut file = File::open(&index_path).expect("open index");
-        let payload: SpatialIndexFile = deserialize_from(&mut file).expect("decode payload");
+        let mut magic = [0_u8; 4];
+        file.read_exact(&mut magic).expect("read magic");
+        assert_eq!(magic, SPATIAL_INDEX_MAGIC);
+        let mut version_bytes = [0_u8; 2];
+        file.read_exact(&mut version_bytes).expect("read version");
+        assert_eq!(u16::from_le_bytes(version_bytes), SPATIAL_INDEX_VERSION);
+        let payload: Vec<PointOfInterest> = deserialize_from(&mut file).expect("decode payload");
 
-        assert_eq!(payload.magic, SPATIAL_INDEX_MAGIC);
-        assert_eq!(payload.version, SPATIAL_INDEX_VERSION);
-        assert_eq!(payload.entries, sample_pois);
+        assert_eq!(payload, sample_pois);
     }
 }

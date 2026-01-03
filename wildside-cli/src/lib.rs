@@ -61,8 +61,19 @@ pub fn run() -> Result<(), CliError> {
 }
 
 fn run_ingest(args: IngestArgs) -> Result<IngestOutcome, CliError> {
-    let config = resolve_ingest_config(args)?;
-    execute_ingest(&config)
+    #[cfg(not(feature = "store-sqlite"))]
+    {
+        let _ = args;
+        return Err(CliError::MissingFeature {
+            feature: "store-sqlite",
+            action: "ingest",
+        });
+    }
+    #[cfg(feature = "store-sqlite")]
+    {
+        let config = resolve_ingest_config(args)?;
+        execute_ingest(&config)
+    }
 }
 
 fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {

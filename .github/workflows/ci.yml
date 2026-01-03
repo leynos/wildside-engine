@@ -65,3 +65,42 @@ jobs:
           which mmdc
           mmdc --version
           bun --version
+
+  feature-matrix:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: default-features
+            test_flags: ""
+          - name: no-default-features
+            test_flags: "--no-default-features"
+          - name: all-features
+            test_flags: "--all-features"
+          - name: solver-vrp-only
+            test_flags: "--no-default-features --features solver-vrp"
+          - name: solver-ortools-only
+            test_flags: "--no-default-features --features solver-ortools"
+          - name: store-sqlite-only
+            test_flags: "--no-default-features --features store-sqlite"
+          - name: solvers-only
+            test_flags: "--no-default-features --features solver-vrp,solver-ortools"
+          - name: solver-ortools-and-store
+            test_flags: "--no-default-features --features solver-ortools,store-sqlite"
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-06-26
+          components: rustfmt, clippy, llvm-tools-preview
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
+        with:
+          tool: cargo-nextest
+      - name: Test (${{ matrix.name }})
+        run: make test
+        env:
+          TEST_FLAGS: ${{ matrix.test_flags }}

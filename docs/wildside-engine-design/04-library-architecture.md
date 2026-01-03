@@ -35,7 +35,7 @@ clear boundaries while allowing for atomic changes across crates when necessary.
     data access), `TravelTimeProvider` (for distance calculations), `Scorer`,
     and `Solver`.
 
-  - This crate is deterministic and side-effect free, making it easy to test
+  - This crate is deterministic and side effect free, making it easy to test
     rigorously with property-based testing and fuzzing.
 
 - `wildside-data`: Contains the ETL logic and data adapters.
@@ -161,7 +161,7 @@ The `wildside` CLI now wires these stages together: the `ingest` command
 validates input paths, streams the PBF to derive POIs, writes `pois.db`
 (creating parent directories when required), extracts linked claims from plain
 JSON or `.bz2` Wikidata dumps, and serializes the R\*-tree to `pois.rstar`.
-When no POIs carry a `wikidata` tag, the ETL is skipped but the claims schema
+When no POIs carry a `wikidata` tag, the ETL is skipped, but the claims schema
 is still initialized to keep artefact shapes stable. Output paths default to
 the current working directory and can be overridden via `--output-dir`.
 Filesystem access during these steps relies on `cap-std`'s `fs_utf8` module and
@@ -179,7 +179,7 @@ error with expected vs found MAJOR.MINOR on mismatch.
 
 - **Online Path:** The core engine library, when used by the web app, interacts
   *only* with these read-only artefacts. This design choice means the engine
-  itself is side-effect free during a request. It allows application instances
+  itself is side effect free during a request. It allows application instances
   to be scaled horizontally without needing complex shared state or writeable
   database connections, dramatically simplifying deployment and improving
   robustness.

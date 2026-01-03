@@ -28,6 +28,42 @@ use crate::{
     ARG_SOLVE_REQUEST, ARG_SOLVE_SPATIAL_INDEX, CliError, ENV_SOLVE_REQUEST,
 };
 
+#[cfg(test)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum SelectedSolverKind {
+    Vrp,
+    Ortools,
+    Missing,
+}
+
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
+type SelectedSolver = VrpSolver<SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer>;
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp", test))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Vrp;
+
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    feature = "solver-ortools"
+))]
+type SelectedSolver = OrtoolsSolver<SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer>;
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    feature = "solver-ortools",
+    test
+))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Ortools;
+
+#[cfg(all(
+    test,
+    any(
+        not(feature = "store-sqlite"),
+        all(not(feature = "solver-vrp"), not(feature = "solver-ortools"))
+    )
+))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Missing;
+
 /// CLI arguments for the `solve` subcommand.
 #[derive(Debug, Clone, Parser, Deserialize, Serialize, OrthoConfig, Default)]
 #[command(
@@ -158,9 +194,22 @@ pub(super) trait SolveSolverBuilder {
 
 pub(super) struct DefaultSolveSolverBuilder;
 
-#[cfg(feature = "store-sqlite")]
 impl SolveSolverBuilder for DefaultSolveSolverBuilder {
     fn build(&self, config: &SolveConfig) -> Result<Box<dyn Solver>, CliError> {
+        let deps = make_store_and_deps(config)?;
+        build_solver_with_features(deps)
+    }
+}
+
+#[cfg(feature = "store-sqlite")]
+type StoreDependencies = (SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer);
+
+#[cfg(not(feature = "store-sqlite"))]
+type StoreDependencies = ();
+
+fn make_store_and_deps(config: &SolveConfig) -> Result<StoreDependencies, CliError> {
+    #[cfg(feature = "store-sqlite")]
+    {
         let store = SqlitePoiStore::open(
             config.pois_db.as_std_path(),
             config.spatial_index.as_std_path(),
@@ -173,13 +222,11 @@ impl SolveSolverBuilder for DefaultSolveSolverBuilder {
                     source,
                 }
             })?;
-        build_solver_with_features(store, provider, scorer)
+        Ok((store, provider, scorer))
     }
-}
-
-#[cfg(not(feature = "store-sqlite"))]
-impl SolveSolverBuilder for DefaultSolveSolverBuilder {
-    fn build(&self, _config: &SolveConfig) -> Result<Box<dyn Solver>, CliError> {
+    #[cfg(not(feature = "store-sqlite"))]
+    {
+        let _ = config;
         Err(CliError::MissingFeature {
             feature: "store-sqlite",
             action: "solve",
@@ -187,42 +234,31 @@ impl SolveSolverBuilder for DefaultSolveSolverBuilder {
     }
 }
 
-#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
-fn build_solver_with_features(
-    store: SqlitePoiStore,
-    provider: HttpTravelTimeProvider,
-    scorer: UserRelevanceScorer,
-) -> Result<Box<dyn Solver>, CliError> {
-    Ok(Box::new(VrpSolver::new(store, provider, scorer)))
-}
-
-#[cfg(all(
-    feature = "store-sqlite",
-    not(feature = "solver-vrp"),
-    feature = "solver-ortools"
-))]
-fn build_solver_with_features(
-    store: SqlitePoiStore,
-    provider: HttpTravelTimeProvider,
-    scorer: UserRelevanceScorer,
-) -> Result<Box<dyn Solver>, CliError> {
-    Ok(Box::new(OrtoolsSolver::new(store, provider, scorer)))
-}
-
-#[cfg(all(
-    feature = "store-sqlite",
-    not(feature = "solver-vrp"),
-    not(feature = "solver-ortools")
-))]
-fn build_solver_with_features(
-    _store: SqlitePoiStore,
-    _provider: HttpTravelTimeProvider,
-    _scorer: UserRelevanceScorer,
-) -> Result<Box<dyn Solver>, CliError> {
-    Err(CliError::MissingFeature {
-        feature: "solver-vrp or solver-ortools",
-        action: "solve",
-    })
+fn build_solver_with_features(deps: StoreDependencies) -> Result<Box<dyn Solver>, CliError> {
+    #[cfg(feature = "store-sqlite")]
+    {
+        let (store, provider, scorer) = deps;
+        #[cfg(any(feature = "solver-vrp", feature = "solver-ortools"))]
+        {
+            Ok(Box::new(SelectedSolver::new(store, provider, scorer)))
+        }
+        #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
+        {
+            let _ = (store, provider, scorer);
+            Err(CliError::MissingFeature {
+                feature: "solver-vrp or solver-ortools",
+                action: "solve",
+            })
+        }
+    }
+    #[cfg(not(feature = "store-sqlite"))]
+    {
+        let _ = deps;
+        Err(CliError::MissingFeature {
+            feature: "store-sqlite",
+            action: "solve",
+        })
+    }
 }
 
 pub(super) fn run_solve(args: SolveArgs) -> Result<(), CliError> {
@@ -299,32 +335,19 @@ pub(crate) fn config_from_layers_for_test(
 
 #[cfg(test)]
 mod feature_flag_tests {
+    use super::{SELECTED_SOLVER_KIND, SelectedSolverKind};
     use rstest::rstest;
 
-    #[cfg(feature = "solver-vrp")]
-    const SOLVER_SELECTION: &str = "vrp";
-
-    #[cfg(all(not(feature = "solver-vrp"), feature = "solver-ortools"))]
-    const SOLVER_SELECTION: &str = "ortools";
-
-    #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
-    const SOLVER_SELECTION: &str = "missing";
-
-    #[cfg(feature = "solver-vrp")]
     #[rstest]
-    fn solver_selection_prefers_vrp() {
-        assert_eq!(SOLVER_SELECTION, "vrp");
-    }
+    fn solver_selection_matches_features() {
+        let expected = if cfg!(feature = "store-sqlite") && cfg!(feature = "solver-vrp") {
+            SelectedSolverKind::Vrp
+        } else if cfg!(feature = "store-sqlite") && cfg!(feature = "solver-ortools") {
+            SelectedSolverKind::Ortools
+        } else {
+            SelectedSolverKind::Missing
+        };
 
-    #[cfg(all(not(feature = "solver-vrp"), feature = "solver-ortools"))]
-    #[rstest]
-    fn solver_selection_uses_ortools_when_vrp_disabled() {
-        assert_eq!(SOLVER_SELECTION, "ortools");
-    }
-
-    #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
-    #[rstest]
-    fn solver_selection_reports_missing_features() {
-        assert_eq!(SOLVER_SELECTION, "missing");
+        assert_eq!(SELECTED_SOLVER_KIND, expected);
     }
 }

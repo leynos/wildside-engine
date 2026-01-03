@@ -14,7 +14,7 @@ well-founded. Rust's emphasis on performance, memory safety, and concurrency
 makes it an ideal candidate for a system that is both data-intensive and
 computationally demanding.1 The core tasks of parsing massive binary data
 files, executing complex scoring algorithms, and solving NP-hard optimization
-problems all align with the language's strengths.
+problems all align with the Rust ecosystem's strengths.
 
 This report is structured to follow the logical data flow of the Wildside
 engine. It begins with the foundational layer of data ingestion, evaluating
@@ -63,7 +63,7 @@ providing a stable vocabulary across crates.
   version (currently `2`), followed by a `bincode` payload of
   [`PointOfInterest`](../../wildside-core/src/poi.rs) structs. Version 2 stores
   the full POI records (id, `geo::Coord`, and tag map) directly in the R\*-tree
-  so lookups can avoid secondary hash-map probes. During start-up the store
+  so lookups can avoid secondary hash-map probes. During start-up, the store
   reads these entries, validates them against SQLite in batches, and bulk-loads
   an in-memory `RTree<PointOfInterest>`. Bounding-box queries clone matching
   entries from the tree, avoiding additional database round-trips.
@@ -117,7 +117,6 @@ classDiagram
         +with_empty_tags(id: u64, location: Coord)
     }
     PointOfInterest ..|> RTreeObject
-    RTreeObject <|.. PointOfInterest
     class RTreeObject {
         +envelope() Envelope
     }
@@ -134,7 +133,6 @@ classDiagram
         +query_within(minimum: Coord, maximum: Coord) Vec<PointOfInterest>
     }
     SpatialIndex --> RTree
-    PointOfInterest --> SpatialIndex
     class build_spatial_index {
         +build_spatial_index(pois: IntoIterator<PointOfInterest>) SpatialIndex
     }
@@ -145,13 +143,13 @@ classDiagram
 These definitions form the backbone of the recommendation engine; higher level
 components such as scorers and solvers operate exclusively on these types.
 
-At runtime the `SqlitePoiStore` provides the fast-path for spatial lookups. The
-R\*-tree owns full `PointOfInterest` values, so query responses can be produced
-without re-querying SQLite. Start-up still validates every referenced id in
-manageable batches, hydrating rows only to surface missing entries or malformed
-tag payloads. Once validation succeeds the database connection is released, and
-bounding-box queries clone matching POIs directly from the tree, guaranteeing a
-stable response order.
+At runtime, the `SqlitePoiStore` provides the fast-path for spatial lookups.
+The R\*-tree owns full `PointOfInterest` values, so query responses can be
+produced without re-querying SQLite. Start-up still validates every referenced
+id in manageable batches, hydrating rows only to surface missing entries or
+malformed tag payloads. Once validation succeeds, the database connection is
+released, and bounding-box queries clone matching POIs directly from the tree,
+guaranteeing a stable response order.
 
 ```mermaid
 sequenceDiagram
@@ -171,8 +169,8 @@ sequenceDiagram
   Note over Store,RTree: Errors surfaced as SpatialIndexError via SqlitePoiStoreError::SpatialIndex
 ```
 
-The following sequence diagram shows how the application queries the SQLite POI
-store which uses an R-tree to locate points within a bounding box.
+The following sequence diagram, in turn, shows how the application queries the
+SQLite POI store, which uses an R-tree to locate points within a bounding box.
 
 ```mermaid
 sequenceDiagram

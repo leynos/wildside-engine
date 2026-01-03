@@ -1,4 +1,4 @@
-# Section 4: The Solver Implementation - Abstracted and Replaceable
+# Section 4: The Solver Implementation — Abstracted and Replaceable
 
 This section addresses the most computationally intensive component of the
 Wildside engine: solving the Orienteering Problem (OP). The library-first
@@ -15,7 +15,7 @@ object-safe and keeps the solver synchronous for embeddability. Implementations
 must be `Send + Sync` so solvers can run on threaded callers. They should call
 `request.validate()` (or enforce the same invariants) so that zero-duration
 requests and non-finite start coordinates yield `SolveError::InvalidRequest`.
-Implementations must avoid shared mutable state or use proper synchronisation
+Implementations must avoid shared mutable state or use proper synchronization
 to maintain thread safety. This abstraction is the key to making the engine
 flexible and future-proof.
 
@@ -64,8 +64,8 @@ pragmatic choices:
   minimization applied as a secondary objective. Unassigned jobs carry no
   explicit penalty beyond these objectives.
 
-- Until `SolveError` gains richer variants, any failure in candidate routing,
-  matrix acquisition, or `vrp-core` modelling is surfaced as
+- Until `SolveError` gains richer variants for routing failures, any failure in
+  candidate routing, matrix acquisition, or `vrp-core` modelling is surfaced as
   `SolveError::InvalidRequest`.
 
 - The request seed is not yet threaded into `vrp-core`'s random environment.
@@ -116,7 +116,7 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
 - **Synchronous trait, async internals:** The trait method is synchronous, but
   HTTP calls are inherently async. The implementation owns a current-thread
   Tokio runtime that is reused across calls, avoiding the overhead of creating
-  a new runtime per request. When called from within an existing multi-threaded
+  a new runtime per request. When called from within an existing multithreaded
   Tokio runtime (detected via `Handle::try_current()` and `RuntimeFlavor`), it
   uses that runtime's handle with `block_in_place` to avoid nested runtime
   panics. When called from within a `current_thread` runtime, it falls back to

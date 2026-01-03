@@ -22,8 +22,8 @@ tempfile = "3"
 
 [features]
 default = ["serde", "store-sqlite"]
-serde = ["dep:serde", "dep:serde_json", "dep:bincode", "geo/use-serde", "rstar/serde"]
-store-sqlite = ["serde", "dep:rusqlite"]
+serde = ["dep:serde", "dep:serde_json", "geo/use-serde", "rstar/serde"]
+store-sqlite = ["serde", "dep:bincode", "dep:rusqlite"]
 test-support = []
 
 [package.metadata.docs.rs]

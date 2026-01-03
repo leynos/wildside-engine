@@ -9,7 +9,7 @@
 //! boundary: it selects candidates synchronously from a [`PoiStore`], queries a
 //! [`TravelTimeProvider`] for a routing matrix, then invokes `vrp-core` to search
 //! for a good route. Any modelling errors are mapped to
-//! [`SolveError::InvalidRequest`], pending expansion of the core error enum.
+//! [`SolveError::InvalidRequest`].
 
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]

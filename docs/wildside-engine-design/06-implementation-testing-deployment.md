@@ -8,7 +8,7 @@ plan covering packaging, testing, and versioning.
 The engine will be structured for robust dependency management and deployment.
 
 - **Licensing:** All engine crates (`wildside-*`) will be licensed under
-  the permissive **ISC license**, satisfying the project's legal requirements
+  the permissive **ISC licence**, satisfying the project's legal requirements
   while being clear and concise.
 
 - **Versioning:** Each crate within the workspace will be independently
@@ -16,21 +16,21 @@ The engine will be structured for robust dependency management and deployment.
   updates for consumers of the library. A `CHANGELOG.md` file will be
   maintained from the start.
 
-- **Feature Flags:** The engine uses feature flags so consumers can select the
+- **Feature Flags:** The engine uses feature flags, so consumers can select the
   solver and store implementations they need, while keeping the default build
   conservative and easy to ship.
 
-  - `default-features = ["solver-vrp", "store-sqlite", "serde"]`: The default
+  - **default-features = ["solver-vrp", "store-sqlite", "serde"]:** The default
     build includes the native VRP solver, the SQLite POI store, and serde
     support for request/response types.
 
-  - `solver-vrp`: Enables the native Rust solver backed by `vrp-core` and is
+  - **solver-vrp:** Enables the native Rust solver backed by `vrp-core` and is
     preferred when multiple solver features are enabled.
 
-  - `solver-ortools`: Enables the optional OR-Tools solver backend. The current
-    implementation is a placeholder until CP-SAT integration lands.
+  - **solver-ortools:** Enables the optional OR-Tools solver backend. The
+    current implementation is a placeholder until CP-SAT integration lands.
 
-  - `store-sqlite`: Enables the SQLite-backed POI store and the spatial index
+  - **store-sqlite:** Enables the SQLite-backed POI store and the spatial index
     format used to load persisted artefacts.
 
   - Future optional features may include `rocksdb`, `serde-bincode`, and `wasm`
@@ -69,28 +69,28 @@ Golden route tests live in `wildside-solver-vrp/tests/golden_routes/`. Each
 test case is stored as a JSON file containing a complete problem instance and
 its expected solution. The schema captures:
 
-- `pois`: Array of POIs with id, coordinates, and tags.
-- `travel_time_matrix_seconds`: Integer matrix of travel times (avoids float
+- **pois:** Array of POIs with id, coordinates, and tags.
+- **travel_time_matrix_seconds:** Integer matrix of travel times (avoids float
   precision issues).
-- `request`: A complete `SolveRequest` specification including start/end
+- **request:** A complete `SolveRequest` specification including start/end
   coordinates, duration, interest profile, seed, and optional max_nodes.
-- `expected`: The expected route POI IDs in order, score range (min/max to
+- **expected:** The expected route POI IDs in order, score range (min/max to
   accommodate metaheuristic variance), and invariants such as budget compliance.
 
 The test infrastructure includes:
 
-- `FixedMatrixTravelTimeProvider`: A `TravelTimeProvider` implementation that
+- **FixedMatrixTravelTimeProvider:** A `TravelTimeProvider` implementation that
   returns a caller-supplied matrix verbatim. This enables fully deterministic
   tests without external routing dependencies.
 
-- rstest parameterised unit tests (`golden_routes.rs`): A single test function
-  iterates over all JSON fixtures, loads each problem instance, constructs the
-  solver with the fixed matrix, and asserts that the solution matches
-  expectations.
+- **rstest parameterised unit tests (`golden_routes.rs`):** A single test
+  function iterates over all JSON fixtures, loads each problem instance,
+  constructs the solver with the fixed matrix, and asserts that the solution
+  matches expectations.
 
-- rstest-bdd behavioural tests (`golden_routes_behaviour.rs`): Gherkin scenarios
-  in `features/golden_routes.feature` document solver behaviour at a higher
-  abstraction level, covering happy paths and edge cases.
+- **rstest-bdd behavioural tests (`golden_routes_behaviour.rs`):** Gherkin
+  scenarios in `features/golden_routes.feature` document solver behaviour at a
+  higher abstraction level, covering happy paths and edge cases.
 
 Design decisions:
 
@@ -142,7 +142,8 @@ workspace. This simplifies initial development while still enforcing the clean
 separation between crates. If the engine later needs to be consumed by external
 partners, support non-Rust bindings (e.g., Python via PyO3), or adopt a
 different release cadence from the main application, it can be promoted to its
-own repository with no code churn, as the boundaries are already established.
+a separate repository with no code churn, as the boundaries are already
+established.
 
 The migration from an initial "engine-in-app" prototype to the final library
 structure follows a clear path:
