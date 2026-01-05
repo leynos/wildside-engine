@@ -1,5 +1,7 @@
 //! Focused unit tests covering ingest CLI configuration validation.
 
+#![cfg(feature = "store-sqlite")]
+
 use super::helpers::write_utf8;
 use super::*;
 use camino::Utf8PathBuf;

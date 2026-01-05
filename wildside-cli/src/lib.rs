@@ -3,9 +3,13 @@
 
 #[cfg(feature = "store-sqlite")]
 use bzip2::read::MultiBzDecoder;
-use camino::{Utf8Path, Utf8PathBuf};
+#[cfg(feature = "store-sqlite")]
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
-use ortho_config::{OrthoConfig, SubcmdConfigMerge};
+use ortho_config::OrthoConfig;
+#[cfg(feature = "store-sqlite")]
+use ortho_config::SubcmdConfigMerge;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "store-sqlite")]
 use std::io::BufReader;
@@ -36,7 +40,9 @@ use solve::{
 const ARG_OSM_PBF: &str = "osm-pbf";
 const ARG_WIKIDATA_DUMP: &str = "wikidata-dump";
 const ARG_OUTPUT_DIR: &str = "output-dir";
+#[cfg(feature = "store-sqlite")]
 const ENV_OSM_PBF: &str = "WILDSIDE_CMDS_INGEST_OSM_PBF";
+#[cfg(feature = "store-sqlite")]
 const ENV_WIKIDATA_DUMP: &str = "WILDSIDE_CMDS_INGEST_WIKIDATA_DUMP";
 const ARG_SOLVE_REQUEST: &str = "request";
 const ARG_SOLVE_ARTEFACTS_DIR: &str = "artefacts-dir";
@@ -76,6 +82,7 @@ fn run_ingest(args: IngestArgs) -> Result<IngestOutcome, CliError> {
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 fn resolve_ingest_config(args: IngestArgs) -> Result<IngestConfig, CliError> {
     let config = args.into_config()?;
     config.validate_sources()?;
@@ -114,14 +121,6 @@ fn execute_ingest(config: &IngestConfig) -> Result<IngestOutcome, CliError> {
         poi_count: report.pois.len(),
         claims_count: claims.len(),
         summary: report.summary,
-    })
-}
-
-#[cfg(not(feature = "store-sqlite"))]
-fn execute_ingest(_config: &IngestConfig) -> Result<IngestOutcome, CliError> {
-    Err(CliError::MissingFeature {
-        feature: "store-sqlite",
-        action: "ingest",
     })
 }
 
@@ -202,12 +201,14 @@ struct IngestArgs {
 }
 
 impl IngestArgs {
+    #[cfg(feature = "store-sqlite")]
     fn into_config(self) -> Result<IngestConfig, CliError> {
         let merged = self.load_and_merge().map_err(CliError::Configuration)?;
         IngestConfig::try_from(merged)
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct IngestConfig {
     osm_pbf: Utf8PathBuf,
@@ -215,6 +216,7 @@ struct IngestConfig {
     output_dir: Utf8PathBuf,
 }
 
+#[cfg(feature = "store-sqlite")]
 impl IngestConfig {
     fn validate_sources(&self) -> Result<(), CliError> {
         Self::require_existing(&self.osm_pbf, ARG_OSM_PBF)?;
@@ -238,6 +240,7 @@ impl IngestConfig {
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 impl TryFrom<IngestArgs> for IngestConfig {
     type Error = CliError;
 
