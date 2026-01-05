@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::io::BufReader;
 #[cfg(feature = "store-sqlite")]
 use wildside_core::{PointOfInterest, store::write_spatial_index};
+#[cfg(feature = "store-sqlite")]
 use wildside_data::OsmIngestSummary;
 #[cfg(feature = "store-sqlite")]
 use wildside_data::wikidata::etl::{EntityClaims, PoiEntityLinks, extract_linked_entity_claims};
