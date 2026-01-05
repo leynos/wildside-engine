@@ -232,9 +232,20 @@ impl IngestConfig {
     fn require_existing(path: &Utf8Path, field: &'static str) -> Result<(), CliError> {
         match wildside_fs::file_is_file(path) {
             Ok(true) => Ok(()),
-            Ok(false) | Err(_) => Err(CliError::MissingSourceFile {
+            Ok(false) => Err(CliError::MissingSourceFile {
                 field,
                 path: path.to_path_buf(),
+            }),
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                Err(CliError::MissingSourceFile {
+                    field,
+                    path: path.to_path_buf(),
+                })
+            }
+            Err(source) => Err(CliError::SourceFileAccess {
+                field,
+                path: path.to_path_buf(),
+                source,
             }),
         }
     }
@@ -273,6 +284,9 @@ struct IngestOutcome {
 }
 
 #[cfg(not(feature = "store-sqlite"))]
+/// When `store-sqlite` is disabled, `IngestOutcome` is a unit type because
+/// ingestion always fails with `MissingFeature`. This preserves the function
+/// signature across feature permutations.
 type IngestOutcome = ();
 
 #[cfg(test)]

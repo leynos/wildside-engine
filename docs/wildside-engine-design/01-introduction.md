@@ -62,11 +62,11 @@ providing a stable vocabulary across crates.
   The binary artefact uses a fixed `WSPI` magic number, a little-endian `u16`
   version (currently `2`), followed by a `bincode` payload of
   [`PointOfInterest`](../../wildside-core/src/poi.rs) structs. Version 2 stores
-  the full POI records (id, `geo::Coord`, and tag map) directly in the R\*-tree
-  so lookups can avoid secondary hash-map probes. During start-up, the store
-  reads these entries, validates them against SQLite in batches, and bulk-loads
-  an in-memory `RTree<PointOfInterest>`. Bounding-box queries clone matching
-  entries from the tree, avoiding additional database round-trips.
+  the full POI records (id, `geo::Coord`, and tag map) directly in the
+  R\*-tree, so lookups can avoid secondary hash-map probes. During start-up,
+  the store reads these entries, validates them against SQLite in batches, and
+  bulk-loads an in-memory `RTree<PointOfInterest>`. Bounding-box queries clone
+  matching entries from the tree, avoiding additional database round-trips.
 <!-- markdownlint-disable-next-line MD013 -->
 - `TravelTimeProvider` produces an `n×n` matrix of `Duration` values for a
   slice of POIs via

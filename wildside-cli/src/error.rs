@@ -50,6 +50,14 @@ pub enum CliError {
         field: &'static str,
         path: Utf8PathBuf,
     },
+    /// A referenced input path could not be accessed due to an IO error.
+    #[error("failed to access {field} path {path:?}: {source}")]
+    SourceFileAccess {
+        field: &'static str,
+        path: Utf8PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
     /// A referenced input path could not be inspected due to an IO error.
     #[error("failed to inspect {field} path {path:?}: {source}")]
     InspectSourcePath {
