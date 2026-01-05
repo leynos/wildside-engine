@@ -70,7 +70,11 @@ pub fn run() -> Result<(), CliError> {
 fn run_ingest(args: IngestArgs) -> Result<IngestOutcome, CliError> {
     #[cfg(not(feature = "store-sqlite"))]
     {
-        let _ = args;
+        #[expect(
+            unused_variables,
+            reason = "args only used when store-sqlite is enabled"
+        )]
+        let _args = args;
         return Err(CliError::MissingFeature {
             feature: "store-sqlite",
             action: "ingest",
