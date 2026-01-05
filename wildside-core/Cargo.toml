@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 geo = { workspace = true }
-rstar = { version = "0.12.0", features = ["serde"] }
-rusqlite = { version = "0.31.0", features = ["bundled"] }
+rstar = { version = "0.12.0" }
+rusqlite = { version = "0.31.0", features = ["bundled"], optional = true }
 thiserror = "1"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_json = { version = "1", optional = true }
@@ -21,14 +21,9 @@ rstest-bdd-macros = { workspace = true }
 tempfile = "3"
 
 [features]
-default = ["serde"]
-serde = [
-    "dep:serde",
-    "dep:serde_json",
-    "dep:bincode",
-    "geo/use-serde",
-    "rstar/serde",
-]
+default = ["serde", "store-sqlite"]
+serde = ["dep:serde", "dep:serde_json", "geo/use-serde", "rstar/serde"]
+store-sqlite = ["serde", "dep:bincode", "dep:rusqlite"]
 test-support = []
 
 [package.metadata.docs.rs]

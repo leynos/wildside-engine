@@ -33,7 +33,7 @@ construction via the `build_spatial_index` helper.[^1]
 ### Themes and interest profiles
 
 `Theme` enumerates supported interest categories and provides string
-conversions for serialisation and parsing. `InterestProfile` stores per-theme
+conversions for serialization and parsing. `InterestProfile` stores per-theme
 weights in the `0.0..=1.0` range and offers validated setters (`set_weight`,
 `try_set_weight`) and chaining via `with_weight`. Invalid weights raise
 `WeightError` (`OutOfRange` or `NonFinite`).[^2][^3]
@@ -42,7 +42,7 @@ weights in the `0.0..=1.0` range and offers validated setters (`set_weight`,
 
 `Route` captures an ordered list of points of interest plus a caller-supplied
 `Duration`. Use `Route::new` to build routes returned from solvers and
-`Route::empty` for initialisation. The route does not infer travel time;
+`Route::empty` for initialization. The route does not infer travel time;
 callers must provide the aggregate duration explicitly.[^4]
 
 ## Scoring contract
@@ -61,20 +61,22 @@ interest profile, a random seed for deterministic behaviour, and an optional
 to enforce the implemented invariants: non-zero duration, finite coordinates,
 and a positive `max_nodes` value when set. Successful solvers return
 `SolveResponse`, which packages the chosen `Route` and its aggregate score.
-Invalid inputs must produce `SolveError::InvalidRequest` instead of
-panicking.[^6]
+Invalid inputs must produce `SolveError::InvalidRequest` instead of panicking.
+Placeholder solvers may return `SolveError::NotImplemented` until a backend is
+available.[^6]
 
 ## Point-of-interest storage
 
 The `PoiStore` trait abstracts read-only access to points of interest via
 bounding-box queries.[^7] Implementations must accept rectangles in longitude,
 latitude order (WGS84) and treat boundary points as contained. The default
-store is `SqlitePoiStore`, which opens two artefacts: a read-only SQLite
-database and a serialised R\*-tree. The loader verifies both files by reading a
-`WSPI` magic header, checking the format version (`2`), and ensuring that every
-indexed point exists in the database. Failing checks raise
-`SqlitePoiStoreError`, covering problems such as missing records, malformed
-JSON tag payloads, and I/O or SQLite errors.[^8]
+store is `SqlitePoiStore`, which is available when the `store-sqlite` feature
+is enabled. It opens two artefacts: a read-only SQLite database and a
+serialized R\*-tree. The loader verifies both files by reading a `WSPI` magic
+header, checking the format version (`2`), and ensuring that every indexed
+point exists in the database. Failing checks raise `SqlitePoiStoreError`,
+covering problems such as missing records, malformed JSON tag payloads, and I/O
+or SQLite errors.[^8]
 
 ## Travel-time providers
 
@@ -102,8 +104,8 @@ API consumers should handle the following error types surfaced by the library:
 
 - `WeightError`: returned by `InterestProfile::try_set_weight` when weights are
   out of range or non-finite.[^14]
-- `SolveError`: produced by solvers when requests violate
-  invariants.[^15]
+- `SolveError`: produced by solvers when requests violate invariants or when a
+  backend is not yet implemented.[^15]
 - `TravelTimeError`: emitted by travel-time providers for invalid input such as
   empty POI slices.[^16]
 - `SqlitePoiStoreError`: covers storage and validation failures encountered when

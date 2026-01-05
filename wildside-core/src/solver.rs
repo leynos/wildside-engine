@@ -160,12 +160,16 @@ pub enum SolveError {
     /// Request parameters were invalid, e.g. zero duration or non-finite coordinates.
     #[error("invalid request")]
     InvalidRequest,
+    /// Solver implementation is not yet available.
+    #[error("solver not implemented")]
+    NotImplemented,
 }
 
 /// Find a route satisfying the caller's preferences and constraints.
 ///
 /// Implementations should return [`SolveError::InvalidRequest`] for invalid
-/// parameters rather than panicking.
+/// parameters rather than panicking. Placeholder solvers may return
+/// [`SolveError::NotImplemented`] until a backend is available.
 ///
 /// # Thread Safety
 /// Implementations must avoid shared mutable state or use proper synchronisation

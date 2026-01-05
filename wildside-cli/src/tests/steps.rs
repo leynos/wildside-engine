@@ -1,5 +1,7 @@
 //! Behaviour-driven step definitions driving the ingest CLI scenarios.
 
+#![cfg(feature = "store-sqlite")]
+
 use super::helpers::{DatasetFiles, LayerOverrides, merge_layers};
 use super::*;
 use rstest::fixture;

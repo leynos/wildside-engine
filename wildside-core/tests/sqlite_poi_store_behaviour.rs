@@ -1,5 +1,7 @@
 //! Behavioural tests for `SqlitePoiStore` using rstest-bdd.
 
+#![cfg(feature = "store-sqlite")]
+
 use std::{cell::RefCell, path::PathBuf};
 
 use geo::{Coord, Rect};

@@ -1,5 +1,7 @@
 //! Pipeline integration tests covering the ingest command flow.
 
+#![cfg(feature = "store-sqlite")]
+
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
 use crate::is_bz2;

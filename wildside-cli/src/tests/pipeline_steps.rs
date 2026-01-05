@@ -1,5 +1,7 @@
 //! Behavioural coverage for the end-to-end ingest pipeline.
 
+#![cfg(feature = "store-sqlite")]
+
 use super::helpers::{decode_pbf_fixture, write_wikidata_dump};
 use super::*;
 use camino::Utf8PathBuf;

@@ -9,6 +9,7 @@ use camino::Utf8PathBuf;
 use thiserror::Error;
 use wildside_core::SolveError;
 use wildside_core::SolveRequestValidationError;
+#[cfg(feature = "store-sqlite")]
 use wildside_core::store::SpatialIndexWriteError;
 use wildside_data::routing::ProviderBuildError;
 use wildside_data::wikidata::etl::WikidataEtlError;
@@ -31,6 +32,12 @@ pub enum CliError {
         field: &'static str,
         env: &'static str,
     },
+    /// The requested operation requires a missing compile-time feature.
+    #[error("{action} requires the `{feature}` feature to be enabled")]
+    MissingFeature {
+        feature: &'static str,
+        action: &'static str,
+    },
     /// A referenced input path does not exist on disk or is not a file.
     #[error("{field} path {path:?} does not exist or is not a file")]
     MissingSourceFile {
@@ -42,6 +49,14 @@ pub enum CliError {
     SourcePathNotFile {
         field: &'static str,
         path: Utf8PathBuf,
+    },
+    /// A referenced input path could not be accessed due to an IO error.
+    #[error("failed to access {field} path {path:?}: {source}")]
+    SourceFileAccess {
+        field: &'static str,
+        path: Utf8PathBuf,
+        #[source]
+        source: std::io::Error,
     },
     /// A referenced input path could not be inspected due to an IO error.
     #[error("failed to inspect {field} path {path:?}: {source}")]
@@ -82,6 +97,7 @@ pub enum CliError {
         source: PersistClaimsError,
     },
     /// Writing the spatial index artefact failed.
+    #[cfg(feature = "store-sqlite")]
     #[error("failed to write spatial index to {path:?}: {source}")]
     WriteSpatialIndex {
         path: Utf8PathBuf,
@@ -110,6 +126,7 @@ pub enum CliError {
         source: SolveRequestValidationError,
     },
     /// Opening the POI store artefacts failed.
+    #[cfg(feature = "store-sqlite")]
     #[error(transparent)]
     OpenPoiStore(#[from] wildside_core::SqlitePoiStoreError),
     /// Constructing the user relevance scorer failed.

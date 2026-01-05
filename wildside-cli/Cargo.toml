@@ -17,10 +17,11 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1"
 thiserror = "1.0.69"
 bzip2 = "0.4"
-wildside-core = { workspace = true }
+wildside-core = { path = "../wildside-core", default-features = false, features = ["serde"] }
 wildside-data = { workspace = true }
 wildside-scorer = { workspace = true }
-wildside-solver-vrp = { workspace = true }
+wildside-solver-vrp = { workspace = true, optional = true }
+wildside-solver-ortools = { workspace = true, optional = true }
 camino = { workspace = true }
 cap-std = { workspace = true }
 wildside-fs = { path = "../wildside-fs" }
@@ -33,3 +34,9 @@ rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 tempfile = "3.23.0"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
+
+[features]
+default = ["solver-vrp", "store-sqlite"]
+solver-vrp = ["dep:wildside-solver-vrp"]
+solver-ortools = ["dep:wildside-solver-ortools"]
+store-sqlite = ["wildside-core/store-sqlite"]

@@ -1,8 +1,13 @@
 //! Test helpers for composing ingest CLI datasets and layered overrides.
 
+#[cfg(feature = "store-sqlite")]
 use super::*;
+#[cfg(feature = "store-sqlite")]
 use base64::{Engine as _, engine::general_purpose};
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8Path;
+#[cfg(feature = "store-sqlite")]
+use camino::Utf8PathBuf;
+#[cfg(feature = "store-sqlite")]
 use tempfile::TempDir;
 use wildside_fs::open_dir_and_file;
 
@@ -16,11 +21,13 @@ pub(super) fn write_utf8(path: &Utf8Path, contents: impl AsRef<[u8]>) {
         .expect("write file");
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn read_utf8(path: &Utf8Path) -> String {
     let (dir, file_name) = open_ambient_path(path);
     dir.read_to_string(file_name.as_str()).expect("read file")
 }
 
+#[cfg(feature = "store-sqlite")]
 #[derive(Debug, Clone, Default)]
 pub(super) struct LayerOverrides {
     pub(super) osm_pbf: Option<Utf8PathBuf>,
@@ -28,6 +35,7 @@ pub(super) struct LayerOverrides {
     pub(super) output_dir: Option<Utf8PathBuf>,
 }
 
+#[cfg(feature = "store-sqlite")]
 #[derive(Debug)]
 pub(super) struct DatasetFiles {
     _dir: TempDir,
@@ -38,6 +46,7 @@ pub(super) struct DatasetFiles {
     env_wikidata: Utf8PathBuf,
 }
 
+#[cfg(feature = "store-sqlite")]
 impl DatasetFiles {
     pub(super) fn new() -> Self {
         let dir = TempDir::new().expect("tempdir");
@@ -92,6 +101,7 @@ impl DatasetFiles {
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn merge_layers(
     mut cli_args: IngestArgs,
     file_layer: Option<LayerOverrides>,
@@ -115,6 +125,7 @@ pub(super) fn merge_layers(
     resolve_ingest_config(cli_args)
 }
 
+#[cfg(feature = "store-sqlite")]
 fn merge_field<T: Clone>(target: &mut Option<T>, env_value: Option<T>, file_value: Option<T>) {
     if target.is_none()
         && let Some(value) = env_value.or(file_value)
@@ -123,6 +134,7 @@ fn merge_field<T: Clone>(target: &mut Option<T>, env_value: Option<T>, file_valu
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 fn extract_field<T: Clone>(
     layer: &Option<LayerOverrides>,
     accessor: fn(&LayerOverrides) -> &Option<T>,
@@ -130,10 +142,12 @@ fn extract_field<T: Clone>(
     layer.as_ref().and_then(|entry| accessor(entry).clone())
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn fixtures_dir() -> Utf8PathBuf {
     Utf8PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/tests/fixtures")
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn decode_pbf_fixture(dest_dir: &Utf8Path, stem: &str) -> Utf8PathBuf {
     let encoded_path = fixtures_dir().join(format!("{stem}.osm.pbf.b64"));
     let encoded = read_utf8(&encoded_path);
@@ -149,6 +163,7 @@ pub(super) fn decode_pbf_fixture(dest_dir: &Utf8Path, stem: &str) -> Utf8PathBuf
     output_path
 }
 
+#[cfg(feature = "store-sqlite")]
 pub(super) fn write_wikidata_dump(dir: &Utf8Path) -> Utf8PathBuf {
     let dump_path = dir.join("wikidata.json");
     let payload = r#"[

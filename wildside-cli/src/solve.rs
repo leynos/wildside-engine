@@ -5,16 +5,64 @@ use clap::Parser;
 use ortho_config::{OrthoConfig, SubcmdConfigMerge};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, Write};
-use wildside_core::{SolveRequest, SolveResponse, Solver, SqlitePoiStore};
-use wildside_data::routing::{HttpTravelTimeProvider, HttpTravelTimeProviderConfig};
+#[cfg(feature = "store-sqlite")]
+use wildside_core::SqlitePoiStore;
+use wildside_core::{SolveRequest, SolveResponse, Solver};
+#[cfg(feature = "store-sqlite")]
+use wildside_data::routing::HttpTravelTimeProvider;
+use wildside_data::routing::HttpTravelTimeProviderConfig;
 use wildside_fs::open_utf8_file;
+#[cfg(feature = "store-sqlite")]
 use wildside_scorer::UserRelevanceScorer;
+#[cfg(all(
+    feature = "store-sqlite",
+    feature = "solver-ortools",
+    not(feature = "solver-vrp")
+))]
+use wildside_solver_ortools::OrtoolsSolver;
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
 use wildside_solver_vrp::VrpSolver;
 
 use crate::{
     ARG_SOLVE_ARTEFACTS_DIR, ARG_SOLVE_OSRM_BASE_URL, ARG_SOLVE_POIS_DB, ARG_SOLVE_POPULARITY,
     ARG_SOLVE_REQUEST, ARG_SOLVE_SPATIAL_INDEX, CliError, ENV_SOLVE_REQUEST,
 };
+
+#[cfg(test)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum SelectedSolverKind {
+    Vrp,
+    Ortools,
+    Missing,
+}
+
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp"))]
+type SelectedSolver = VrpSolver<SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer>;
+#[cfg(all(feature = "store-sqlite", feature = "solver-vrp", test))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Vrp;
+
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    feature = "solver-ortools"
+))]
+type SelectedSolver = OrtoolsSolver<SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer>;
+#[cfg(all(
+    feature = "store-sqlite",
+    not(feature = "solver-vrp"),
+    feature = "solver-ortools",
+    test
+))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Ortools;
+
+#[cfg(all(
+    test,
+    any(
+        not(feature = "store-sqlite"),
+        all(not(feature = "solver-vrp"), not(feature = "solver-ortools"))
+    )
+))]
+const SELECTED_SOLVER_KIND: SelectedSolverKind = SelectedSolverKind::Missing;
 
 /// CLI arguments for the `solve` subcommand.
 #[derive(Debug, Clone, Parser, Deserialize, Serialize, OrthoConfig, Default)]
@@ -148,6 +196,20 @@ pub(super) struct DefaultSolveSolverBuilder;
 
 impl SolveSolverBuilder for DefaultSolveSolverBuilder {
     fn build(&self, config: &SolveConfig) -> Result<Box<dyn Solver>, CliError> {
+        let deps = make_store_and_deps(config)?;
+        build_solver_with_features(deps)
+    }
+}
+
+#[cfg(feature = "store-sqlite")]
+type StoreDependencies = (SqlitePoiStore, HttpTravelTimeProvider, UserRelevanceScorer);
+
+#[cfg(not(feature = "store-sqlite"))]
+type StoreDependencies = ();
+
+fn make_store_and_deps(config: &SolveConfig) -> Result<StoreDependencies, CliError> {
+    #[cfg(feature = "store-sqlite")]
+    {
         let store = SqlitePoiStore::open(
             config.pois_db.as_std_path(),
             config.spatial_index.as_std_path(),
@@ -160,7 +222,42 @@ impl SolveSolverBuilder for DefaultSolveSolverBuilder {
                     source,
                 }
             })?;
-        Ok(Box::new(VrpSolver::new(store, provider, scorer)))
+        Ok((store, provider, scorer))
+    }
+    #[cfg(not(feature = "store-sqlite"))]
+    {
+        let _ = config;
+        Err(CliError::MissingFeature {
+            feature: "store-sqlite",
+            action: "solve",
+        })
+    }
+}
+
+fn build_solver_with_features(deps: StoreDependencies) -> Result<Box<dyn Solver>, CliError> {
+    #[cfg(feature = "store-sqlite")]
+    {
+        let (store, provider, scorer) = deps;
+        #[cfg(any(feature = "solver-vrp", feature = "solver-ortools"))]
+        {
+            Ok(Box::new(SelectedSolver::new(store, provider, scorer)))
+        }
+        #[cfg(all(not(feature = "solver-vrp"), not(feature = "solver-ortools")))]
+        {
+            let _ = (store, provider, scorer);
+            Err(CliError::MissingFeature {
+                feature: "solver-vrp or solver-ortools",
+                action: "solve",
+            })
+        }
+    }
+    #[cfg(not(feature = "store-sqlite"))]
+    {
+        let _ = deps;
+        Err(CliError::MissingFeature {
+            feature: "store-sqlite",
+            action: "solve",
+        })
     }
 }
 
@@ -234,4 +331,23 @@ pub(crate) fn config_from_layers_for_test(
 ) -> Result<SolveConfig, CliError> {
     let merged = SolveArgs::merge_from_layers(layers).map_err(CliError::from)?;
     SolveConfig::try_from(merged)
+}
+
+#[cfg(test)]
+mod feature_flag_tests {
+    use super::{SELECTED_SOLVER_KIND, SelectedSolverKind};
+    use rstest::rstest;
+
+    #[rstest]
+    fn solver_selection_matches_features() {
+        let expected = if cfg!(feature = "store-sqlite") && cfg!(feature = "solver-vrp") {
+            SelectedSolverKind::Vrp
+        } else if cfg!(feature = "store-sqlite") && cfg!(feature = "solver-ortools") {
+            SelectedSolverKind::Ortools
+        } else {
+            SelectedSolverKind::Missing
+        };
+
+        assert_eq!(SELECTED_SOLVER_KIND, expected);
+    }
 }

@@ -18,7 +18,9 @@ pub use scorer::Scorer;
 pub use solver::{
     Diagnostics, SolveError, SolveRequest, SolveRequestValidationError, SolveResponse, Solver,
 };
-pub use store::{PoiStore, SqlitePoiStore, SqlitePoiStoreError};
+pub use store::PoiStore;
+#[cfg(feature = "store-sqlite")]
+pub use store::{SqlitePoiStore, SqlitePoiStoreError};
 pub use theme::Theme;
 pub use travel_time::{TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
