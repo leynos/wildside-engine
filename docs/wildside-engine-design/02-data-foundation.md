@@ -25,25 +25,22 @@ and features, making the choice between them a critical one.
 Candidate 1: osmpbf
 
 The osmpbf crate is a modern library designed with performance as a primary
-goal.2 It offers lazy-decoding and, most importantly, built-in support for
+goal.[^2] It offers lazy-decoding and, most importantly, built-in support for
 parallelism. The PBF format is structured as a sequence of independent "blobs,"
-a design that
-
-`osmpbf` leverages to process these blobs in parallel across multiple CPU
-cores. Its `par_map_reduce` method provides a high-level, idiomatic Rust API
-for this purpose, which is an essential feature for efficiently processing the
-country- or continent-sized PBF files that a service like Wildside would need
-to ingest.2 From a legal standpoint,
-
-`osmpbf` is dual-licensed under the Apache-2.0 and MIT licences, which are
-standard, permissive licences suitable for commercial software development.2
+a design that `osmpbf` leverages to process these blobs in parallel across
+multiple CPU cores. Its `par_map_reduce` method provides a high-level,
+idiomatic Rust API for this purpose, which is an essential feature for
+efficiently processing the country- or continent-sized PBF files that a service
+like Wildside would need to ingest.[^2] From a legal standpoint, `osmpbf` is
+dual-licensed under the Apache-2.0 and MIT licences, which are standard,
+permissive licences suitable for commercial software development.[^2]
 
 Candidate 2: osmpbfreader
 
 The osmpbfreader crate is another popular and effective library for this task,
-with a track record of strong performance on large datasets.3 However, its
+with a track record of strong performance on large datasets.[^3] However, its
 licensing presents a challenge. The crate is licensed under the "Do What The
-Fuck You Want To Public Licence, Version 2" (WTFPLv2).3 While extremely
+Fuck You Want To Public Licence, Version 2" (WTFPLv2).[^3] While extremely
 permissive in spirit, its unconventional wording can be a point of friction for
 corporate legal review.
 
@@ -55,10 +52,10 @@ process.
 
 ### Table 1: Comparative Analysis of OSM PBF Parser Crates
 
-| Crate Name   | Primary Licence  | Key Technical Features                                                                              | Maintenance Status     | Suitability for Wildside                                                                                                                                                                             |
-| ------------ | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| osmpbf       | MIT / Apache-2.0 | High-performance parallel processing (par_map_reduce), lazy decoding, clear API for PBF hierarchy.2 | Updated 5 months ago.4 | Highly Recommended. The combination of industry-standard permissive licensing and explicit support for parallelism makes it the ideal choice for a robust, commercial-grade data ingestion pipeline. |
-| osmpbfreader | WTFPLv2          | Proven performance on large files, support for resolving object dependencies.                       | Updated 2 months ago.  | Not Recommended. The WTFPLv2 licence introduces unnecessary legal risk for a commercial project. While technically capable, the licensing issue is a critical blocker.                               |
+| Crate Name   | Primary Licence  | Key Technical Features                                                                                 | Maintenance Status        | Suitability for Wildside                                                                                                                                                                             |
+| ------------ | ---------------- | ------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| osmpbf       | MIT / Apache-2.0 | High-performance parallel processing (par_map_reduce), lazy decoding, clear API for PBF hierarchy.[^2] | Updated 5 months ago.[^4] | Highly Recommended. The combination of industry-standard permissive licensing and explicit support for parallelism makes it the ideal choice for a robust, commercial-grade data ingestion pipeline. |
+| osmpbfreader | WTFPLv2          | Proven performance on large files, support for resolving object dependencies.                          | Updated 2 months ago.     | Not Recommended. The WTFPLv2 licence introduces unnecessary legal risk for a commercial project. While technically capable, the licensing issue is a critical blocker.                               |
 
 **Final Recommendation:** The `osmpbf` crate is the unequivocally recommended
 library. Its combination of industry-standard permissive licensing and
@@ -98,7 +95,7 @@ detailed technical design for this ETL lives in
 
 This approach involves periodically downloading the complete Wikidata JSON dump
 and loading it into a local, indexed database. A fast, parallel parser is
-essential. The `wikidata-rust` crate is a purpose-built tool for this task.5.
+essential. The `wikidata-rust` crate is a purpose-built tool for this task.[^5]
 For storage, the `wd2sql` tool provides an excellent template: it uses
 `simd-json` for high-speed parsing and loads the data into a queryable SQLite
 database. This strategy can be replicated or adapted, potentially using a
@@ -239,7 +236,7 @@ deep in SQLite.
 
 | Approach                | Key Crates                         | Data Freshness                  | Request Latency              | Infrastructure Complexity     | Scalability for Wildside's Scoring                                                                                           |
 | ----------------------- | ---------------------------------- | ------------------------------- | ---------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Live SPARQL Queries     | tokio, sparql-client 6             | Real-time                       | High (100s of ms to seconds) | Low (stateless)               | Very Poor. Infeasible to run thousands of queries per user request. Will be rate-limited and result in extreme latency.      |
+| Live SPARQL Queries     | tokio, sparql-client[^6]           | Real-time                       | High (100s of ms to seconds) | Low (stateless)               | Very Poor. Infeasible to run thousands of queries per user request. Will be rate-limited and result in extreme latency.      |
 | Offline Dump Processing | wikidata-rust, simd-json, rusqlite | Stale (updated on ETL schedule) | Very Low (sub-millisecond)   | High (ETL pipeline, database) | Excellent. Enables millions of fast, local lookups per second, making the personalization algorithm performant and scalable. |
 
 **Final Recommendation:** Implement an **offline data processing pipeline
@@ -253,28 +250,45 @@ structures that model Wikidata entities and claims.
 Once the raw data is parsed from OSM, it must be represented in structured
 geometric types and indexed for efficient spatial querying. The Rust community
 has consolidated its geospatial efforts into the `GeoRust` collective, which
-provides a suite of interoperable and well-maintained crates.8
+provides a suite of interoperable and well-maintained crates.[^8]
 
 Core Data Types with geo
 
 The geo crate is the cornerstone of this ecosystem, providing the fundamental
 building blocks for geospatial work in Rust. It defines primitive types such as
-Point, LineString, Polygon, and Coord.9 These types will serve as the canonical
-representation of POI locations and walking paths throughout the Wildside
-application.
+Point, LineString, Polygon, and Coord.[^9] These types will serve as the
+canonical representation of POI locations and walking paths throughout the
+Wildside application.
 
 High-Performance Spatial Indexing with rstar
 
 To efficiently implement the "Candidate Selection" step, a spatial index is
 non-negotiable. The R\*-tree is the ideal data structure for this task, and the
-rstar crate is the premier implementation in the Rust ecosystem.10 It is
-designed to work seamlessly with the types from the
-
-`geo` crate. The practical implementation will be to build an `rstar::RTree`
-during the offline data ingestion phase and load it into memory. When a user
-request is received, a call to `rstar`'s rectangle query method will retrieve
-all candidate POIs within a bounding box in milliseconds.12
+rstar crate is the premier implementation in the Rust ecosystem.[^10] It is
+designed to work seamlessly with the types from the `geo` crate. The practical
+implementation will be to build an `rstar::RTree` during the offline data
+ingestion phase and load it into memory. When a user request is received, a
+call to `rstar`'s rectangle query method will retrieve all candidate POIs
+within a bounding box in milliseconds.[^12]
 
 **Recommendation:** Fully adopt the `GeoRust` **ecosystem**. Use `geo` for all
 geometric representations and calculations and `rstar` for building the
 in-memory spatial index of POIs for fast and efficient candidate selection.
+
+[^2]: osmpbf crate on crates.io, accessed on August 13, 2025,
+  <https://crates.io/crates/osmpbf>
+[^3]: osmpbfreader crate on crates.io, accessed on August 13, 2025,
+  <https://crates.io/crates/osmpbfreader>
+[^4]: OSM keyword listing on crates.io, accessed on August 13, 2025,
+  <https://crates.io/keywords/osm>
+[^5]: wikidata crate on docs.rs, accessed on August 13, 2025,
+  <https://docs.rs/wikidata>
+[^6]: sparql-client crate on crates.io, accessed on August 13, 2025,
+  <https://crates.io/crates/sparql-client>
+[^8]: Geospatial categories on crates.io, accessed on August 13, 2025,
+  <https://crates.io/categories/science::geo>
+[^9]: geo crate on docs.rs, accessed on August 13, 2025, <https://docs.rs/geo>
+[^10]: rstar crate on docs.rs, accessed on August 13, 2025,
+  <https://docs.rs/rstar>
+[^12]: rstar crate on docs.rs, accessed on August 13, 2025,
+  <https://docs.rs/rstar>

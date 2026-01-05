@@ -12,7 +12,7 @@ concrete engineering blueprint.
 The selection of the Rust programming language for this endeavor is
 well-founded. Rust's emphasis on performance, memory safety, and concurrency
 makes it an ideal candidate for a system that is both data-intensive and
-computationally demanding.1 The core tasks of parsing massive binary data
+computationally demanding.[^1] The core tasks of parsing massive binary data
 files, executing complex scoring algorithms, and solving NP-hard optimization
 problems all align with the Rust ecosystem's strengths.
 
@@ -186,3 +186,5 @@ sequenceDiagram
   Store-->>App: Vec<PointOfInterest>
   Note over Store: No SQLite rehydration
 ```
+
+[^1]: See `docs/wildside-engine-design/99-works-cited.md` item 1.

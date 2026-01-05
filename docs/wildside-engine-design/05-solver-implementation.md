@@ -2,7 +2,7 @@
 
 This section addresses the most computationally intensive component of the
 Wildside engine: solving the Orienteering Problem (OP). The library-first
-architecture allows us to abstract the solver behind a trait, making the
+architecture allows the solver to be abstracted behind a trait, making the
 specific implementation a configurable choice.
 
 ## 4.1. The `Solver` Trait: A Common Interface
@@ -24,16 +24,16 @@ flexible and future-proof.
 For the initial implementation, a native Rust solution is strongly recommended.
 The `reinterpretcat/vrp` project, specifically the `vrp-core` crate, is a
 mature, well-documented, and permissively licensed (Apache-2.0) library for
-solving rich Vehicle Routing Problems.13 The primary benefits of this approach
-are a seamless development experience, guaranteed memory safety for the core
-logic, and a simplified build process managed entirely by Cargo.
+solving rich Vehicle Routing Problems.[^13] The primary benefits of this
+approach are a seamless development experience, guaranteed memory safety for
+the core logic, and a simplified build process managed entirely by Cargo.
 
 The Orienteering Problem is a known "routing problem with profits," which can
 be modeled directly using the `vrp-core` API. The solver's objective function
 will be configured to maximize the total collected `Score(POI)` from visited
 "jobs" (the POIs), subject to the user's time budget (Tmax​). The library's
 powerful built-in metaheuristics will efficiently find a high-quality route
-within the required few-second timeframe.15 This implementation will live in
+within the required few-second timeframe.[^15] This implementation will live in
 the `wildside-solver-vrp` crate.
 
 ### 4.2.1. Implementation notes
@@ -80,9 +80,9 @@ optimized CP-SAT solver, such as the `cp_sat` crate.
 
 This approach offers potentially world-class performance but comes at the cost
 of significant build and deployment complexity, requiring a C++ compiler and a
-system-level installation of the OR-Tools library.16 By placing this
+system-level installation of the OR-Tools library.[^16] By placing this
 implementation behind a feature flag, consumers of the Wildside engine can
-choose to opt into this complexity only if they absolutely need it, without
+choose to opt into this complexity only if they strictly require it, without
 burdening the default setup.
 
 ## 4.4. The `TravelTimeProvider` boundary
@@ -97,7 +97,8 @@ candidate POIs, and (when present) the distinct end location so that the matrix
 covers all required legs. The trait has the signature:
 <!-- markdownlint-disable-next-line MD013 -->
 `fn get_travel_time_matrix(&self, pois: &[PointOfInterest]) -> Result<TravelTimeMatrix, TravelTimeError>`.
- Keeping the solver synchronous preserves object safety and makes the core
+
+Keeping the solver synchronous preserves object safety and makes the core
 embeddable.
 
 The recommended implementation will be an adapter that makes API calls to an
@@ -147,3 +148,11 @@ The `HttpTravelTimeProvider` struct in `wildside-data::routing` implements the
 - **Testing:** A `StubTravelTimeProvider` in `routing::test_support` allows
   unit and behavioural tests to verify provider consumers without requiring a
   running OSRM service. BDD scenarios cover happy paths and error conditions.
+
+[^13]: vrp-core crate on docs.rs, accessed on August 13, 2025,
+  <https://docs.rs/vrp-core>
+[^15]: SoftwareMill, "Solving vehicle routing problem in Java", accessed on
+  August 13, 2025,
+  <https://softwaremill.com/solving-vehicle-routing-problem-in-java/>
+[^16]: OR-Tools CP-SAT solver documentation, accessed on August 13, 2025,
+  <https://developers.google.com/optimization/cp/cp_solver>
