@@ -83,7 +83,7 @@ The test infrastructure includes:
   returns a caller-supplied matrix verbatim. This enables fully deterministic
   tests without external routing dependencies.
 
-- **rstest parameterised unit tests (`golden_routes.rs`):** A single test
+- **rstest parameterized unit tests (`golden_routes.rs`):** A single test
   function iterates over all JSON fixtures, loads each problem instance,
   constructs the solver with the fixed matrix, and asserts that the solution
   matches expectations.
@@ -141,8 +141,8 @@ The project will begin in a single Git repository configured as a Cargo
 workspace. This simplifies initial development while still enforcing the clean
 separation between crates. If the engine later needs to be consumed by external
 partners, support non-Rust bindings (e.g., Python via PyO3), or adopt a
-different release cadence from the main application, it can be promoted to its
-a separate repository with no code churn, as the boundaries are already
+different release cadence from the main application, it can be promoted to a
+separate repository with no code churn, as the boundaries are already
 established.
 
 The migration from an initial "engine-in-app" prototype to the final library

@@ -18,6 +18,7 @@ serde = ["wildside-core/serde"]
 solver-vrp = ["dep:wildside-solver-vrp"]
 solver-ortools = ["dep:wildside-solver-ortools"]
 store-sqlite = ["serde", "wildside-core/store-sqlite"]
+test-support = ["wildside-core/test-support", "wildside-solver-vrp/test-support"]
 
 [lints]
 workspace = true

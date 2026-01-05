@@ -262,6 +262,7 @@ impl TryFrom<IngestArgs> for IngestConfig {
     }
 }
 
+#[cfg(feature = "store-sqlite")]
 #[derive(Debug, Clone, PartialEq)]
 struct IngestOutcome {
     pub pois_db: Utf8PathBuf,
@@ -270,6 +271,9 @@ struct IngestOutcome {
     pub claims_count: usize,
     pub summary: OsmIngestSummary,
 }
+
+#[cfg(not(feature = "store-sqlite"))]
+type IngestOutcome = ();
 
 #[cfg(test)]
 mod tests;

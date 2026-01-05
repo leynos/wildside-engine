@@ -33,9 +33,8 @@ be modeled directly using the `vrp-core` API. The solver's objective function
 will be configured to maximize the total collected `Score(POI)` from visited
 "jobs" (the POIs), subject to the user's time budget (Tmax​). The library's
 powerful built-in metaheuristics will efficiently find a high-quality route
-within the required few-second timeframe.15 This implementation will live in the
-
-`wildside-solver-vrp` crate.
+within the required few-second timeframe.15 This implementation will live in
+the `wildside-solver-vrp` crate.
 
 ### 4.2.1. Implementation notes
 

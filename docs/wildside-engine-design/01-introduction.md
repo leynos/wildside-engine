@@ -82,7 +82,7 @@ providing a stable vocabulary across crates.
   composable for different weighting strategies.
 
   Implementations MUST return finite, non-negative values. Scores SHOULD be
-  normalised to the `[0.0, 1.0]` range unless explicitly documented otherwise,
+  normalized to the `[0.0, 1.0]` range unless explicitly documented otherwise,
   allowing callers to combine signals with predictable bounds. Implementations
   MUST produce identical scores for identical inputs, guaranteeing
   deterministic behaviour.

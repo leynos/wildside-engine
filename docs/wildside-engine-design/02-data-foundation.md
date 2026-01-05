@@ -150,7 +150,7 @@ the downstream parsing stages are implemented.
 
 The second increment introduces a streaming parser that connects the Wikidata
 dump to the POIs discovered during OSM ingestion. The `PoiEntityLinks`
-structure scans the ingested POIs, normalises `wikidata=*` tag values (handling
+structure scans the ingested POIs, normalizes `wikidata=*` tag values (handling
 common variants such as full URLs), and records the mapping from Wikidata
 entity identifiers to OSM ids. The parser accepts any `Read` implementation and
 wraps it in a `BufReader` so the huge JSON dump is never materialized in
@@ -216,7 +216,7 @@ sequenceDiagram
 The extracted claims are stored in the shared `pois.db` database via the
 `wildside_data::wikidata::store` module. Schema initialization is handled by
 the `initialise_schema` function, which enables foreign keys and creates a
-compact set of normalised tables:
+compact set of normalized tables:
 
 - `wikidata_entities` contains every entity identifier appearing in the dump.
 - `poi_wikidata_links` maps POI ids to their linked Wikidata entities and

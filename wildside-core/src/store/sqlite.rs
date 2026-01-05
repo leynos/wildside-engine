@@ -75,18 +75,18 @@ impl SqlitePoiStore {
         P: AsRef<Path>,
         Q: AsRef<Path>,
     {
-        let database_path = database_path.as_ref().to_path_buf();
-        let index_path = index_path.as_ref().to_path_buf();
+        let database_path = database_path.as_ref();
+        let index_path = index_path.as_ref();
 
         let connection =
-            Connection::open_with_flags(&database_path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(
+            Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(
                 |source| SqlitePoiStoreError::OpenDatabase {
-                    path: database_path.clone(),
+                    path: database_path.to_path_buf(),
                     source,
                 },
             )?;
 
-        let entries = load_index_entries(&index_path)?;
+        let entries = load_index_entries(index_path)?;
         ensure_index_pois_exist(&connection, &entries)?;
 
         Ok(Self {
@@ -125,9 +125,7 @@ fn find_missing_poi_in_chunk(chunk: &[u64], pois: &[PointOfInterest]) -> Option<
         }
     }
 
-    debug_assert!(false, "chunk length mismatch should reveal missing id");
-
-    None
+    unreachable!("chunk length mismatch should reveal missing id");
 }
 
 fn ensure_index_pois_exist(
