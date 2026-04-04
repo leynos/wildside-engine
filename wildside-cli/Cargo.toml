@@ -33,7 +33,7 @@ rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 tempfile = "3.23.0"
-rusqlite = { version = "0.32.1", features = ["bundled"] }
+rusqlite = { workspace = true }
 
 [features]
 default = ["solver-vrp", "store-sqlite"]
