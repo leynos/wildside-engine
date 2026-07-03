@@ -144,6 +144,8 @@ impl Route {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for route construction and endpoint preservation.
+
     use super::*;
 
     #[test]

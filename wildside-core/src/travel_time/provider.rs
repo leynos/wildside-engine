@@ -60,6 +60,8 @@ pub trait TravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for travel-time provider contracts.
+
     use super::*;
     use geo::Coord;
     use rstest::rstest;

@@ -18,9 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
       - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
-        with:
-          toolchain: nightly-2026-05-28
-          components: rustfmt, clippy, llvm-tools-preview
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
@@ -54,7 +51,7 @@ jobs:
           bun install --global @mermaid-js/mermaid-cli@11.9.0
           bun x puppeteer browsers install chrome-headless-shell
           mmdc --version
-      - name: Install Nixie
+      - name: Install diagram tooling
         run: |
           set -euxo pipefail
           uv tool install nixie-cli
@@ -98,9 +95,6 @@ jobs:
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
       - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
-        with:
-          toolchain: nightly-2026-05-28
-          components: rustfmt, clippy, llvm-tools-preview
       - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381

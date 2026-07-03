@@ -189,6 +189,8 @@ fn load_pois_chunk(
 
 #[cfg(test)]
 mod tests {
+    //! Tests for SQLite-backed point-of-interest store loading.
+
     use super::*;
     use crate::Tags;
     use crate::store::spatial_index::{SPATIAL_INDEX_MAGIC, SPATIAL_INDEX_VERSION};

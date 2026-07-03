@@ -141,6 +141,8 @@ pub mod test_support {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for interest profile lookup and weight validation.
+
     use super::*;
 
     #[test]

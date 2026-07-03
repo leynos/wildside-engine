@@ -121,6 +121,8 @@ enum CliError {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for Wikidata extract-transform-load command helpers.
+
     use super::*;
     use rstest::{fixture, rstest};
     use std::fs;

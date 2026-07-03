@@ -120,6 +120,8 @@ impl TravelTimeProvider for StubTravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for routing test-support matrix construction.
+
     use super::*;
     use geo::Coord;
     use rstest::rstest;

@@ -333,6 +333,8 @@ impl TravelTimeProvider for HttpTravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for HTTP routing provider requests and responses.
+
     use super::*;
     use geo::Coord;
     use rstest::{fixture, rstest};

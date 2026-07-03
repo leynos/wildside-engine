@@ -87,6 +87,8 @@ impl std::str::FromStr for Theme {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for theme display and parsing behaviour.
+
     use super::*;
     use std::str::FromStr;
 

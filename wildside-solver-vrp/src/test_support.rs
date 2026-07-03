@@ -129,6 +129,8 @@ impl TravelTimeProvider for FixedMatrixTravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for vehicle-routing test-support matrix helpers.
+
     use super::*;
     use rstest::rstest;
 
