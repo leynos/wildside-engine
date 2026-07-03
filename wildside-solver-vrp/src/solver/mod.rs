@@ -182,7 +182,7 @@ where
             .map_err(|_| SolveError::InvalidRequest)?;
 
         let end_location = end_poi.as_ref().map_or(0, |_| all_pois.len() - 1);
-        let budget_seconds = Duration::from_secs(u64::from(request.duration_minutes) * 60);
+        let budget_seconds = Duration::from_mins(u64::from(request.duration_minutes));
         let context = VrpSolveContext::new(&self.config);
         let instance = VrpInstance::new(&candidates, &scores, &matrix, budget_seconds);
         let (route_pois, total_score) = context.solve(&instance, end_location)?;

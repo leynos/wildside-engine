@@ -81,7 +81,7 @@ fn golden_route_regression(#[case] name: &str) {
 
     // Verify budget is respected when expected.
     if golden.expected.respects_budget {
-        let budget = Duration::from_secs(u64::from(request.duration_minutes) * 60);
+        let budget = Duration::from_mins(u64::from(request.duration_minutes));
         assert!(
             response.route.total_duration() <= budget,
             "{}: route duration {:?} exceeds budget {budget:?}",

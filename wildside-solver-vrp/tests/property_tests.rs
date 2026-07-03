@@ -81,7 +81,7 @@ proptest! {
         let request = build_request(duration_minutes, seed, None, None);
         let response = solver.solve(&request).expect("solve should succeed");
 
-        let budget = Duration::from_secs(u64::from(duration_minutes) * 60);
+        let budget = Duration::from_mins(u64::from(duration_minutes));
         prop_assert!(
             response.route.total_duration() <= budget,
             "Route duration {:?} exceeds budget {:?}",
@@ -283,7 +283,7 @@ proptest! {
         let response = solver.solve(&request).expect("solve should succeed");
 
         // Verify core invariants hold for point-to-point routes.
-        let budget = Duration::from_secs(30 * 60);
+        let budget = Duration::from_mins(30);
         prop_assert!(
             response.route.total_duration() <= budget,
             "Point-to-point route duration {:?} exceeds budget {:?}",
