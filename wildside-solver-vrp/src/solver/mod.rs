@@ -286,19 +286,16 @@ fn final_leg_duration(from_index: usize, end_index: usize, matrix: &[Vec<Duratio
         .get(from_index)
         .and_then(|row| row.get(end_index))
         .copied()
-        .map_or_else(
-            || {
-                log::warn!(
-                    "Matrix access failed for final leg from index {from_index} to index {end_index}; falling back to zero duration"
-                );
-                debug_assert!(
-                    false,
-                    "Matrix access failed for final leg from index {from_index} to index {end_index}"
-                );
-                Duration::ZERO
-            },
-            |duration| duration,
-        )
+        .unwrap_or_else(|| {
+            log::warn!(
+                "Matrix access failed for final leg from index {from_index} to index {end_index}; falling back to zero duration"
+            );
+            debug_assert!(
+                false,
+                "Matrix access failed for final leg from index {from_index} to index {end_index}"
+            );
+            Duration::ZERO
+        })
 }
 
 fn route_duration(
