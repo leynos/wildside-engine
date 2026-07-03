@@ -43,8 +43,8 @@ pub fn poi(id: u64, x: f64, y: f64, theme: &str) -> PointOfInterest {
 /// use wildside_solver_vrp::test_support::FixedMatrixTravelTimeProvider;
 ///
 /// let matrix = vec![
-///     vec![Duration::ZERO, Duration::from_secs(60)],
-///     vec![Duration::from_secs(60), Duration::ZERO],
+///     vec![Duration::ZERO, Duration::from_mins(1)],
+///     vec![Duration::from_mins(1), Duration::ZERO],
 /// ];
 /// let provider = FixedMatrixTravelTimeProvider::new(matrix);
 ///
@@ -129,6 +129,8 @@ impl TravelTimeProvider for FixedMatrixTravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for vehicle-routing test-support matrix helpers.
+
     use super::*;
     use rstest::rstest;
 

@@ -178,6 +178,8 @@ fn persist_rows(
 
 #[cfg(test)]
 mod tests {
+    //! Tests for SQLite point-of-interest persistence.
+
     use super::*;
     use camino::Utf8PathBuf;
     use geo::Coord;

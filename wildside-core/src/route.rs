@@ -25,7 +25,7 @@ use crate::PointOfInterest;
 /// let start = Coord { x: 0.0, y: 0.0 };
 /// let end = Coord { x: 1.0, y: 1.0 };
 /// let poi = PointOfInterest::with_empty_tags(1, Coord { x: 0.5, y: 0.5 });
-/// let route = Route::with_endpoints(start, end, vec![poi], Duration::from_secs(60));
+/// let route = Route::with_endpoints(start, end, vec![poi], Duration::from_mins(1));
 ///
 /// assert_eq!(route.start(), start);
 /// assert_eq!(route.end(), end);
@@ -144,13 +144,15 @@ impl Route {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for route construction and endpoint preservation.
+
     use super::*;
 
     #[test]
     fn route_preserves_order() {
         let poi1 = PointOfInterest::with_empty_tags(1, Coord { x: 0.0, y: 0.0 });
         let poi2 = PointOfInterest::with_empty_tags(2, Coord { x: 1.0, y: 1.0 });
-        let route = Route::new(vec![poi1.clone(), poi2.clone()], Duration::from_secs(120));
+        let route = Route::new(vec![poi1.clone(), poi2.clone()], Duration::from_mins(2));
         assert_eq!(route.pois(), &[poi1, poi2]);
         assert_eq!(route.total_duration().as_secs(), 120);
     }
@@ -167,7 +169,7 @@ mod tests {
         let start = Coord { x: 1.0, y: 2.0 };
         let end = Coord { x: 3.0, y: 4.0 };
         let poi = PointOfInterest::with_empty_tags(1, Coord { x: 2.0, y: 3.0 });
-        let route = Route::with_endpoints(start, end, vec![poi], Duration::from_secs(60));
+        let route = Route::with_endpoints(start, end, vec![poi], Duration::from_mins(1));
         assert_eq!(route.start(), start);
         assert_eq!(route.end(), end);
     }

@@ -167,6 +167,8 @@ pub(crate) fn load_index_entries(path: &Path) -> Result<Vec<PointOfInterest>, Sp
 
 #[cfg(test)]
 mod tests {
+    //! Tests for spatial index persistence and validation.
+
     use super::*;
     use crate::{PointOfInterest, Tags};
     use bincode::{deserialize_from, serialize_into};

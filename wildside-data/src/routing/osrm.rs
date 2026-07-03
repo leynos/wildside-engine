@@ -43,6 +43,8 @@ impl TableResponse {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for Open Source Routing Machine response decoding.
+
     use super::*;
 
     #[test]

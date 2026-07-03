@@ -40,8 +40,8 @@ fn sample_pois(count: usize) -> Vec<PointOfInterest> {
 
 fn sample_matrix() -> TravelTimeMatrix {
     vec![
-        vec![Duration::ZERO, Duration::from_secs(120)],
-        vec![Duration::from_secs(120), Duration::ZERO],
+        vec![Duration::ZERO, Duration::from_mins(2)],
+        vec![Duration::from_mins(2), Duration::ZERO],
     ]
 }
 

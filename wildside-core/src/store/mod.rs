@@ -76,6 +76,8 @@ pub trait PoiStore {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for in-memory point-of-interest store queries.
+
     use super::PoiStore;
     use crate::{PointOfInterest, test_support::MemoryStore};
     use geo::{Coord, Rect};

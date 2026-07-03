@@ -333,6 +333,8 @@ impl TravelTimeProvider for HttpTravelTimeProvider {
 
 #[cfg(test)]
 mod tests {
+    //! Tests for HTTP routing provider requests and responses.
+
     use super::*;
     use geo::Coord;
     use rstest::{fixture, rstest};
@@ -491,11 +493,11 @@ mod tests {
     #[rstest]
     fn config_builder_pattern() {
         let config = HttpTravelTimeProviderConfig::new("http://example.com")
-            .with_timeout(Duration::from_secs(60))
+            .with_timeout(Duration::from_mins(1))
             .with_user_agent("test-agent/1.0");
 
         assert_eq!(config.base_url, "http://example.com");
-        assert_eq!(config.timeout, Duration::from_secs(60));
+        assert_eq!(config.timeout, Duration::from_mins(1));
         assert_eq!(config.user_agent, "test-agent/1.0");
     }
 }

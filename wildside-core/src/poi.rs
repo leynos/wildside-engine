@@ -152,6 +152,8 @@ impl PointOfInterest {
 
 #[cfg(test)]
 mod tests {
+    //! Test coverage notes for point-of-interest domain values.
+
     // Integration tests cover the `PointOfInterest` module. See
     // `tests/spatial_index.rs` for coverage of constructors and spatial
     // indexing behaviour.

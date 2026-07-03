@@ -65,7 +65,7 @@ fn solve_returns_route_with_positive_score() {
     let response = solver.solve(&request).expect("solve should succeed");
     assert!(!response.route.pois().is_empty());
     assert!(response.score > 0.0);
-    assert!(response.route.total_duration() <= Duration::from_secs(600));
+    assert!(response.route.total_duration() <= Duration::from_mins(10));
 }
 
 #[rstest]

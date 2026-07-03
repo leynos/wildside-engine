@@ -120,7 +120,7 @@ fn then_respects_budget(world: &GoldenRouteWorld) {
         .as_ref()
         .expect("response should be recorded");
 
-    let budget = Duration::from_secs(u64::from(golden_ref.request.duration_minutes) * 60);
+    let budget = Duration::from_mins(u64::from(golden_ref.request.duration_minutes));
     assert!(
         response_ref.route.total_duration() <= budget,
         "route duration {:?} exceeds budget {:?}",
