@@ -21,7 +21,7 @@
 //!
 //! // Create a provider with custom configuration
 //! let config = HttpTravelTimeProviderConfig::new("http://localhost:5000")
-//!     .with_timeout(Duration::from_secs(60))
+//!     .with_timeout(Duration::from_mins(1))
 //!     .with_user_agent("my-app/1.0");
 //! let provider = HttpTravelTimeProvider::with_config(config)?;
 //!
