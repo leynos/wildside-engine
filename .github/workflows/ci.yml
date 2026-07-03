@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
-      - uses: leynos/shared-actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
         with:
           toolchain: nightly-2025-06-26
           components: rustfmt, clippy, llvm-tools-preview
@@ -97,7 +97,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
-      - uses: leynos/shared-actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
         with:
           toolchain: nightly-2025-06-26
           components: rustfmt, clippy, llvm-tools-preview
