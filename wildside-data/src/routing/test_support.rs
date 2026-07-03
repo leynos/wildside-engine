@@ -23,8 +23,8 @@ use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTi
 ///
 /// // Create a provider that returns a specific matrix
 /// let matrix = vec![
-///     vec![Duration::ZERO, Duration::from_mins(1)],
-///     vec![Duration::from_mins(1), Duration::ZERO],
+///     vec![Duration::ZERO, Duration::from_secs(60)],
+///     vec![Duration::from_secs(60), Duration::ZERO],
 /// ];
 /// let provider = StubTravelTimeProvider::with_matrix(matrix);
 ///
@@ -135,8 +135,8 @@ mod tests {
     #[rstest]
     fn with_matrix_returns_configured_matrix() {
         let matrix = vec![
-            vec![Duration::ZERO, Duration::from_mins(1)],
-            vec![Duration::from_mins(1), Duration::ZERO],
+            vec![Duration::ZERO, Duration::from_secs(60)],
+            vec![Duration::from_secs(60), Duration::ZERO],
         ];
         let provider = StubTravelTimeProvider::with_matrix(matrix.clone());
 
