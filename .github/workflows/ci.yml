@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+      - uses: leynos/shared-actions/.github/actions/setup-rust@1213d7874aa42ff034587d9385f35178d51e1f65
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
@@ -94,7 +94,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+      - uses: leynos/shared-actions/.github/actions/setup-rust@1213d7874aa42ff034587d9385f35178d51e1f65
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
