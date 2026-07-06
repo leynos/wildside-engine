@@ -22,10 +22,9 @@ WORKFLOW_PATH = (
     Path(__file__).resolve().parents[2] / ".github" / "workflows" / "mutation-testing.yml"
 )
 
-#: The pinned commit of leynos/shared-actions (the merge commit of
-#: leynos/shared-actions PR #319). Bump the workflow and this test
-#: together.
-PINNED_SHA = "47aea18960d24f33aedc4782ec6b73e365418313"
+#: The pinned commit of leynos/shared-actions (artefact preservation on
+#: timeout). Bump the workflow and this test together.
+PINNED_SHA = "2b09d10192627fd6e1034e7c12625dd266b45503"
 
 EXPECTED_USES = (
     "leynos/shared-actions/.github/workflows/mutation-cargo.yml@" + PINNED_SHA
@@ -33,14 +32,16 @@ EXPECTED_USES = (
 
 #: The exact caller configuration: workspace member directories beside
 #: the root crate, scaffolding excludes, and the CI baseline feature
-#: flags (`make test` runs with --features test-support).
+#: flags (`make test` runs with --features test-support) plus
+#: --test-workspace=true so dependent crates' tests run against each
+#: mutant rather than only the mutated package's own tests.
 EXPECTED_WITH = {
     "paths": (
         "src/,wildside-cli/,wildside-core/,wildside-data/,wildside-fs/,"
         "wildside-scorer/,wildside-solver-ortools/,wildside-solver-vrp/"
     ),
     "exclude-globs": "test_support.rs,bench_support.rs",
-    "extra-args": "--features test-support",
+    "extra-args": "--features test-support --test-workspace=true",
 }
 
 
