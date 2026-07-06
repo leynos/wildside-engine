@@ -1,4 +1,4 @@
-.PHONY: help all clean test bench build release lint fmt check-fmt markdownlint nixie typecheck
+.PHONY: help all clean test test-workflow-contracts bench build release lint fmt check-fmt markdownlint nixie typecheck
 
 APP ?= wildside-engine
 CARGO ?= cargo
@@ -18,6 +18,9 @@ clean: ## Remove build artifacts
 
 test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
+
+test-workflow-contracts: ## Validate the mutation-testing caller contract
+	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
 
 bench: ## Run performance benchmarks
 	$(CARGO) bench --package wildside-solver-vrp
