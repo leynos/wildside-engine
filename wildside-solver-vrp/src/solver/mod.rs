@@ -282,20 +282,21 @@ fn final_leg_duration(from_index: usize, end_index: usize, matrix: &[Vec<Duratio
         return Duration::ZERO;
     }
 
-    matrix
+    let Some(duration) = matrix
         .get(from_index)
         .and_then(|row| row.get(end_index))
         .copied()
-        .unwrap_or_else(|| {
-            log::warn!(
-                "Matrix access failed for final leg from index {from_index} to index {end_index}; falling back to zero duration"
-            );
-            debug_assert!(
-                false,
-                "Matrix access failed for final leg from index {from_index} to index {end_index}"
-            );
-            Duration::ZERO
-        })
+    else {
+        log::warn!(
+            "Matrix access failed for final leg from index {from_index} to index {end_index}; falling back to zero duration"
+        );
+        debug_assert!(
+            false,
+            "Matrix access failed for final leg from index {from_index} to index {end_index}"
+        );
+        return Duration::ZERO;
+    };
+    duration
 }
 
 fn route_duration(
@@ -309,13 +310,14 @@ fn route_duration(
     let poi_index = build_poi_index(all_pois);
     for poi in route_pois {
         let poi_id = poi.id;
-        let next_index = poi_index.get(&poi_id).copied().unwrap_or_else(|| {
+        let looked_up = poi_index.get(&poi_id).copied();
+        debug_assert!(looked_up.is_some(), "POI {poi_id} not found in index");
+        if looked_up.is_none() {
             log::warn!(
                 "POI {poi_id} not found in POI index; falling back to previous index {prev_index}"
             );
-            debug_assert!(false, "POI {poi_id} not found in index");
-            prev_index
-        });
+        }
+        let next_index = looked_up.unwrap_or(prev_index);
         if let Some(row) = matrix.get(prev_index)
             && let Some(edge) = row.get(next_index)
         {
