@@ -24,7 +24,7 @@ WORKFLOW_PATH = (
 
 #: The pinned commit of leynos/shared-actions (artefact preservation on
 #: timeout). Bump the workflow and this test together.
-PINNED_SHA = "2b09d10192627fd6e1034e7c12625dd266b45503"
+PINNED_SHA = "29eea2635ee0f92e42c05f4cd360b7f1a2f00b12"
 
 EXPECTED_USES = (
     "leynos/shared-actions/.github/workflows/mutation-cargo.yml@" + PINNED_SHA

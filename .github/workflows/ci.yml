@@ -15,9 +15,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN || '' }}
+      CODESCENE_CLI_SHA256: ${{ vars.CODESCENE_CLI_SHA256 || '' }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+        with:
+          fetch-depth: 0
+      - uses: leynos/shared-actions/.github/actions/setup-rust@29eea2635ee0f92e42c05f4cd360b7f1a2f00b12
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
@@ -29,6 +34,28 @@ jobs:
         run: make lint
       - name: Test
         run: make test
+      - name: Generate coverage
+        # Coverage is only needed for the pull-request changed-line gate
+        # (deferred below); once coverage-main.yml exists, generating it
+        # again on the push-to-main trigger would be redundant.
+        if: github.event_name == 'pull_request'
+        uses: leynos/shared-actions/.github/actions/generate-coverage@29eea2635ee0f92e42c05f4cd360b7f1a2f00b12
+        with:
+          output-path: lcov.info
+          format: lcov
+          features: test-support
+          use-cargo-nextest: 'true'
+          with-ratchet: 'true'
+      # The `mode: check` step is deliberately not wired in yet: CodeScene
+      # project 70674 has no coverage-gates configuration, so
+      # `cs-coverage check` fails every run with "HTTP call succeeded,
+      # but the received project-config isn't valid. Lacks the gates
+      # configuration." — a CodeScene-side per-project setting, not a CI
+      # defect (ddlint and chutoro hit the byte-identical error). Add the
+      # check step in a fast-follow PR once coverage-main.yml has
+      # uploaded to main at least once and the gate is confirmed to
+      # resolve, or once CodeScene confirms the project's coverage gate
+      # is enabled.
       - name: Lint Markdown
         uses: DavidAnson/markdownlint-cli2-action@8de2aa07cae85fd17c0b35642db70cf5495f1d25 # v24.0.0
         with:
@@ -96,7 +123,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@80935e57261986b39b958d7873435a50f14d592e
+      - uses: leynos/shared-actions/.github/actions/setup-rust@29eea2635ee0f92e42c05f4cd360b7f1a2f00b12
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
