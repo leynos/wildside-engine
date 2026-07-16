@@ -193,7 +193,7 @@ pub struct DownloadReport {
     pub output_path: PathBuf,
 }
 
-/// Options controlling how a dump is materialised on disk.
+/// Options controlling how a dump is materialized on disk.
 ///
 /// Builder helpers provide an ergonomic way to opt into logging and overwriting
 /// existing archives without assembling several positional arguments.

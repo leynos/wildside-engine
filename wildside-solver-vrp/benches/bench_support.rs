@@ -109,11 +109,11 @@ pub fn generate_clustered_pois(count: usize, seed: u64) -> Vec<PointOfInterest> 
     // Centre POI distribution around BENCHMARK_START to ensure all POIs fall
     // within the solver's bounding box. Use separate distributions for x and y
     // in case BENCHMARK_START coordinates ever diverge.
-    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    #[expect(clippy::float_arithmetic, reason = "Centring POI distribution")]
     let half_area = AREA_SIZE / 2.0;
-    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    #[expect(clippy::float_arithmetic, reason = "Centring POI distribution")]
     let (min_x, max_x) = (BENCHMARK_START.x - half_area, BENCHMARK_START.x + half_area);
-    #[expect(clippy::float_arithmetic, reason = "Centering POI distribution")]
+    #[expect(clippy::float_arithmetic, reason = "Centring POI distribution")]
     let (min_y, max_y) = (BENCHMARK_START.y - half_area, BENCHMARK_START.y + half_area);
     let x_dist = Uniform::new(min_x, max_x);
     let y_dist = Uniform::new(min_y, max_y);

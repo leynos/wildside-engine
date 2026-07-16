@@ -1,7 +1,7 @@
 //! Persistence layer for Wikidata claims in the `pois.db` SQLite database.
 //!
 //! The module is split into two focused submodules:
-//! - [`schema`] materialises the SQLite structures that back the POI metadata.
+//! - [`schema`] materializes the SQLite structures that back the POI metadata.
 //! - [`persistence`] writes extracted claims into those tables.
 #![forbid(unsafe_code)]
 

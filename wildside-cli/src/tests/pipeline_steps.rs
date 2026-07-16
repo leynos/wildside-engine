@@ -41,7 +41,7 @@ impl PipelineWorld {
             .borrow()
             .as_ref()
             .cloned()
-            .expect("OSM path should be initialised")
+            .expect("OSM path should be initialized")
     }
 
     fn wikidata_path(&self) -> Utf8PathBuf {
@@ -49,7 +49,7 @@ impl PipelineWorld {
             .borrow()
             .as_ref()
             .cloned()
-            .expect("Wikidata path should be initialised")
+            .expect("Wikidata path should be initialized")
     }
 }
 

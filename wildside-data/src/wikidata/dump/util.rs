@@ -8,7 +8,7 @@ use tokio_util::io::{StreamReader, SyncIoBridge};
 use super::BaseUrl;
 
 /// Trim trailing slashes and fall back to the default Wikidata endpoint.
-pub(crate) fn sanitise_base_url(url: impl Into<String>) -> BaseUrl {
+pub(crate) fn sanitize_base_url(url: impl Into<String>) -> BaseUrl {
     let raw = url.into();
     let trimmed = raw.trim_end_matches('/');
     if trimmed.is_empty() {

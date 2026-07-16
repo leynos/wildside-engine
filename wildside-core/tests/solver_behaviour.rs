@@ -235,7 +235,7 @@ fn outcome() -> RefCell<Result<SolveResponse, SolveError>> {
 
 #[given("a dummy solver")]
 fn given_solver(#[from(solver)] _solver: &DummySolver) {
-    // Solver has no shared state to initialise.
+    // Solver has no shared state to initialize.
 }
 
 #[given("a valid solve request")]

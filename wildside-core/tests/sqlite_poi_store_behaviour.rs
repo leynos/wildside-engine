@@ -66,7 +66,7 @@ impl PoiStoreWorld {
             .borrow()
             .as_ref()
             .cloned()
-            .expect("paths should be initialised before opening the store")
+            .expect("paths should be initialized before opening the store")
     }
 }
 

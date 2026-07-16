@@ -29,7 +29,7 @@ approach are a seamless development experience, guaranteed memory safety for
 the core logic, and a simplified build process managed entirely by Cargo.
 
 The Orienteering Problem is a known "routing problem with profits," which can
-be modeled directly using the `vrp-core` API. The solver's objective function
+be modelled directly using the `vrp-core` API. The solver's objective function
 will be configured to maximize the total collected `Score(POI)` from visited
 "jobs" (the POIs), subject to the user's time budget (Tmax​). The library's
 powerful built-in metaheuristics will efficiently find a high-quality route

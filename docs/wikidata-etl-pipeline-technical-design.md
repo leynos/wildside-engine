@@ -116,7 +116,7 @@ relevance to Points of Interest:
   public venues, e.g. a museum’s opening date). Wikidata encodes dates with
   precision; we will parse this into a standard date or year. For simplicity,
   we might take the year as an integer (if full precision is not needed in
-  queries), or store the full ISO date string if available. Normalising to an
+  queries), or store the full ISO date string if available. Normalizing to an
   **integer year** or SQL date type makes it easier to filter or sort by age.
 
 - **P571 (inception)** – the inception or founding date of the POI (often
@@ -155,7 +155,7 @@ relevance to Points of Interest:
   might skip storing P625 since OSM covers coordinates, but for completeness
   and potential data validation, it can be included.)
 
-**Data Normalisation:** Each extracted claim will be converted to a suitable
+**Data Normalization:** Each extracted claim will be converted to a suitable
 **type** before storage.[^design-290-298] For example, dates like P1619/P571
 are stored in Wikidata as timestamp strings plus metadata; we will convert them
 to a standard date or year number. URLs (P856) are taken as-is (string). QID
@@ -375,7 +375,7 @@ example, will consult the local SQLite/JSONB for properties like P1435 or P31
 when computing user relevance scores on the fly.[^design-404-412] By having
 this data readily available in a local store, the engine can perform
 **thousands of property lookups per request in milliseconds** without any
-external API calls.[^design-312-320][^design-413-416] This fulfills the
+external API calls.[^design-312-320][^design-413-416] This fulfils the
 performance requirement that motivated the offline ETL in the first place: all
 Wikidata enrichment data is preloaded and indexed, making query latency very
 low (sub-millisecond per lookup) and throughput high.[^design-313-320] The

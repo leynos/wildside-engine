@@ -1,7 +1,7 @@
 //! Shared utilities for golden route tests.
 //!
 //! This module contains data structures and helper functions used by both
-//! the rstest parameterised tests and the BDD behavioural tests.
+//! the rstest parameterized tests and the BDD behavioural tests.
 //!
 //! # Matrix Ordering Requirement
 //!
@@ -20,7 +20,7 @@ use geo::Coord;
 use serde::Deserialize;
 use wildside_core::{InterestProfile, PointOfInterest, SolveRequest, Tags, Theme};
 
-/// Deserialised golden route test case.
+/// Deserialized golden route test case.
 #[derive(Debug, Deserialize, Clone)]
 #[expect(
     clippy::allow_attributes,

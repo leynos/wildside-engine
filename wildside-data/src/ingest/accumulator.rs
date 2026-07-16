@@ -1,6 +1,6 @@
 //! OpenStreetMap (OSM) PBF ingestion.
 //!
-//! Provides parallel ingestion that summarises raw element counts and derives
+//! Provides parallel ingestion that summarizes raw element counts and derives
 //! Points of Interest (POIs) from tagged nodes and ways. Way POIs are anchored
 //! to the first resolved node reference. The main entry points are:
 //! - [`ingest_osm_pbf`] for a summary only
@@ -67,7 +67,7 @@ impl OsmPoiAccumulator {
             if is_relevant {
                 collected
                     .as_mut()
-                    .expect("relevant nodes initialise tag collection")
+                    .expect("relevant nodes initialize tag collection")
                     .insert(key.to_owned(), value.to_owned());
                 continue;
             }

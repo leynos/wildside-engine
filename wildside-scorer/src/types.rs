@@ -23,7 +23,7 @@ impl Default for PopularityWeights {
     }
 }
 
-/// Normalised popularity scores keyed by POI identifier.
+/// Normalized popularity scores keyed by POI identifier.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PopularityScores {
     scores: BTreeMap<u64, f32>,

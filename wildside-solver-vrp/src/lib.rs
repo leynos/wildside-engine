@@ -3,7 +3,7 @@
 //! This crate provides [`VrpSolver`], the default implementation of the
 //! [`Solver`](wildside_core::Solver) trait. It models the Orienteering Problem as a
 //! single-vehicle VRP with optional jobs, using the `vrp-core` metaheuristics to
-//! maximise total collected POI score within a time budget.
+//! maximize total collected POI score within a time budget.
 //!
 //! The current implementation is intentionally small and deterministic at the API
 //! boundary: it selects candidates synchronously from a [`PoiStore`], queries a

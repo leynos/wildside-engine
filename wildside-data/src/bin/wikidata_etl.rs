@@ -45,7 +45,7 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
         return Err(CliError::OutputExists { path: output_path });
     }
 
-    let log = initialise_log(metadata_db.as_deref())?;
+    let log = initialize_log(metadata_db.as_deref())?;
     let options = log
         .as_ref()
         .map_or_else(
@@ -63,7 +63,7 @@ async fn execute<S: DumpSource>(arguments: Arguments, source: S) -> Result<(), C
     Ok(())
 }
 
-fn initialise_log(path: Option<&Path>) -> Result<Option<DownloadLog>, CliError> {
+fn initialize_log(path: Option<&Path>) -> Result<Option<DownloadLog>, CliError> {
     let Some(path) = path else {
         return Ok(None);
     };
@@ -234,18 +234,18 @@ mod tests {
     }
 
     #[rstest]
-    fn initialise_log_creates_parent(tmp: TempDir) {
+    fn initialize_log_creates_parent(tmp: TempDir) {
         let nested = tmp.path().join("nested").join("downloads.sqlite");
-        let outcome = initialise_log(Some(nested.as_path()))
-            .expect("initialisation should succeed")
+        let outcome = initialize_log(Some(nested.as_path()))
+            .expect("initialization should succeed")
             .expect("log should be created");
         assert!(nested.exists());
         assert_eq!(outcome.path(), nested.as_path());
     }
 
     #[rstest]
-    fn initialise_log_skips_when_absent() {
-        let log = initialise_log(None).expect("initialise_log should succeed");
+    fn initialize_log_skips_when_absent() {
+        let log = initialize_log(None).expect("initialize_log should succeed");
         assert!(log.is_none());
     }
 }

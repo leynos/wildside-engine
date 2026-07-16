@@ -5,7 +5,7 @@ use reqwest::{Client, Response, header::USER_AGENT};
 use std::io::{self, BufRead, Write};
 use std::time::Duration;
 
-use super::util::{sanitise_base_url, to_blocking_reader, to_sync_reader};
+use super::util::{sanitize_base_url, to_blocking_reader, to_sync_reader};
 use super::{BaseUrl, DumpUrl, TransportError};
 
 pub const DEFAULT_USER_AGENT: &str = "wildside-wikidata-etl/0.1";
@@ -41,7 +41,7 @@ impl HttpDumpSource {
         let client = Self::build_client(&user_agent);
         Self {
             client,
-            base_url: sanitise_base_url(base_url),
+            base_url: sanitize_base_url(base_url),
             user_agent,
         }
     }

@@ -61,7 +61,7 @@ pub trait PoiStore {
     ///
     /// Coordinates use WGS84 with axis order (longitude, latitude) in
     /// degrees. The rectangle is axis-aligned in lon/lat space and
-    /// `Rect::new` normalises corners so that `min ≤ max` on both axes.
+    /// `Rect::new` normalizes corners so that `min ≤ max` on both axes.
     ///
     /// Antimeridian note: this method does not model regions that cross the
     /// antimeridian. Callers that need such queries MUST split the area into

@@ -1,0 +1,49 @@
+# Repository-specific public APIs and exact behavioural fixtures.
+
+schema = 1
+
+[oxford]
+stems = []
+
+[words]
+accepted = []
+
+[words.corrections]
+
+[patterns]
+ignore = [
+  'types: \[opened, reopened, synchronize, labeled, ready_for_review\]',
+  'and query all enriched records, then use Diesel or bulk INSERTs to update the',
+  'fn sanitise\(score: f32\) -> f32 \{',
+  '<Self as Scorer>::sanitise\(sum\)',
+  'let result = TagScorer::sanitise\(input\);',
+  'let log = DownloadLog::initialise\(path\)\?;',
+  'use tokio::runtime::\{Handle, Runtime, RuntimeFlavor\};',
+  'Ok\(handle\) if handle\.runtime_flavor\(\) == RuntimeFlavor::MultiThread => \{',
+  'InitialiseLog \{',
+  'pub fn initialise\(path: &Path\) -> Result<Self, WikidataDumpError> \{',
+  'Connection::open\(path\)\.map_err\(\|source\| WikidataDumpError::InitialiseLog \{',
+  '\.map_err\(\|source\| WikidataDumpError::InitialiseLog \{',
+  'let log = match DownloadLog::initialise\(&path\) \{',
+  'let log = DownloadLog::initialise\(&log_path\)\.expect\("log initialization should succeed"\);',
+  'pub use schema::\{ClaimsSchemaError, SCHEMA_VERSION, initialise_schema\};',
+  'use super::schema::\{ClaimsSchemaError, initialise_schema\};',
+  'initialise_schema\(connection\)\?;',
+  'pub fn initialise_schema\(connection: &mut Connection\) -> Result<\(\), ClaimsSchemaError> \{',
+  'ClaimsSchemaError, PersistClaimsError, SCHEMA_VERSION, initialise_schema, persist_claims,',
+  'initialise_schema\(&mut connection\)\?;',
+  'Scenario: summarising a known dataset',
+  'register_ingest_scenario!\(summarising_known_dataset, "summarising a known dataset"\);',
+  'Serialise \{',
+  '\.map_err\(\|source\| PopularityError::Serialise \{',
+  '<Self as Scorer>::sanitise\(relevance\)',
+  'let popularity = <Self as Scorer>::sanitise\(self\.popularity\.get\(poi\.id\)\.unwrap_or\(0\.0_f32\)\);',
+  '<Self as Scorer>::sanitise\(blended\)',
+  'Then the heritage POI has the highest normalised score',
+  'Then the unlinked POI has a zero normalised score',
+  '#\[then\("the heritage POI has the highest normalised score"\)\]',
+  '#\[then\("the unlinked POI has a zero normalised score"\)\]',
+]
+
+[files]
+exclude = []

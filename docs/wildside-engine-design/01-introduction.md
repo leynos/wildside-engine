@@ -9,7 +9,7 @@ of Rust libraries, architectural patterns, and implementation strategies to
 build the Wildside engine, moving from the abstract problem statement to a
 concrete engineering blueprint.
 
-The selection of the Rust programming language for this endeavor is
+The selection of the Rust programming language for this endeavour is
 well-founded. Rust's emphasis on performance, memory safety, and concurrency
 makes it an ideal candidate for a system that is both data-intensive and
 computationally demanding.[^1] The core tasks of parsing massive binary data

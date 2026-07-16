@@ -38,7 +38,7 @@ fn connection() -> Connection {
 }
 
 #[rstest]
-fn initialises_schema_records_version(mut connection: Connection) -> Result<(), ClaimsSchemaError> {
+fn initializes_schema_records_version(mut connection: Connection) -> Result<(), ClaimsSchemaError> {
     create_pois_table(&connection);
 
     initialise_schema(&mut connection)?;

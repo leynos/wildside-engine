@@ -457,7 +457,7 @@ mod tests {
             let path = self.dir.join("popularity.bin");
             let bytes = popularity_bincode_options()
                 .serialize(&popularity)
-                .expect("serialise popularity");
+                .expect("serialize popularity");
             std::fs::write(path.as_std_path(), bytes).expect("write popularity fixture");
             path
         }

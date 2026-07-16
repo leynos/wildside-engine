@@ -74,8 +74,8 @@ pub enum PopularityError {
         #[source]
         source: std::io::Error,
     },
-    /// Serialising the scores to `bincode` failed.
-    #[error("failed to serialise popularity scores into {path}")]
+    /// Serializing the scores to `bincode` failed.
+    #[error("failed to serialize popularity scores into {path}")]
     Serialise {
         /// Target file path.
         path: Utf8PathBuf,

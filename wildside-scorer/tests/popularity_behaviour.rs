@@ -50,7 +50,7 @@ pub fn popularity_path() -> RefCell<Option<Utf8PathBuf>> {
 #[given("a SQLite POI database with sitelink counts")]
 #[expect(
     clippy::expect_used,
-    reason = "fixture initialisation should fail fast when database operations fail"
+    reason = "fixture initialization should fail fast when database operations fail"
 )]
 fn sqlite_with_sitelinks(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBuf>>) {
     let path = Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db")).expect("utf8 path");
@@ -89,7 +89,7 @@ fn sqlite_with_sitelinks(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBu
 #[given("a SQLite POI database with malformed sitelinks")]
 #[expect(
     clippy::expect_used,
-    reason = "fixture initialisation should fail fast when database operations fail"
+    reason = "fixture initialization should fail fast when database operations fail"
 )]
 fn sqlite_with_invalid_sitelinks(temp_dir: &TempDir, db_path: &RefCell<Option<Utf8PathBuf>>) {
     let path = Utf8PathBuf::from_path_buf(temp_dir.path().join("pois.db")).expect("utf8 path");
@@ -115,7 +115,7 @@ fn compute_scores(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialised"));
+        .unwrap_or_else(|| panic!("database path must be initialized"));
     let result = compute_popularity_scores(&path, weights);
     *compute_result.borrow_mut() = Some(result);
 }
@@ -130,7 +130,7 @@ fn write_popularity(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialised"));
+        .unwrap_or_else(|| panic!("database path must be initialized"));
     let nested = db
         .parent()
         .unwrap_or_else(|| Utf8Path::new("."))
@@ -163,7 +163,7 @@ fn heritage_scores_highest(
             };
             assert!(
                 (q1 - 1.0_f32).abs() < 0.000_1_f32,
-                "heritage POI should normalise to 1.0 (got {q1})"
+                "heritage POI should normalize to 1.0 (got {q1})"
             );
             assert!(
                 q2 < 1.0_f32,
@@ -208,7 +208,7 @@ fn unlinked_poi_scores_zero(
             };
             assert!(
                 (q3 - 0.0_f32).abs() < 0.000_1_f32,
-                "unlinked POI should normalise to 0.0 (got {q3})"
+                "unlinked POI should normalize to 0.0 (got {q3})"
             );
         }
         Err(err) => panic!("popularity computation should succeed, got {err}"),
@@ -230,7 +230,7 @@ fn popularity_file_round_trips(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialised"));
+        .unwrap_or_else(|| panic!("database path must be initialized"));
     let expected = compute_popularity_scores(&db, weights)
         .unwrap_or_else(|err| panic!("compute expected scores: {err}"));
     let bytes = std::fs::read(output.as_std_path())

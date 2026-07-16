@@ -74,7 +74,7 @@ impl SpatialIndex {
 
     /// Query the index for points intersecting the provided bounding box.
     ///
-    /// The bounding box is normalised by taking the minimum and maximum of the
+    /// The bounding box is normalized by taking the minimum and maximum of the
     /// provided coordinates, so the order of the arguments does not affect the
     /// result.
     #[must_use]

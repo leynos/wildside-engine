@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[fixture]
-    fn temp_artifacts() -> (TempDir, PathBuf, PathBuf) {
+    fn temp_artefacts() -> (TempDir, PathBuf, PathBuf) {
         let dir = TempDir::new().expect("create temp dir");
         let db_path = dir.path().join("pois.db");
         let index_path = dir.path().join("pois.rstar");
@@ -224,7 +224,7 @@ mod tests {
 
     #[fixture]
     fn sqlite_store_fixture(
-        #[from(temp_artifacts)] (dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
         sample_pois: Vec<PointOfInterest>,
     ) -> (TempDir, PathBuf, PathBuf, Vec<PointOfInterest>) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
@@ -245,7 +245,7 @@ mod tests {
 
     #[rstest]
     fn sqlite_store_returns_sorted_results(
-        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
     ) {
         let pois = vec![
             poi(3, 3.0, 3.0, "gallery"),
@@ -276,7 +276,7 @@ mod tests {
 
     #[rstest]
     fn sqlite_store_errors_when_index_has_unknown_poi(
-        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
@@ -291,7 +291,7 @@ mod tests {
 
     #[rstest]
     fn sqlite_store_errors_on_corrupted_magic(
-        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
@@ -307,7 +307,7 @@ mod tests {
 
     #[rstest]
     fn sqlite_store_errors_on_unsupported_version(
-        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
@@ -332,7 +332,7 @@ mod tests {
 
     #[rstest]
     fn sqlite_store_errors_on_invalid_tags(
-        #[from(temp_artifacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
+        #[from(temp_artefacts)] (_dir, db_path, index_path): (TempDir, PathBuf, PathBuf),
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_sqlite_spatial_index(&index_path, &sample_pois).expect("persist index");

@@ -121,7 +121,7 @@ fn download_log_target(
     let path = dir.path().join("downloads.sqlite");
     let log = match DownloadLog::initialise(&path) {
         Ok(log) => log,
-        Err(err) => panic!("log initialisation failed: {err}"),
+        Err(err) => panic!("log initialization failed: {err}"),
     };
     *ctx.log_handle().borrow_mut() = Some(log);
 }
@@ -134,7 +134,7 @@ fn download_latest(
     let source_borrow = ctx.stub_source().borrow();
     let stub = source_borrow
         .as_ref()
-        .unwrap_or_else(|| panic!("stub source must be initialised"));
+        .unwrap_or_else(|| panic!("stub source must be initialized"));
     let output_path = {
         let borrowed = ctx.output_path().borrow();
         borrowed
@@ -154,7 +154,7 @@ fn archive_written(#[from(dump_context)] ctx: &DumpScenarioContext) {
     let expected = source_borrow
         .as_ref()
         .map(StubSource::archive)
-        .unwrap_or_else(|| panic!("stub source must be initialised"));
+        .unwrap_or_else(|| panic!("stub source must be initialized"));
     let result_borrow = ctx.download_result().borrow();
     let outcome = result_borrow
         .as_ref()
@@ -182,7 +182,7 @@ fn log_records_entry(#[from(dump_context)] ctx: &DumpScenarioContext) {
     let log_borrow = ctx.log_handle().borrow();
     let log = log_borrow
         .as_ref()
-        .unwrap_or_else(|| panic!("download log should be initialised"));
+        .unwrap_or_else(|| panic!("download log should be initialized"));
     let count: i64 = match log
         .connection()
         .query_row("SELECT COUNT(*) FROM downloads", [], |row| row.get(0))

@@ -168,13 +168,13 @@ fn build_scorer(context: &TestContext) -> UserRelevanceScorer {
         .borrow()
         .as_ref()
         .cloned()
-        .expect("database path must be initialised");
+        .expect("database path must be initialized");
     let popularity = context
         .popularity_path
         .borrow()
         .as_ref()
         .cloned()
-        .expect("popularity path must be initialised");
+        .expect("popularity path must be initialized");
     UserRelevanceScorer::from_paths(
         &db,
         &popularity,
@@ -199,7 +199,7 @@ fn write_popularity_scores(
     let scores = wildside_scorer::PopularityScores::new(BTreeMap::from_iter(scores_map));
     let bytes = popularity_bincode_options()
         .serialize(&scores)
-        .expect("serialise popularity scores");
+        .expect("serialize popularity scores");
     std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
     *context.popularity_path.borrow_mut() = Some(path);
 }

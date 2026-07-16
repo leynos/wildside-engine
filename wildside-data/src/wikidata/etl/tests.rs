@@ -4,7 +4,7 @@ mod behaviour;
 
 use super::{
     EntityClaims, PoiEntityLinks, WikidataEtlError, extract_linked_entity_claims,
-    normalise_wikidata_id,
+    normalize_wikidata_id,
 };
 use geo::Coord;
 use rstest::{fixture, rstest};
@@ -45,9 +45,9 @@ fn ignores_invalid_wikidata_tags() {
 }
 
 #[rstest]
-fn normalises_http_urls() {
+fn normalizes_http_urls() {
     assert_eq!(
-        normalise_wikidata_id("https://www.wikidata.org/wiki/Q9259"),
+        normalize_wikidata_id("https://www.wikidata.org/wiki/Q9259"),
         Some("Q9259".to_string())
     );
 }

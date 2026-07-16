@@ -143,7 +143,7 @@ fn persist_poi_links(
     Ok(())
 }
 
-/// Persist the supplied claims into an initialised SQLite connection.
+/// Persist the supplied claims into an initialized SQLite connection.
 ///
 /// The function ensures the schema is present, validates that every referenced
 /// POI id exists in the `pois` table, and performs idempotent inserts for both

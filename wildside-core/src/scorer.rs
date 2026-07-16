@@ -17,7 +17,7 @@ use crate::{InterestProfile, PointOfInterest};
 /// Implementations must:
 /// - Produce finite (`f32::is_finite`) scores.
 /// - Return non-negative values.
-/// - Normalise results to the range `0.0..=1.0`.
+/// - Normalize results to the range `0.0..=1.0`.
 /// - Return `0.0` when no information is available.
 ///
 /// Use [`Scorer::sanitise`] to apply these guards.

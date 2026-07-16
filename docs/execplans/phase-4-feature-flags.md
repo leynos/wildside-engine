@@ -200,7 +200,7 @@ its dependencies are marked `optional = true` with feature activation via
 `dep:`. If a test run fails, re-run the specific feature-set command after the
 fix; the commands above are safe to repeat.
 
-## Artifacts and Notes
+## Artefacts and Notes
 
 Keep the following evidence in the logs referenced above:
 

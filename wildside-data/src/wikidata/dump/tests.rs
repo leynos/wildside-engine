@@ -1,6 +1,6 @@
-use super::ops::{normalise_url, select_dump};
+use super::ops::{normalize_url, select_dump};
 use super::test_support::{StubSource, block_on_for_tests};
-use super::util::sanitise_base_url;
+use super::util::sanitize_base_url;
 use super::{BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, download_latest_dump};
 use rstest::{fixture, rstest};
 use std::{fs, io::Cursor};
@@ -110,7 +110,7 @@ fn logs_downloads(base_url: BaseUrl, manifest: Vec<u8>, archive: Vec<u8>) {
     let temp_dir = TempDir::new().expect("failed to create temporary directory");
     let output = temp_dir.path().join("dump.json.bz2");
     let log_path = temp_dir.path().join("downloads.sqlite");
-    let log = DownloadLog::initialise(&log_path).expect("log initialisation should succeed");
+    let log = DownloadLog::initialise(&log_path).expect("log initialization should succeed");
     let source = StubSource::new(base_url, manifest, archive);
     let report = block_on_for_tests(download_latest_dump(&source, &output, Some(&log), false))
         .expect("download should succeed");
@@ -155,10 +155,10 @@ fn parses_sample_entity() {
 }
 
 #[rstest]
-fn sanitises_base_urls(#[values("https://example.org/", "https://example.org")] input: &str
+fn sanitizes_base_urls(#[values("https://example.org/", "https://example.org")] input: &str
 ) {
     assert_eq!(
-        sanitise_base_url(input),
+        sanitize_base_url(input),
         BaseUrl::from("https://example.org")
     );
 }
@@ -166,24 +166,24 @@ fn sanitises_base_urls(#[values("https://example.org/", "https://example.org")] 
 #[rstest]
 fn defaults_empty_base_url() {
     assert_eq!(
-        sanitise_base_url(""),
+        sanitize_base_url(""),
         BaseUrl::from("https://dumps.wikimedia.org")
     );
 }
 
 #[rstest]
-fn normalises_relative_urls(base_url: BaseUrl) {
+fn normalizes_relative_urls(base_url: BaseUrl) {
     let relative = "entities/20240909/file.json";
-    let absolute = normalise_url(&base_url, relative).expect("URL should normalise");
+    let absolute = normalize_url(&base_url, relative).expect("URL should normalize");
     let raw = format!("{}/{}", base_url.as_ref(), relative);
     let expected = DumpUrl::try_from(raw.as_str()).expect("expected URL should parse");
     assert_eq!(absolute, expected);
 }
 
 #[rstest]
-fn normalises_root_relative_urls(base_url: BaseUrl) {
+fn normalizes_root_relative_urls(base_url: BaseUrl) {
     let absolute =
-        normalise_url(&base_url, "/entities/20240909/file.json").expect("URL should normalise");
+        normalize_url(&base_url, "/entities/20240909/file.json").expect("URL should normalize");
     let expected =
         DumpUrl::try_from(format!("{}/entities/20240909/file.json", base_url.as_ref()).as_str())
             .expect("expected URL should parse");

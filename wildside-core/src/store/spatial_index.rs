@@ -32,7 +32,7 @@ pub enum SpatialIndexError {
         #[source]
         source: std::io::Error,
     },
-    /// The serialised R\*-tree could not be decoded.
+    /// The serialized R\*-tree could not be decoded.
     #[error("failed to decode spatial index from {path}: {source}")]
     Decode {
         /// Location of the persisted R\*-tree artefact.
@@ -59,7 +59,7 @@ pub enum SpatialIndexError {
     },
 }
 
-/// Error emitted when serialising a spatial index to disk.
+/// Error emitted when serializing a spatial index to disk.
 #[derive(Debug, Error)]
 pub enum SpatialIndexWriteError {
     /// Writing bytes to disk failed.
