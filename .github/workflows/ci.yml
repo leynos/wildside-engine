@@ -46,16 +46,17 @@ jobs:
           features: test-support
           use-cargo-nextest: 'true'
           with-ratchet: 'true'
-      # The `mode: check` step is deliberately not wired in yet: CodeScene
-      # project 70674 has no coverage-gates configuration, so
-      # `cs-coverage check` fails every run with "HTTP call succeeded,
-      # but the received project-config isn't valid. Lacks the gates
-      # configuration." — a CodeScene-side per-project setting, not a CI
-      # defect (ddlint and chutoro hit the byte-identical error). Add the
-      # check step in a fast-follow PR once coverage-main.yml has
-      # uploaded to main at least once and the gate is confirmed to
-      # resolve, or once CodeScene confirms the project's coverage gate
-      # is enabled.
+      - name: Check coverage against CodeScene gates
+        env:
+          CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}
+        if: env.CS_ACCESS_TOKEN != '' && github.event_name == 'pull_request'
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@29eea2635ee0f92e42c05f4cd360b7f1a2f00b12
+        with:
+          format: lcov
+          mode: check
+          project-url: https://api.codescene.io/v2/projects/70674
+          access-token: ${{ env.CS_ACCESS_TOKEN }}
+          installer-checksum: ${{ vars.CODESCENE_CLI_SHA256 }}
       - name: Lint Markdown
         uses: DavidAnson/markdownlint-cli2-action@8de2aa07cae85fd17c0b35642db70cf5495f1d25 # v24.0.0
         with:
