@@ -1,3 +1,5 @@
+//! Tests for Wikidata dump selection, download, and caching behaviour.
+
 use super::ops::{normalize_url, select_dump};
 use super::test_support::{StubSource, block_on_for_tests};
 use super::util::sanitize_base_url;

@@ -101,6 +101,18 @@ class TestPhrasePolicyChecker:
             (2, TITLE_PROHIBITED),
         ], "phrase boundaries, masking, or exclusions changed"
 
+    @pytest.mark.parametrize(
+        "patterns",
+        [(r"`", r"`[^`\n]+`"), (r"`[^`\n]+`", r"`")],
+    )
+    def test_masking_unions_overlapping_patterns(
+        self, checker: types.ModuleType, patterns: tuple[str, ...]
+    ) -> None:
+        """Mask overlapping ignored spans independently of policy order."""
+        text = f"before `{PROHIBITED}`\nafter"
+
+        assert checker._masked(text, patterns) == "before " + " " * 14 + "\nafter"
+
     def test_main_reports_location_and_exit_two(
         self,
         checker: types.ModuleType,

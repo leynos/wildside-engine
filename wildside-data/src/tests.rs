@@ -1,3 +1,5 @@
+//! Tests for Wildside data loading and decoding behaviour.
+
 use super::*;
 use rstest::{fixture, rstest};
 use std::path::PathBuf;

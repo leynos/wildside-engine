@@ -172,15 +172,17 @@ def _excluded(path: Path, spec: GitIgnoreSpec) -> bool:
 
 def _masked(text: str, patterns: tuple[str, ...]) -> str:
     """Blank ignored spans while preserving line and column positions."""
-
-    def blank(match: re.Match[str]) -> str:
-        return "".join(
-            "\n" if character == "\n" else " " for character in match.group()
-        )
-
+    ignored = bytearray(len(text))
     for pattern in patterns:
-        text = re.sub(pattern, blank, text)
-    return text
+        for match in re.finditer(pattern, text):
+            ignored[match.start() : match.end()] = b"\x01" * (
+                match.end() - match.start()
+            )
+
+    return "".join(
+        "\n" if character == "\n" else " " if ignored[index] else character
+        for index, character in enumerate(text)
+    )
 
 
 def _phrase_findings(

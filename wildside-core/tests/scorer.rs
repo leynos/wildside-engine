@@ -1,3 +1,5 @@
+//! Integration tests for point-of-interest scoring behaviour.
+
 use geo::Coord;
 use rstest::rstest;
 use wildside_core::profile::test_support::InterestProfileTestExt;
