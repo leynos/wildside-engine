@@ -52,7 +52,7 @@ pub enum TravelTimeError {
 
     /// Failed to parse the routing service response.
     ///
-    /// The routing service returned a response that could not be deserialised.
+    /// The routing service returned a response that could not be deserialized.
     #[error("failed to parse routing response: {message}")]
     ParseError {
         /// A human-readable error message.

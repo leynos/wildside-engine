@@ -231,7 +231,7 @@ project:
 - In production code and shared fixtures, avoid `.expect()` entirely: return
   `Result` and use `?` to propagate errors instead of panicking.
 - Keep `expect_used` **strict**; do not suppress the lint.
-- Recognise that `allow-expect-in-tests = true` **doesn’t cover** helpers
+- Recognize that `allow-expect-in-tests = true` **doesn’t cover** helpers
   outside `#[cfg(test)]` or `#[test]`; avoid `expect` in such fixtures.
 - Use `anyhow`/`eyre` with `.context(...)` to **preserve backtraces** and
   provide clear, typed failure paths.

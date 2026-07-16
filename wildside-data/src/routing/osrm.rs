@@ -1,6 +1,6 @@
 //! OSRM API response types for the Table service.
 //!
-//! This module provides deserialisation types for the OSRM Table API response
+//! This module provides deserialization types for the OSRM Table API response
 //! format. The Table API computes the duration of the fastest route between all
 //! pairs of supplied coordinates.
 //!
@@ -48,13 +48,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn deserialise_success_response() {
+    fn deserialize_success_response() {
         let json = r#"{
             "code": "Ok",
             "durations": [[0.0, 120.5], [120.5, 0.0]]
         }"#;
 
-        let response: TableResponse = serde_json::from_str(json).expect("should deserialise");
+        let response: TableResponse = serde_json::from_str(json).expect("should deserialize");
 
         assert!(response.is_ok());
         assert!(response.message.is_none());
@@ -65,13 +65,13 @@ mod tests {
     }
 
     #[test]
-    fn deserialise_error_response() {
+    fn deserialize_error_response() {
         let json = r#"{
             "code": "InvalidQuery",
             "message": "Coordinates are invalid"
         }"#;
 
-        let response: TableResponse = serde_json::from_str(json).expect("should deserialise");
+        let response: TableResponse = serde_json::from_str(json).expect("should deserialize");
 
         assert!(!response.is_ok());
         assert_eq!(
@@ -82,13 +82,13 @@ mod tests {
     }
 
     #[test]
-    fn deserialise_response_with_nulls() {
+    fn deserialize_response_with_nulls() {
         let json = r#"{
             "code": "Ok",
             "durations": [[0.0, null], [null, 0.0]]
         }"#;
 
-        let response: TableResponse = serde_json::from_str(json).expect("should deserialise");
+        let response: TableResponse = serde_json::from_str(json).expect("should deserialize");
 
         assert!(response.is_ok());
         let durations = response.durations.expect("should have durations");

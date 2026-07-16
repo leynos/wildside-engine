@@ -180,6 +180,6 @@ error with expected vs found MAJOR.MINOR on mismatch.
 - **Online Path:** The core engine library, when used by the web app, interacts
   *only* with these read-only artefacts. This design choice means the engine
   itself is side effect free during a request. It allows application instances
-  to be scaled horizontally without needing complex shared state or writeable
+  to be scaled horizontally without needing complex shared state or writable
   database connections, dramatically simplifying deployment and improving
   robustness.

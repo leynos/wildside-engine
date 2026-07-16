@@ -19,7 +19,7 @@ impl DownloadLog {
     /// Open (or create) the download log at the supplied path.
     ///
     /// The log seeds uniqueness and timestamp indexes to keep repeated
-    /// initialisation idempotent while supporting fast lookups.
+    /// initialization idempotent while supporting fast lookups.
     ///
     /// # Examples
     /// ```

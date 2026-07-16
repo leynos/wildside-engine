@@ -2,7 +2,7 @@
 
 The Wildside engine is delivered as a collection of Rust crates focused on
 serving recommendation and routing scenarios for walking tours. This guide
-summarises the functionality that is currently implemented and explains how to
+summarizes the functionality that is currently implemented and explains how to
 consume the public APIs exposed by the workspace.
 
 ## Crate layout
@@ -49,7 +49,7 @@ callers must provide the aggregate duration explicitly.[^4]
 
 The `Scorer` trait maps a `PointOfInterest` and `InterestProfile` to a `f32`
 score. Implementations must be `Send + Sync`, return deterministic,
-non-negative, finite values, and should normalise scores to `0.0..=1.0`.
+non-negative, finite values, and should normalize scores to `0.0..=1.0`.
 `Scorer::sanitise` is provided to clamp or reset invalid values.[^5]
 
 ## Solver contract

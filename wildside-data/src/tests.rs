@@ -1,3 +1,5 @@
+//! Tests for Wildside data loading and decoding behaviour.
+
 use super::*;
 use rstest::{fixture, rstest};
 use std::path::PathBuf;
@@ -35,7 +37,7 @@ fn poi_pbf_with_invalid_coords(#[from(fixtures_dir)] dir: PathBuf) -> TempPath {
 }
 
 #[rstest]
-fn summarises_small_fixture(valid_pbf: TempPath) -> Result<(), OsmIngestError> {
+fn summarizes_small_fixture(valid_pbf: TempPath) -> Result<(), OsmIngestError> {
     let summary = ingest_osm_pbf(valid_pbf.as_ref())?;
     assert_eq!(summary.nodes, 3, "expected three nodes");
     assert_eq!(summary.ways, 1, "expected one way");

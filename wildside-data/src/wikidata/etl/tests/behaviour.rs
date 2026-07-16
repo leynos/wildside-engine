@@ -61,7 +61,7 @@ fn extract_claims(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("POI links must be initialised"));
+        .unwrap_or_else(|| panic!("POI links must be initialized"));
     let bytes = bytes_cell.borrow().clone();
     let cursor = Cursor::new(bytes);
     let outcome = extract_linked_entity_claims(cursor, &links);

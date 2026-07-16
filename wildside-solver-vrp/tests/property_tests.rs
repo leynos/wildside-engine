@@ -95,7 +95,7 @@ proptest! {
     /// The orienteering problem visits each location at most once. Duplicate
     /// visits would violate the problem constraints and inflate scores.
     ///
-    /// Uses a variable-size POI set (3-15 POIs) with randomised locations to
+    /// Uses a variable-size POI set (3-15 POIs) with randomized locations to
     /// exercise more configurations.
     #[test]
     fn route_has_no_duplicate_pois(
@@ -235,7 +235,7 @@ proptest! {
     /// The solver should only return POIs that were present in the store and
     /// matched the query criteria. No spurious POI IDs should appear.
     ///
-    /// Uses a variable-size POI set (2-12 POIs) with randomised locations to
+    /// Uses a variable-size POI set (2-12 POIs) with randomized locations to
     /// exercise more configurations.
     #[test]
     fn route_pois_exist_in_candidates(
@@ -267,7 +267,7 @@ proptest! {
     /// Additionally, the route's start and end coordinates must match the
     /// request's start and end values.
     ///
-    /// Uses a variable-size POI set (3-10 POIs) with randomised locations to
+    /// Uses a variable-size POI set (3-10 POIs) with randomized locations to
     /// exercise more configurations.
     #[test]
     fn point_to_point_routes_are_valid(

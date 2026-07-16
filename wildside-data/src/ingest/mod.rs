@@ -1,6 +1,6 @@
 //! OpenStreetMap (OSM) PBF ingestion.
 //!
-//! Provides parallel ingestion that summarises raw element counts, derives
+//! Provides parallel ingestion that summarizes raw element counts, derives
 //! Points of Interest (POIs) from tagged nodes and ways, and persists POIs to
 //! SQLite. Way POIs are anchored to the first resolved node reference.
 //!
@@ -116,7 +116,7 @@ pub enum OsmIngestError {
     },
 }
 
-/// Parallel OSM PBF ingestion that summarises the raw element counts.
+/// Parallel OSM PBF ingestion that summarizes the raw element counts.
 ///
 /// # Examples
 /// ```no_run

@@ -106,7 +106,7 @@ fn request_two(
     #[from(result)] result: &ResultCell,
 ) {
     let guard = provider.borrow();
-    let stub = guard.as_ref().expect("provider must be initialised");
+    let stub = guard.as_ref().expect("provider must be initialized");
     let pois = sample_pois(2);
     *result.borrow_mut() = stub.get_travel_time_matrix(&pois);
 }
@@ -117,7 +117,7 @@ fn request_none(
     #[from(result)] result: &ResultCell,
 ) {
     let guard = provider.borrow();
-    let stub = guard.as_ref().expect("provider must be initialised");
+    let stub = guard.as_ref().expect("provider must be initialized");
     let pois: Vec<PointOfInterest> = Vec::new();
     *result.borrow_mut() = stub.get_travel_time_matrix(&pois);
 }

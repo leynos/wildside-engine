@@ -82,8 +82,8 @@ pub fn compute_popularity_scores(
     })?;
 
     let raw = read_raw_scores(&mut connection, weights)?;
-    let normalised = normalise_scores(&raw);
-    Ok(PopularityScores::new(normalised))
+    let normalized = normalize_scores(&raw);
+    Ok(PopularityScores::new(normalized))
 }
 
 /// Compute popularity scores and persist them to `popularity.bin`.
@@ -200,7 +200,7 @@ fn score_signals(sitelinks: u32, heritage: bool, weights: PopularityWeights) -> 
     clippy::float_arithmetic,
     reason = "normalizing scores divides by the maximum raw value"
 )]
-pub(crate) fn normalise_scores(raw: &HashMap<u64, f32>) -> std::collections::BTreeMap<u64, f32> {
+pub(crate) fn normalize_scores(raw: &HashMap<u64, f32>) -> std::collections::BTreeMap<u64, f32> {
     let max = raw.values().copied().fold(0.0_f32, f32::max);
     if max == 0.0_f32 {
         return raw.keys().map(|&id| (id, 0.0_f32)).collect();

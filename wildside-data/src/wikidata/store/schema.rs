@@ -10,7 +10,7 @@ use thiserror::Error;
 
 pub const SCHEMA_VERSION: i64 = 1;
 
-/// Initialise the Wikidata claims schema inside an existing SQLite database.
+/// Initialize the Wikidata claims schema inside an existing SQLite database.
 ///
 /// The function enables foreign keys, creates the supporting tables, indexes
 /// and views, and records the schema version. Existing installations must
@@ -187,7 +187,7 @@ fn run_migration_step(
         .map_err(|source| ClaimsSchemaError::Migration { step, source })
 }
 
-/// Errors raised when initialising the Wikidata claims schema.
+/// Errors raised when initializing the Wikidata claims schema.
 #[derive(Debug, Error)]
 pub enum ClaimsSchemaError {
     #[error("failed to enable SQLite foreign keys")]

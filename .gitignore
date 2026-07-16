@@ -4,3 +4,11 @@ target/
 **/*.pbf
 .memdb/
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Local spelling-policy caches and helper tool state
+.typos-oxendict-base.json
+.typos-oxendict-base.toml
+.uv-cache/
+.uv-tools/

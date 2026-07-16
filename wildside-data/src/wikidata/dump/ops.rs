@@ -321,7 +321,7 @@ pub(crate) fn select_dump(
         .ok_or(WikidataDumpError::MissingDump)
 }
 
-pub(crate) fn normalise_url(
+pub(crate) fn normalize_url(
     base_url: &BaseUrl,
     relative: &str,
 ) -> Result<DumpUrl, url::ParseError> {
@@ -366,7 +366,7 @@ struct DumpFile {
 impl DumpDescriptor {
     fn from_manifest_entry(file_name: &str, entry: &DumpFile, base_url: &BaseUrl) -> Option<Self> {
         let relative = entry.url.as_deref()?;
-        let url = normalise_url(base_url, relative).ok()?;
+        let url = normalize_url(base_url, relative).ok()?;
         Some(Self {
             file_name: DumpFileName::from(file_name),
             url,

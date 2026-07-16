@@ -9,7 +9,7 @@ use tempfile::TempDir;
 
 use crate::{
     PopularityError, PopularityScores, PopularityWeights, bincode_options,
-    compute_popularity_scores, normalise_scores, resolver::SitelinkResolver,
+    compute_popularity_scores, normalize_scores, resolver::SitelinkResolver,
     resolver::parse_sitelinks_from_tags, write_popularity_file,
 };
 
@@ -18,15 +18,15 @@ use crate::{
     clippy::float_arithmetic,
     reason = "test uses float maths for assertions"
 )]
-fn normalises_scores() {
+fn normalizes_scores() {
     let mut raw = std::collections::HashMap::new();
     raw.insert(1, 10.0_f32);
     raw.insert(2, 5.0_f32);
 
-    let normalised = normalise_scores(&raw);
+    let normalized = normalize_scores(&raw);
 
-    assert_eq!(normalised.get(&1), Some(&1.0_f32));
-    let value = normalised.get(&2).expect("score for poi 2");
+    assert_eq!(normalized.get(&1), Some(&1.0_f32));
+    let value = normalized.get(&2).expect("score for poi 2");
     let delta = (value - 0.5_f32).abs();
     assert!(
         delta < 0.000_1_f32,
@@ -35,15 +35,15 @@ fn normalises_scores() {
 }
 
 #[rstest]
-fn normalises_zero_scores_to_zero() {
+fn normalizes_zero_scores_to_zero() {
     let mut raw = std::collections::HashMap::new();
     raw.insert(1, 0.0_f32);
     raw.insert(2, 0.0_f32);
 
-    let normalised = normalise_scores(&raw);
+    let normalized = normalize_scores(&raw);
 
-    assert_eq!(normalised.get(&1), Some(&0.0_f32));
-    assert_eq!(normalised.get(&2), Some(&0.0_f32));
+    assert_eq!(normalized.get(&1), Some(&0.0_f32));
+    assert_eq!(normalized.get(&2), Some(&0.0_f32));
 }
 
 #[rstest]

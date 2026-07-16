@@ -50,7 +50,7 @@ impl PoiEntityLinks {
         let mut links: BTreeMap<String, Vec<u64>> = BTreeMap::new();
         for poi in pois {
             if let Some(raw) = poi.tags.get("wikidata")
-                && let Some(entity_id) = normalise_wikidata_id(raw)
+                && let Some(entity_id) = normalize_wikidata_id(raw)
             {
                 links.entry(entity_id).or_default().push(poi.id);
             }
@@ -237,10 +237,10 @@ fn process_entity_claims(
             line: line_number,
         }
     })?;
-    let Some(normalised_id) = normalise_wikidata_id(&entity.id) else {
+    let Some(normalized_id) = normalize_wikidata_id(&entity.id) else {
         return Ok(None);
     };
-    if !links.contains(&normalised_id) {
+    if !links.contains(&normalized_id) {
         return Ok(None);
     }
     let mut heritage_designations = entity.heritage_designations();
@@ -248,18 +248,18 @@ fn process_entity_claims(
     heritage_designations.dedup();
 
     let linked_poi_ids = links
-        .linked_poi_ids(&normalised_id)
+        .linked_poi_ids(&normalized_id)
         .map(|ids| ids.to_vec())
         .unwrap_or_default();
 
     Ok(Some(EntityClaims::new(
-        normalised_id,
+        normalized_id,
         linked_poi_ids,
         heritage_designations,
     )))
 }
 
-fn normalise_wikidata_id(input: &str) -> Option<String> {
+fn normalize_wikidata_id(input: &str) -> Option<String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return None;
@@ -328,7 +328,7 @@ impl RawSnak {
         let RawDataValue::Entity { value } = self.data_value.as_ref()? else {
             return None;
         };
-        normalise_wikidata_id(&value.id)
+        normalize_wikidata_id(&value.id)
     }
 }
 

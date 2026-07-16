@@ -172,7 +172,7 @@ pub enum SolveError {
 /// [`SolveError::NotImplemented`] until a backend is available.
 ///
 /// # Thread Safety
-/// Implementations must avoid shared mutable state or use proper synchronisation
+/// Implementations must avoid shared mutable state or use proper synchronization
 /// to ensure thread safety. Solvers must be `Send + Sync` to operate safely across threads.
 pub trait Solver: Send + Sync {
     /// Solve a request, producing a route or an error.

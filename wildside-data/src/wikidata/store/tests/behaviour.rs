@@ -102,12 +102,12 @@ fn persist(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialised"));
+        .unwrap_or_else(|| panic!("database path must be initialized"));
     let claims_vec = claims
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("claims must be initialised"));
+        .unwrap_or_else(|| panic!("claims must be initialized"));
     let result = persist_claims_to_path(path.clone(), &claims_vec);
     *persist_result.borrow_mut() = Some(result);
 }
@@ -129,7 +129,7 @@ fn designation_persisted(
         .borrow()
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialised"));
+        .unwrap_or_else(|| panic!("database path must be initialized"));
     let connection = Connection::open(path).expect("open SQLite database");
     let mut statement = connection
         .prepare(
