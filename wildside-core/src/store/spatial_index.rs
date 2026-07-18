@@ -4,12 +4,13 @@
 //! used by the SQLite-backed POI store.
 
 use std::{
-    fs::File,
-    io::{Read, Write},
+    ffi::OsStr,
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
 
 use bincode::{deserialize_from, serialize_into};
+use cap_std::{ambient_authority, fs::Dir};
 use thiserror::Error;
 
 use crate::PointOfInterest;
@@ -94,15 +95,37 @@ pub fn write_spatial_index(
     write_index(path, entries)
 }
 
+/// Open the parent directory of `path` as a capability handle.
+///
+/// Ambient authority is confined to this single boundary; the rest of the
+/// module performs file I/O through the returned `Dir` handle, keeping the
+/// capability surface explicit.
+fn open_parent_dir(path: &Path) -> io::Result<(Dir, &OsStr)> {
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "path has no file name"))?;
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    let dir = Dir::open_ambient_dir(parent, ambient_authority())?;
+    Ok((dir, file_name))
+}
 /// Persist a spatial index file without exposing the public wrapper signature.
 pub(crate) fn write_index(
     path: &Path,
     entries: &[PointOfInterest],
 ) -> Result<(), SpatialIndexWriteError> {
-    let mut file = File::create(path).map_err(|source| SpatialIndexWriteError::Io {
+    let (dir, file_name) = open_parent_dir(path).map_err(|source| SpatialIndexWriteError::Io {
         path: path.to_path_buf(),
         source,
     })?;
+    let mut file = dir
+        .create(file_name)
+        .map_err(|source| SpatialIndexWriteError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
 
     file.write_all(&SPATIAL_INDEX_MAGIC)
         .map_err(|source| SpatialIndexWriteError::Io {
@@ -127,10 +150,16 @@ pub(crate) fn write_index(
 
 /// Load POI entries from a spatial index artefact.
 pub(crate) fn load_index_entries(path: &Path) -> Result<Vec<PointOfInterest>, SpatialIndexError> {
-    let mut file = File::open(path).map_err(|source| SpatialIndexError::Io {
+    let (dir, file_name) = open_parent_dir(path).map_err(|source| SpatialIndexError::Io {
         path: path.to_path_buf(),
         source,
     })?;
+    let mut file = dir
+        .open(file_name)
+        .map_err(|source| SpatialIndexError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
 
     let mut magic = [0_u8; 4];
     file.read_exact(&mut magic)

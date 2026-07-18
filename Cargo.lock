@@ -3578,6 +3578,7 @@ name = "wildside-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "cap-std",
  "geo",
  "rstar",
  "rstest",

@@ -27,6 +27,7 @@ SPELLING_HELPER_PYTEST = PYTHONPATH=scripts $(SPELLING_PY_ENV) \
 	COVERAGE_FILE=$(SPELLING_COVERAGE_FILE) $(UV_ENV) $(UV) run --no-project \
 	--python 3.14 --with pathspec==$(PATHSPEC_VERSION) --with pytest==9.0.2 \
 	--with pytest-cov==7.0.0 python -m pytest
+WHITAKER ?= whitaker
 TEST_FLAGS ?=
 
 build: target/debug/$(APP) ## Build debug binary
@@ -49,8 +50,9 @@ bench: ## Run performance benchmarks
 target/%/$(APP): ## Build binary in debug or release mode
 	$(CARGO) build $(BUILD_JOBS) $(if $(findstring release,$(@)),--release) --bin $(APP)
 
-lint: ## Run Clippy with warnings denied
+lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
+	RUSTFLAGS="-D warnings" $(WHITAKER) --all -- --all-targets --all-features
 
 typecheck: ## Typecheck the workspace
 	RUSTFLAGS="-D warnings" $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)

@@ -12,6 +12,7 @@ thiserror = "1"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_json = { version = "1", optional = true }
 bincode = { version = "1", optional = true }
+cap-std = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Parameterised tests rely on rstest macros.
@@ -23,7 +24,7 @@ tempfile = "3"
 [features]
 default = ["serde", "store-sqlite"]
 serde = ["dep:serde", "dep:serde_json", "geo/use-serde", "rstar/serde"]
-store-sqlite = ["serde", "dep:bincode", "dep:rusqlite"]
+store-sqlite = ["serde", "dep:bincode", "dep:cap-std", "dep:rusqlite"]
 test-support = []
 
 [package.metadata.docs.rs]

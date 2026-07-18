@@ -79,9 +79,14 @@ impl InterestProfile {
     /// profile.set_weight(Theme::Shopping, 0.7);
     /// assert_eq!(profile.weight(&Theme::Shopping), Some(0.7));
     /// ```
+    #[track_caller]
     pub fn set_weight(&mut self, theme: Theme, weight: f32) {
-        self.try_set_weight(theme, weight)
-            .expect("weight must be finite and within 0.0..=1.0");
+        // Panic explicitly rather than via `expect`: this convenience
+        // wrapper documents its panic contract, and fallible callers should
+        // use `try_set_weight` to propagate the error instead.
+        if let Err(error) = self.try_set_weight(theme, weight) {
+            panic!("weight must be finite and within 0.0..=1.0: {error}");
+        }
     }
 
     /// Validate and set a theme weight.
@@ -122,6 +127,8 @@ impl InterestProfile {
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support {
+    //! Test-only extensions for [`InterestProfile`].
+
     use super::*;
 
     /// Test-only helpers for `InterestProfile`.
