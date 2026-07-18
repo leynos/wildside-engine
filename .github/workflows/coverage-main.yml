@@ -25,7 +25,7 @@ jobs:
       - name: Setup Rust
         uses: leynos/shared-actions/.github/actions/setup-rust@d3cbe87e745e07b3ad53ddcb87deb19ffa95c9b8
       - name: Generate coverage
-        uses: leynos/shared-actions/.github/actions/generate-coverage@29eea2635ee0f92e42c05f4cd360b7f1a2f00b12
+        uses: leynos/shared-actions/.github/actions/generate-coverage@e0d9b652b137eb15314fff188f09e1ba18d3cc5b
         with:
           output-path: lcov.info
           format: lcov
