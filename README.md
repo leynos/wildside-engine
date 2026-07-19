@@ -1,5 +1,8 @@
 # Wildside Recommendation Engine
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](
+https://deepwiki.com/leynos/wildside-engine)
+
 *Walking tours, powered by open data.*
 
 The Wildside engine generates personalized walking tours by combining
