@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 geo = { workspace = true }
 log = { workspace = true }
-osmpbf = "0.3.6"
+osmpbf = "0.3.8"
 thiserror = "1"
 wildside-core = { workspace = true }
 wikidata-rust = { package = "wikidata", version = "1.1.0" }
