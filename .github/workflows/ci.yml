@@ -60,7 +60,7 @@ jobs:
         # (deferred below); once coverage-main.yml exists, generating it
         # again on the push-to-main trigger would be redundant.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@e0d9b652b137eb15314fff188f09e1ba18d3cc5b
+        uses: leynos/shared-actions/.github/actions/generate-coverage@4d696e72fff6db49f34302ccf119ba978f1032c9
         with:
           output-path: lcov.info
           format: lcov
