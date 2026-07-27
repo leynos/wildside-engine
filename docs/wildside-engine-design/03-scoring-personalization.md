@@ -64,8 +64,8 @@ The implementation steps at request time are as follows:
    added to the POI's temporary `user_relevance_score`.
 
 4. Finally, the total `Score(POI)` for that request is calculated by combining
-   the pre-computed `P(POI)` (loaded from `popularity.bin`) and the
-   just-in-time `U(POI)` using the specified weights: wp​ and wu​.
+   the pre-computed `P(POI)` (loaded from `popularity.bin`) and the just-in-time
+   `U(POI)` using the specified weights: wp​ and wu​.
 
 The architectural decision to use offline, read-only data artefacts is the key
 technical enabler for this entire personalization feature. Performing thousands

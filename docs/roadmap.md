@@ -167,14 +167,14 @@ This phase ensures the engine is robust, reliable, and ready for integration.
 ### 4.1. Establish Testing Discipline
 
 - [x] Create a `tests/golden_routes` directory with small, well-defined
-  problem instances and their known optimal solutions in JSON format to act
-  as regression tests.
+  problem instances and their known optimal solutions in JSON format to act as
+  regression tests.
 - [x] Use `proptest` to write property-based tests for the solver, asserting
       invariants like "total route duration must not exceed Tmax" and "route
       must start and end at the same point".
 - [x] Use `criterion` to create a benchmark suite that measures the P95
-  (95th percentile) and P99 (99th percentile) solve times for various
-  problem sizes (e.g., 50, 100, 200 candidate POIs).
+  (95th percentile) and P99 (99th percentile) solve times for various problem
+  sizes (e.g., 50, 100, 200 candidate POIs).
 
 ### 4.2. Implement Feature Flags
 

@@ -211,9 +211,9 @@ sequenceDiagram
 ### 1.2.3. SQLite schema for Wikidata claims
 
 The extracted claims are stored in the shared `pois.db` database via the
-`wildside_data::wikidata::store` module. Schema initialization is handled by
-the `initialise_schema` function, which enables foreign keys and creates a
-compact set of normalized tables:
+`wildside_data::wikidata::store` module. Schema initialization is handled by the
+`initialise_schema` function, which enables foreign keys and creates a compact
+set of normalized tables:
 
 - `wikidata_entities` contains every entity identifier appearing in the dump.
 - `poi_wikidata_links` maps POI ids to their linked Wikidata entities and

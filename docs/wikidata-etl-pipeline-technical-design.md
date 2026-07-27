@@ -6,18 +6,17 @@ The pipeline will ingest data from two primary sources: **(1)** the full
 **Wikidata JSON dump** (a highly compressed JSON file on the order of hundreds
 of GB) and **(2)** a curated set of **Wikidata QIDs** corresponding to Points
 of Interest already identified in OpenStreetMap (OSM). The OSM ingestion phase
-produces a list of POIs (stored in an SQLite `pois.db` or similar) including
-any `wikidata` tags. These tags provide the QIDs (entity IDs like Q12345) that
-serve as a filter for relevant Wikidata
-entries.[^design-285-293][^design-302-308] Before processing the dump, the
-pipeline will load all such QIDs into an in-memory hash set for quick
-membership checks. This avoids unnecessary work on unrelated entities by
-allowing the parser to **skip the vast majority of Wikidata items** and focus
-only on those linked via OSM. The Wikidata dump itself is a single giant JSON
-array of entity objects (each entity on a separate line), typically distributed
-as a compressed `.bz2` or `.gz`
-file.[^qwikidata-dump-overview][^qwikidata-database-download] The ETL process
-will stream through this file (decompressing on the fly) and parse it
+produces a list of POIs (stored in an SQLite `pois.db` or similar) including any
+`wikidata` tags. These tags provide the QIDs (entity IDs like Q12345) that
+serve as a filter for relevant Wikidata entries.[^design-285-293]
+[^design-302-308] Before processing the dump, the pipeline will load all such
+QIDs into an in-memory hash set for quick membership checks. This avoids
+unnecessary work on unrelated entities by allowing the parser to **skip the
+vast majority of Wikidata items** and focus only on those linked via OSM. The
+Wikidata dump itself is a single giant JSON array of entity objects (each
+entity on a separate line), typically distributed as a compressed `.bz2` or
+`.gz` file.[^qwikidata-dump-overview][^qwikidata-database-download] The ETL
+process will stream through this file (decompressing on the fly) and parse it
 line-by-line, rather than loading it entirely into memory, to handle the
 massive size efficiently. Each JSON line (entity) begins with an `"id"` field;
 the parser will extract this ID and quickly check if it is in the target QID
@@ -323,8 +322,8 @@ POIs. There are a couple of design approaches to this integration:
   mostly fetch the entire JSON blob per POI and use it in application logic,
   which is efficient. This approach keeps the schema **backwards-compatible**
   and minimal, aligning with the design principle that `pois.db` (and by
-  extension the Postgres schema) can evolve without breaking
-  changes[^design-533-541].
+  extension the Postgres schema) can evolve without breaking changes
+  [^design-533-541].
 
 - **Normalized Auxiliary Tables:** Another approach is to create additional
   tables in Postgres to hold the Wikidata attributes. For example, a table
@@ -540,7 +539,7 @@ CREATE INDEX idx_wikidata_osmid ON wikidata_claims(osm_id);
 (The exact column types and usage of JSON can be adjusted based on how we
 prefer to query; SQLite’s JSON support would allow queries like
 `SELECT qid FROM wikidata_claims WHERE JSON_EXTRACT(instance_of, '$') LIKE '%Q33506%'`
- to find museums, for example.)
+to find museums, for example.)
 
 - The schema should be **indexed for fast lookups**, especially by QID or by
   OSM ID. The primary key or a unique index on QID will serve for QID lookups.

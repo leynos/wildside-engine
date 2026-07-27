@@ -29,13 +29,13 @@ place; the route optimization solver is next on the list. See
 The engine is organized as a Cargo workspace with focused, single-purpose
 crates:
 
-| Crate             | What it does                                                   |
-| ----------------- | -------------------------------------------------------------- |
-| `wildside-core`   | Domain model, traits, and abstractions—the shared vocabulary   |
-| `wildside-data`   | ETL pipeline for ingesting OSM and Wikidata dumps              |
-| `wildside-scorer` | Popularity and user-relevance scoring                          |
-| `wildside-cli`    | Command-line tool for running the ingestion pipeline           |
-| `wildside-fs`     | Filesystem abstraction layer                                   |
+| Crate             | What it does                                                 |
+| ----------------- | ------------------------------------------------------------ |
+| `wildside-core`   | Domain model, traits, and abstractions—the shared vocabulary |
+| `wildside-data`   | ETL pipeline for ingesting OSM and Wikidata dumps            |
+| `wildside-scorer` | Popularity and user-relevance scoring                        |
+| `wildside-cli`    | Command-line tool for running the ingestion pipeline         |
+| `wildside-fs`     | Filesystem abstraction layer                                 |
 
 ## Quick start
 

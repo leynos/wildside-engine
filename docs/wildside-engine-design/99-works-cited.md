@@ -50,5 +50,5 @@
     13, 2025,
     <https://softwaremill.com/solving-vehicle-routing-problem-in-java/>
 
-CP-SAT — Rust math library // [Lib.rs](http://Lib.rs), accessed on August 13,
-2025, <https://lib.rs/crates/cp_sat>
+CP-SAT — Rust math library // [Lib.rs](http://Lib.rs), accessed on
+August 13, 2025, <https://lib.rs/crates/cp_sat>
