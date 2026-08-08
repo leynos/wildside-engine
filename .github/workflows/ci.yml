@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: leynos/shared-actions/.github/actions/setup-rust@19a7f5d1b8d5c1b2236c39720a5744492b3fc129
+      - uses: leynos/shared-actions/.github/actions/setup-rust@1014f0ce1621506ca5fa66b596ed88ec30774cce
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
@@ -60,7 +60,7 @@ jobs:
         # (deferred below); once coverage-main.yml exists, generating it
         # again on the push-to-main trigger would be redundant.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@19a7f5d1b8d5c1b2236c39720a5744492b3fc129
+        uses: leynos/shared-actions/.github/actions/generate-coverage@1014f0ce1621506ca5fa66b596ed88ec30774cce
         with:
           output-path: lcov.info
           format: lcov
@@ -71,7 +71,7 @@ jobs:
         env:
           CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}
         if: env.CS_ACCESS_TOKEN != '' && github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@19a7f5d1b8d5c1b2236c39720a5744492b3fc129
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@1014f0ce1621506ca5fa66b596ed88ec30774cce
         with:
           format: lcov
           mode: check
@@ -150,7 +150,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@19a7f5d1b8d5c1b2236c39720a5744492b3fc129
+      - uses: leynos/shared-actions/.github/actions/setup-rust@1014f0ce1621506ca5fa66b596ed88ec30774cce
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
