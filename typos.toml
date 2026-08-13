@@ -30,6 +30,11 @@ extend-exclude = [
 [default]
 locale = "en-gb"
 extend-ignore-re = [
+    "-fuse-ld=mold",
+    "mold linker",
+    "Cranelift \\+ mold",
+    "Cranelift and mold",
+    "`mold`",
     "#\\[then\\(\"the heritage POI has the highest normalised score\"\\)\\]",
     "#\\[then\\(\"the unlinked POI has a zero normalised score\"\\)\\]",
     "(?s)```.*?```",
@@ -1511,7 +1516,6 @@ extend-ignore-re = [
 "modularizers" = "modularizers"
 "modularizes" = "modularizes"
 "modularizing" = "modularizing"
-"mold" = "mold"
 "monetisable" = "monetizable"
 "monetisably" = "monetizably"
 "monetisation" = "monetization"
