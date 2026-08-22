@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: leynos/shared-actions/.github/actions/setup-rust@57a33fa65e329db7edc81ece661f1a2e1d39868f
+      - uses: leynos/shared-actions/.github/actions/setup-rust@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
@@ -60,7 +60,7 @@ jobs:
         # (deferred below); once coverage-main.yml exists, generating it
         # again on the push-to-main trigger would be redundant.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@57a33fa65e329db7edc81ece661f1a2e1d39868f
+        uses: leynos/shared-actions/.github/actions/generate-coverage@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
         with:
           output-path: lcov.info
           format: lcov
@@ -71,7 +71,7 @@ jobs:
         env:
           CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}
         if: env.CS_ACCESS_TOKEN != '' && github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@57a33fa65e329db7edc81ece661f1a2e1d39868f
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
         with:
           format: lcov
           mode: check
@@ -85,7 +85,7 @@ jobs:
       - name: Install uv
         id: setup-uv
         # v6.4.3
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
         with:
           python-version: '3.14'
           cache-dependency-glob: |
@@ -150,7 +150,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@57a33fa65e329db7edc81ece661f1a2e1d39868f
+      - uses: leynos/shared-actions/.github/actions/setup-rust@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381

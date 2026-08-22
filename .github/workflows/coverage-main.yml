@@ -23,9 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Setup Rust
-        uses: leynos/shared-actions/.github/actions/setup-rust@57a33fa65e329db7edc81ece661f1a2e1d39868f
+        uses: leynos/shared-actions/.github/actions/setup-rust@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
       - name: Generate coverage
-        uses: leynos/shared-actions/.github/actions/generate-coverage@57a33fa65e329db7edc81ece661f1a2e1d39868f
+        uses: leynos/shared-actions/.github/actions/generate-coverage@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
         with:
           output-path: lcov.info
           format: lcov
@@ -34,7 +34,7 @@ jobs:
           with-ratchet: 'true'
       - name: Upload coverage data to CodeScene
         if: env.CS_ACCESS_TOKEN != ''
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@57a33fa65e329db7edc81ece661f1a2e1d39868f
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@a42afcf10cf18a6af7c6c2ec2b30c4209bc8c8cd
         with:
           format: lcov
           access-token: ${{ env.CS_ACCESS_TOKEN }}
