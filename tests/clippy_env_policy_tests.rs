@@ -1,19 +1,24 @@
 //! Contract coverage for the environment-access lint policy (issue #126).
 //!
-//! The policy has several moving parts, and removing any one of them silently
-//! reopens ambient process-environment access: the `disallowed-methods` entries
-//! in the root `clippy.toml`, the workspace `disallowed_methods` deny that makes
-//! Clippy act on them, each package's enforcement of that deny, the hygiene
-//! lints that stop an item-scoped `#[allow]` lowering it, and the gate that runs
-//! Clippy over every workspace target and feature in CI.
+//! `clippy_env_policy_ui_tests.rs` proves the lint fires. This file guards the
+//! configuration that makes it fire: the `disallowed-methods` entries in the
+//! root `clippy.toml`, the workspace `disallowed_methods` deny, each package's
+//! enforcement of that deny, the hygiene lints that stop an item-scoped
+//! `#[allow]` lowering it, and the gate that runs Clippy over every workspace
+//! target and feature in CI.
 //!
-//! The package list comes from `cargo metadata`, not from `[workspace].members`,
+//! Every file read here is embedded with `include_str!`, so moving or deleting
+//! one is a compile failure rather than a runtime error, and the test needs no
+//! filesystem access at all. The eight manifests can be named statically
+//! because `workspace_contains_the_expected_packages` holds the resolved
+//! package set to exactly those eight names.
+//!
+//! That set comes from `cargo metadata`, not from `[workspace].members`,
 //! because Cargo also promotes an in-tree path dependency to a workspace member
-//! without an entry in that array. The resolved set is then compared with the
-//! eight package names this workspace is known to contain, so both a removed
-//! member and an unenforced new one fail here.
+//! without an entry in that array. A member added, removed, or known only to
+//! Cargo therefore fails this contract instead of escaping it.
 //!
-//! Mutation proof (run 2026-09-06). Each mutation failed only the test named
+//! Mutation proof (run 2026-09-07). Each mutation failed only the test named
 //! beside it:
 //!
 //! - delete the `std::env::set_var` entry from `clippy.toml` —
@@ -23,7 +28,8 @@
 //! - remove `[lints.clippy] disallowed_methods` from `wildside-fs/Cargo.toml` —
 //!   `every_workspace_package_enforces_the_environment_policy`;
 //! - remove `allow_attributes` from `wildside-fs/Cargo.toml` — the same test;
-//! - drop a name from `EXPECTED_PACKAGES` — `workspace_contains_the_expected_packages`;
+//! - rename an entry of `EXPECTED_PACKAGES` —
+//!   `workspace_contains_the_expected_packages`;
 //! - drop `--all-targets` from `CLIPPY_FLAGS` —
 //!   `clippy_gate_covers_every_workspace_target_and_feature`;
 //! - give the CI lint step `make lint CLIPPY_FLAGS=--workspace` —
@@ -32,13 +38,22 @@
 use std::collections::BTreeSet;
 use std::process::Command;
 
-use camino::{Utf8Path, Utf8PathBuf};
-use cap_std::ambient_authority;
-use cap_std::fs_utf8::Dir;
 use toml::Value;
 
-/// Error type carried by the policy helpers and tests.
+/// Error type carried by the helpers and tests.
 type Failure = Box<dyn std::error::Error>;
+
+/// The Clippy configuration this policy lives in.
+const CLIPPY_CONFIG: &str = include_str!("../clippy.toml");
+
+/// The root manifest, which carries the workspace lint table.
+const ROOT_MANIFEST: &str = include_str!("../Cargo.toml");
+
+/// The Make targets that run the lint gate.
+const MAKEFILE: &str = include_str!("../Makefile");
+
+/// The CI workflow that runs that gate on a pull request.
+const CI_WORKFLOW: &str = include_str!("../.github/workflows/ci.yml");
 
 /// Environment methods that no package may call outside a composition root.
 const FORBIDDEN_ENVIRONMENT_METHODS: [&str; 6] = [
@@ -50,16 +65,25 @@ const FORBIDDEN_ENVIRONMENT_METHODS: [&str; 6] = [
     "std::env::remove_var",
 ];
 
-/// Every package this workspace contains, enumerated rather than sampled.
-const EXPECTED_PACKAGES: [&str; 8] = [
-    "wildside-cli",
-    "wildside-core",
-    "wildside-data",
-    "wildside-engine",
-    "wildside-fs",
-    "wildside-scorer",
-    "wildside-solver-ortools",
-    "wildside-solver-vrp",
+/// Every package in this workspace, with its manifest embedded at compile time.
+const EXPECTED_PACKAGES: [(&str, &str); 8] = [
+    ("wildside-engine", ROOT_MANIFEST),
+    ("wildside-cli", include_str!("../wildside-cli/Cargo.toml")),
+    ("wildside-core", include_str!("../wildside-core/Cargo.toml")),
+    ("wildside-data", include_str!("../wildside-data/Cargo.toml")),
+    ("wildside-fs", include_str!("../wildside-fs/Cargo.toml")),
+    (
+        "wildside-scorer",
+        include_str!("../wildside-scorer/Cargo.toml"),
+    ),
+    (
+        "wildside-solver-ortools",
+        include_str!("../wildside-solver-ortools/Cargo.toml"),
+    ),
+    (
+        "wildside-solver-vrp",
+        include_str!("../wildside-solver-vrp/Cargo.toml"),
+    ),
 ];
 
 /// Hygiene lints a package must deny alongside `disallowed_methods`.
@@ -78,34 +102,15 @@ fn ensure_that(condition: bool, message: String) -> Result<(), Failure> {
     }
 }
 
-/// Return the workspace root as a Camino path.
-fn workspace_root_path() -> &'static Utf8Path {
-    Utf8Path::new(env!("CARGO_MANIFEST_DIR"))
-}
-
-/// Open a capability handle on the workspace root.
-fn workspace_root() -> Result<Dir, Failure> {
-    let root = workspace_root_path();
-    Dir::open_ambient_dir(root, ambient_authority())
-        .map_err(|err| -> Failure { format!("open workspace root {root}: {err}").into() })
-}
-
-/// Read a file held under the workspace root.
-fn read_file(root: &Dir, relative: &str) -> Result<String, Failure> {
-    root.read_to_string(relative)
-        .map_err(|err| -> Failure { format!("read {relative}: {err}").into() })
-}
-
-/// Read and parse a TOML document held under the workspace root.
-fn read_toml(root: &Dir, relative: &str) -> Result<Value, Failure> {
-    let text = read_file(root, relative)?;
-    toml::from_str::<Value>(&text)
-        .map_err(|err| -> Failure { format!("parse {relative}: {err}").into() })
+/// Parse one of the embedded TOML documents.
+fn parse_toml(label: &str, text: &str) -> Result<Value, Failure> {
+    toml::from_str::<Value>(text)
+        .map_err(|err| -> Failure { format!("parse {label}: {err}").into() })
 }
 
 /// Return the `disallowed-methods` paths declared by the Clippy configuration.
-fn disallowed_method_paths(root: &Dir) -> Result<Vec<String>, Failure> {
-    let policy = read_toml(root, "clippy.toml")?;
+fn disallowed_method_paths() -> Result<Vec<String>, Failure> {
+    let policy = parse_toml("clippy.toml", CLIPPY_CONFIG)?;
     let methods = policy
         .get("disallowed-methods")
         .and_then(Value::as_array)
@@ -119,20 +124,11 @@ fn disallowed_method_paths(root: &Dir) -> Result<Vec<String>, Failure> {
         .collect())
 }
 
-/// One workspace package as Cargo resolved it.
-struct PackageEntry {
-    /// The package name.
-    name: String,
-    /// The package manifest, relative to the workspace root.
-    manifest: Utf8PathBuf,
-}
-
-/// Ask Cargo for the workspace packages, including implicit path members.
-fn workspace_packages() -> Result<Vec<PackageEntry>, Failure> {
-    let root = workspace_root_path();
+/// Ask Cargo for the workspace package names, including implicit path members.
+fn resolved_package_names() -> Result<BTreeSet<String>, Failure> {
     let output = Command::new(env!("CARGO"))
         .args(["metadata", "--no-deps", "--format-version", "1"])
-        .current_dir(root)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
         .map_err(|err| -> Failure { format!("run cargo metadata: {err}").into() })?;
     ensure_that(
@@ -142,11 +138,11 @@ fn workspace_packages() -> Result<Vec<PackageEntry>, Failure> {
             String::from_utf8_lossy(&output.stderr)
         ),
     )?;
-    parse_package_entries(&output.stdout, root)
+    parse_package_names(&output.stdout)
 }
 
-/// Turn `cargo metadata` output into workspace-relative package entries.
-fn parse_package_entries(stdout: &[u8], root: &Utf8Path) -> Result<Vec<PackageEntry>, Failure> {
+/// Turn `cargo metadata` output into a set of package names.
+fn parse_package_names(stdout: &[u8]) -> Result<BTreeSet<String>, Failure> {
     let metadata: serde_json::Value = serde_json::from_slice(stdout)
         .map_err(|err| -> Failure { format!("parse cargo metadata: {err}").into() })?;
     let packages = metadata
@@ -155,34 +151,14 @@ fn parse_package_entries(stdout: &[u8], root: &Utf8Path) -> Result<Vec<PackageEn
         .ok_or_else(|| -> Failure { "cargo metadata must report packages".into() })?;
     packages
         .iter()
-        .map(|package| package_entry(package, root))
+        .map(|package| {
+            package
+                .get("name")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| -> Failure { "a package entry must carry a name".into() })
+        })
         .collect()
-}
-
-/// Convert one `cargo metadata` package object into a `PackageEntry`.
-fn package_entry(package: &serde_json::Value, root: &Utf8Path) -> Result<PackageEntry, Failure> {
-    let name = package
-        .get("name")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| -> Failure { "a package entry must carry a name".into() })?;
-    let manifest = package
-        .get("manifest_path")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| -> Failure {
-            format!("package {name} must carry a manifest_path").into()
-        })?;
-    let relative = Utf8Path::new(manifest)
-        .strip_prefix(root)
-        .map_err(|_| -> Failure { format!("{manifest} lies outside {root}").into() })?;
-    Ok(PackageEntry {
-        name: name.to_owned(),
-        manifest: relative.to_owned(),
-    })
-}
-
-/// Return the level a lint table assigns to `lint`, if any.
-fn lint_level<'a>(clippy: &'a Value, lint: &str) -> Option<&'a str> {
-    clippy.get(lint).and_then(Value::as_str)
 }
 
 /// Explain why a package manifest fails to enforce the policy, or return `None`.
@@ -197,11 +173,20 @@ fn policy_gap(manifest: &Value) -> Option<String> {
     }
     let clippy = lints.get("clippy")?;
     for lint in std::iter::once("disallowed_methods").chain(REQUIRED_HYGIENE_LINTS) {
-        if lint_level(clippy, lint) != Some("deny") {
+        if clippy.get(lint).and_then(Value::as_str) != Some("deny") {
             return Some(format!("{lint} is not denied"));
         }
     }
     None
+}
+
+/// Return the trimmed CI steps that invoke the lint gate.
+fn ci_lint_steps() -> Vec<&'static str> {
+    CI_WORKFLOW
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.contains("make lint"))
+        .collect()
 }
 
 /// Scenario: a contributor edits the Clippy configuration.
@@ -210,8 +195,7 @@ fn policy_gap(manifest: &Value) -> Option<String> {
 /// still has something to act on.
 #[test]
 fn clippy_config_disallows_every_environment_method() -> Result<(), Failure> {
-    let root = workspace_root()?;
-    let paths = disallowed_method_paths(&root)?;
+    let paths = disallowed_method_paths()?;
     for required in FORBIDDEN_ENVIRONMENT_METHODS {
         ensure_that(
             paths.iter().any(|path| path == required),
@@ -227,8 +211,7 @@ fn clippy_config_disallows_every_environment_method() -> Result<(), Failure> {
 /// entries are enforced rather than merely declared.
 #[test]
 fn workspace_lint_table_denies_disallowed_methods() -> Result<(), Failure> {
-    let root = workspace_root()?;
-    let manifest = read_toml(&root, "Cargo.toml")?;
+    let manifest = parse_toml("Cargo.toml", ROOT_MANIFEST)?;
     let level = manifest
         .get("workspace")
         .and_then(|workspace| workspace.get("lints"))
@@ -243,17 +226,14 @@ fn workspace_lint_table_denies_disallowed_methods() -> Result<(), Failure> {
 
 /// Scenario: a package is added to or removed from the workspace.
 ///
-/// Invariant: Cargo resolves exactly the eight packages this contract knows
-/// about, so a new member cannot slip past the enforcement test unexamined.
+/// Invariant: Cargo resolves exactly the eight packages whose manifests this
+/// contract embeds, so a new member cannot slip past the enforcement test.
 #[test]
 fn workspace_contains_the_expected_packages() -> Result<(), Failure> {
-    let resolved: BTreeSet<String> = workspace_packages()?
-        .into_iter()
-        .map(|package| package.name)
-        .collect();
+    let resolved = resolved_package_names()?;
     let expected: BTreeSet<String> = EXPECTED_PACKAGES
         .iter()
-        .map(|&name| name.to_owned())
+        .map(|&(name, _)| name.to_owned())
         .collect();
     ensure_that(
         resolved == expected,
@@ -263,18 +243,15 @@ fn workspace_contains_the_expected_packages() -> Result<(), Failure> {
 
 /// Scenario: a workspace package opts out of the shared lint configuration.
 ///
-/// Invariant: every member Cargo resolves enforces `disallowed_methods`, either
-/// by inheriting the workspace table or by denying that rule and the two
-/// hygiene lints that stop an `#[allow]` lowering it.
+/// Invariant: every package enforces `disallowed_methods`, either by inheriting
+/// the workspace table or by denying that rule and the two hygiene lints that
+/// stop an `#[allow]` lowering it.
 #[test]
 fn every_workspace_package_enforces_the_environment_policy() -> Result<(), Failure> {
-    let root = workspace_root()?;
-    for package in workspace_packages()? {
-        let manifest = read_toml(&root, package.manifest.as_str())?;
+    for (name, text) in EXPECTED_PACKAGES {
+        let manifest = parse_toml(name, text)?;
         if let Some(gap) = policy_gap(&manifest) {
-            let name = package.name;
-            let path = package.manifest;
-            return Err(format!("{name} ({path}) does not enforce the policy: {gap}").into());
+            return Err(format!("{name} does not enforce the policy: {gap}").into());
         }
     }
     Ok(())
@@ -286,16 +263,14 @@ fn every_workspace_package_enforces_the_environment_policy() -> Result<(), Failu
 /// target kind and feature with warnings denied, so test code is covered too.
 #[test]
 fn clippy_gate_covers_every_workspace_target_and_feature() -> Result<(), Failure> {
-    let root = workspace_root()?;
-    let makefile = read_file(&root, "Makefile")?;
     ensure_that(
-        makefile
+        MAKEFILE
             .contains("CLIPPY_FLAGS ?= --workspace --all-targets --all-features -- -D warnings"),
         "CLIPPY_FLAGS must cover every workspace target and feature with warnings denied"
             .to_owned(),
     )?;
     ensure_that(
-        makefile.contains("$(CARGO) clippy $(CLIPPY_FLAGS)"),
+        MAKEFILE.contains("$(CARGO) clippy $(CLIPPY_FLAGS)"),
         "the lint target must invoke Cargo Clippy with the workspace-wide contract".to_owned(),
     )
 }
@@ -307,13 +282,7 @@ fn clippy_gate_covers_every_workspace_target_and_feature() -> Result<(), Failure
 /// work; the gate that blocks a merge must not exercise that.
 #[test]
 fn ci_runs_the_lint_gate_without_overriding_the_clippy_flags() -> Result<(), Failure> {
-    let root = workspace_root()?;
-    let workflow = read_file(&root, ".github/workflows/ci.yml")?;
-    let lint_steps: Vec<&str> = workflow
-        .lines()
-        .map(str::trim)
-        .filter(|line| line.contains("make lint"))
-        .collect();
+    let lint_steps = ci_lint_steps();
     ensure_that(
         lint_steps.contains(&"run: make lint"),
         format!("ci.yml must run `make lint` bare, found {lint_steps:?}"),

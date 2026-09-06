@@ -116,16 +116,29 @@ shared on-disk fixture.
 
 ### Contract
 
-[`tests/clippy_env_policy_tests.rs`](../tests/clippy_env_policy_tests.rs)
-fails if any of the six entries leaves `clippy.toml`, if the deny is downgraded,
-if a package joins or leaves the workspace, if a package stops enforcing the
-rule, if the Make lint target stops covering every target and feature, or if the
-CI lint step overrides the Clippy flags. It takes the package list from
+Two test files hold the policy in place, and every assertion in both was proved
+by mutation. Each file's module documentation records the mutations and the test
+each one broke.
+
+[`tests/clippy_env_policy_ui_tests.rs`](../tests/clippy_env_policy_ui_tests.rs)
+proves the lint fires. It runs Clippy over the fixture crate in
+`tests/fixtures/env_policy_probe` and reads the diagnostics: all six methods are
+rejected, each carrying its own guidance string; an `#[allow]` is itself
+rejected; and a reasoned `#[expect]` compiles. The fixture is excluded from the
+workspace so its deliberately offending probes never reach
+`cargo clippy --workspace`, and the test points Clippy at this repository's
+`clippy.toml`, so the reason strings it asserts are the ones a contributor sees.
+
+[`tests/clippy_env_policy_tests.rs`](../tests/clippy_env_policy_tests.rs) guards
+the configuration that makes the lint fire. It fails if any of the six entries
+leaves `clippy.toml`, if the deny is downgraded, if a package joins or leaves the
+workspace, if a package stops enforcing the rule, if the Make lint target stops
+covering every target and feature, or if the CI lint step overrides the Clippy
+flags. It embeds each file with `include_str!`, so moving or deleting one is a
+compile failure rather than a runtime error. The package list comes from
 `cargo metadata` rather than `[workspace].members`, because Cargo also promotes
-an in-tree path dependency to a member without an entry in that array, and then
-compares that list with the eight names it expects. Each assertion was proved by
-mutation; the test's module documentation records every mutation and the test it
-broke.
+an in-tree path dependency to a member without an entry in that array, and is
+then compared with the eight names it expects.
 
 Four packages do not yet inherit the workspace lint table, so they deny
 `disallowed_methods` in their own manifests, together with `allow_attributes`

@@ -1,0 +1,31 @@
+# Fixture crate for the environment-access UI test. It is excluded from the
+# workspace so `cargo clippy --workspace` never compiles its deliberately
+# offending probes; `tests/clippy_env_policy_ui_tests.rs` lints it one feature at
+# a time and asserts the diagnostics.
+#
+# The lint table mirrors what the packages that do not inherit the workspace
+# table declare, and Clippy finds the repository's `clippy.toml` by walking up
+# from this directory, so the fixture exercises the real configuration rather
+# than a copy of it.
+[package]
+name = "env-policy-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+# A bare read of the process environment.
+bare-read = []
+# The same read behind `#[allow]`, the attribute that would lower the deny.
+allow-bypass = []
+# The same read behind the sanctioned, reasoned `#[expect]`.
+expect-escape = []
+
+[lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+disallowed_methods = "deny"
