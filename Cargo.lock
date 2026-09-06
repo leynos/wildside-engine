@@ -3628,6 +3628,7 @@ version = "0.1.0"
 dependencies = [
  "camino",
  "cap-std",
+ "serde_json",
  "toml 0.9.6",
  "wildside-core",
  "wildside-solver-ortools",

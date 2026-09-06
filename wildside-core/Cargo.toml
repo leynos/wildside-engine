@@ -36,4 +36,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 # migration. Deny the environment-access rule here so #126's policy holds in
 # every package today, and fold this into `[lints] workspace = true` when #124
 # lands.
+#
+# The two hygiene lints come with it. Without them an item-scoped
+# `#[allow(clippy::disallowed_methods)]` would silently lower the deny, leaving
+# the sanctioned, reasoned `#[expect(..)]` as the only escape in the inheriting
+# packages but not here.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
 disallowed_methods = "deny"

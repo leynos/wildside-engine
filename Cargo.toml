@@ -17,6 +17,7 @@ wildside-solver-ortools = { workspace = true, optional = true }
 # manifests through a capability handle.
 camino = { workspace = true }
 cap-std = { workspace = true, features = ["fs_utf8"] }
+serde_json = { workspace = true }
 toml = "0.9.6"
 
 [features]

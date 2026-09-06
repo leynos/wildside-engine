@@ -118,14 +118,21 @@ shared on-disk fixture.
 
 [`tests/clippy_env_policy_tests.rs`](../tests/clippy_env_policy_tests.rs)
 fails if any of the six entries leaves `clippy.toml`, if the deny is downgraded,
-if a workspace package stops enforcing the rule, or if the Make lint target
-stops covering every target and feature. Each assertion was proved by mutation;
-the test's module documentation records the four mutations and the test each
-one broke.
+if a package joins or leaves the workspace, if a package stops enforcing the
+rule, if the Make lint target stops covering every target and feature, or if the
+CI lint step overrides the Clippy flags. It takes the package list from
+`cargo metadata` rather than `[workspace].members`, because Cargo also promotes
+an in-tree path dependency to a member without an entry in that array, and then
+compares that list with the eight names it expects. Each assertion was proved by
+mutation; the test's module documentation records every mutation and the test it
+broke.
 
 Four packages do not yet inherit the workspace lint table, so they deny
-`disallowed_methods` in their own manifests. Issue #124 folds those into
-`[lints] workspace = true`.
+`disallowed_methods` in their own manifests, together with `allow_attributes`
+and `allow_attributes_without_reason`. Those two matter: an item-scoped
+`#[allow(clippy::disallowed_methods)]` lowers a deny, so without them the
+policy would be bypassable in exactly the packages that carry it locally.
+Issue #124 folds all three into `[lints] workspace = true`.
 
 ## Workflow pins and Dependabot
 
