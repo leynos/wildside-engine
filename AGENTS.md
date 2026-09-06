@@ -168,6 +168,12 @@ project:
 - Lints must not be silenced except as a **last resort**.
 - Lint rule suppressions must be tightly scoped and include a clear reason.
 - Prefer `expect` over `allow`.
+- Never read or mutate the process environment ambiently. `std::env::var`,
+  `var_os`, `vars`, `vars_os`, `set_var` and `remove_var` are denied
+  workspace-wide. Inject the value, a reader closure or an environment trait,
+  and build a child process's environment explicitly rather than mutating the
+  test process. See "Environment access policy" in `docs/developers-guide.md`
+  for choosing between those shapes.
 - Use `rstest` fixtures for shared setup.
 - Replace duplicated tests with `#[rstest(...)]` parameterized cases.
 - Prefer `mockall` for mocks/stubs.
