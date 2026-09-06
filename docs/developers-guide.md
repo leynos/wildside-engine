@@ -59,6 +59,74 @@ The standalone phrase helper and its tests use Python 3.14 at runtime, Pathspec
 installs Nixie 1.1.0 and Merman CLI 0.7.0 before validating the repository's
 Mermaid diagrams with `make nixie`.
 
+## Environment access policy
+
+No code in this workspace reads or mutates the process environment ambiently.
+`std::env::var`, `var_os`, `vars`, `vars_os`, `set_var` and `remove_var` are
+listed under `disallowed-methods` in [`clippy.toml`](../clippy.toml), and
+`clippy::disallowed_methods` is denied, so `make lint` rejects a direct call in
+any package, target or feature.
+
+The rule exists for test throughput as much as for design. A test that mutates
+the parent process environment forces the whole suite that touches that
+variable to run serially, which wastes cores in CI and hides ordering bugs.
+Injected seams keep tests hermetic and parallel.
+
+### Choosing a seam
+
+Pick the lightest shape that fits the boundary, judged by how many call sites
+it has and whether it is expected to grow.
+
+- **Explicit value.** One variable read by one caller: pass the resolved value
+  as an argument. Nothing else is warranted.
+- **Narrow reader closure.** A small reusable boundary: the module owns a
+  private function taking an `FnOnce(&str) -> Result<String, VarError>` (or the
+  `OsString`-typed equivalent) instead of reading the process itself.
+- **Shared environment trait.** Only when several variables feed one boundary,
+  or many tests must mock it. Production supplies the real reader and tests
+  supply a stub. A trait for a single-variable, single-caller site recreates the
+  ambient coupling one layer down, so reviewers should reject it.
+
+### Composition roots
+
+A genuine executable composition root, such as a binary's `main`, may read the
+environment directly. It carries an item-scoped attribute naming the reason:
+
+```rust
+#[expect(clippy::disallowed_methods, reason = "composition root for WILDSIDE_DB")]
+fn database_url() -> Option<String> {
+    std::env::var("WILDSIDE_DB").ok()
+}
+```
+
+Use `expect` rather than `allow`. When the site later gains a seam, the
+expectation goes unfulfilled and warns, so the exception removes itself instead
+of rotting.
+
+### Tests and child processes
+
+Tests never mutate the parent process environment. A test that needs a
+controlled environment for a spawned binary builds the child's environment
+explicitly with `Command::env_clear`, `Command::env` and `Command::env_remove`,
+forwarding only what the scenario needs. An in-process test supplies a stub
+through the seam instead. Because nothing mutates shared process state, no test
+needs a serialization group for environment reasons; a nextest group is
+justified only by a documented structural constraint such as a fixed port or a
+shared on-disk fixture.
+
+### Contract
+
+[`tests/clippy_env_policy_tests.rs`](../tests/clippy_env_policy_tests.rs)
+fails if any of the six entries leaves `clippy.toml`, if the deny is downgraded,
+if a workspace package stops enforcing the rule, or if the Make lint target
+stops covering every target and feature. Each assertion was proved by mutation;
+the test's module documentation records the four mutations and the test each
+one broke.
+
+Four packages do not yet inherit the workspace lint table, so they deny
+`disallowed_methods` in their own manifests. Issue #124 folds those into
+`[lints] workspace = true`.
+
 ## Workflow pins and Dependabot
 
 Dependabot owns the upgrade of GitHub Actions and reusable workflows, including

@@ -12,6 +12,13 @@ wildside-core = { path = "wildside-core", default-features = false }
 wildside-solver-vrp = { workspace = true, optional = true }
 wildside-solver-ortools = { workspace = true, optional = true }
 
+[dev-dependencies]
+# The environment-access policy contract reads clippy.toml and the workspace
+# manifests through a capability handle.
+camino = { workspace = true }
+cap-std = { workspace = true, features = ["fs_utf8"] }
+toml = "0.9.6"
+
 [features]
 default = ["serde", "solver-vrp", "store-sqlite"]
 serde = ["wildside-core/serde"]
