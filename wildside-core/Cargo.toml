@@ -30,3 +30,10 @@ test-support = []
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.clippy]
+# This package does not yet inherit the workspace lint table; #124 tracks that
+# migration. Deny the environment-access rule here so #126's policy holds in
+# every package today, and fold this into `[lints] workspace = true` when #124
+# lands.
+disallowed_methods = "deny"
