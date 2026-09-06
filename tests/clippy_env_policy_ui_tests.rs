@@ -16,6 +16,8 @@
 //! Mutation proof (run 2026-09-07). Each mutation failed only the test named
 //! beside it:
 //!
+//! - delete any one entry from `clippy.toml` — the error count drops and
+//!   `every_prohibited_method_is_rejected_with_its_guidance` fails;
 //! - change the `std::env::var` entry's reason string in `clippy.toml` —
 //!   `every_prohibited_method_is_rejected_with_its_guidance`, on the guidance
 //!   assertion. An earlier draft searched the whole output for the reason and
@@ -154,6 +156,16 @@ const PROHIBITED_METHODS: [(&str, &str); 6] = [
 #[test]
 fn every_prohibited_method_is_rejected_with_its_guidance() -> Result<(), Failure> {
     let diagnostics = rejected_probe("bare-read")?;
+    let reported = diagnostics
+        .matches("error: use of a disallowed method")
+        .count();
+    ensure_that(
+        reported == PROHIBITED_METHODS.len(),
+        format!(
+            "Clippy reported {reported} disallowed-method errors, expected {}:\n{diagnostics}",
+            PROHIBITED_METHODS.len()
+        ),
+    )?;
     for (method, guidance) in PROHIBITED_METHODS {
         let header = format!("error: use of a disallowed method `{method}`");
         let block = diagnostic_block(&diagnostics, &header).ok_or_else(|| -> Failure {
