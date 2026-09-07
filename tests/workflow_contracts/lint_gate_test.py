@@ -12,12 +12,33 @@ the gate that blocks a merge while the Makefile still reads correctly.
 tests assert that CI uses it, by walking every ``env:`` scope rather than
 only the lint step's own line.
 
+Asserting the command is not enough on its own. A gate can be neutralized
+without its ``run`` value changing at all: ``if: false`` on the step or on
+its job skips it, and so does any plausible-looking condition such as one
+restricting the step to pushes. Removing the ``pull_request`` trigger has
+the same effect on the merge gate specifically, since nothing then runs
+before the merge. These tests therefore require the command, the absence
+of any condition on the step and its job, and the trigger.
+
+No falsy spelling is enumerated. Requiring the absence of a condition
+covers every value a condition could take, which matters because PyYAML
+parses ``if: false`` to a boolean whose string form is ``False`` and an
+expression to a string.
+
 Mutation proof (run 2026-09-07). Each mutation failed only the test named
-beside it: giving the lint step ``run: make lint CLIPPY_FLAGS=--workspace``
-failed ``test_lint_step_runs_make_lint_bare``; adding
-``env: {CLIPPY_FLAGS: --workspace}`` at workflow, job, and step level each
-failed ``test_no_env_scope_overrides_the_clippy_flags``, and an earlier
-draft that read only the step's own line survived all three.
+beside it:
+
+- ``run: make lint CLIPPY_FLAGS=--workspace`` on the step, and wrapping the
+  run as ``if false; then make lint; fi`` or burying it in a multiline run,
+  each failed ``test_lint_step_runs_make_lint_bare``;
+- ``env: {CLIPPY_FLAGS: --workspace}`` at workflow, job, and step level each
+  failed ``test_no_env_scope_overrides_the_clippy_flags``; an earlier draft
+  that read only the step's own line survived all three;
+- ``if: false`` on the step, ``if: false`` on the job, and a push-only
+  condition on the step each failed
+  ``test_nothing_conditions_away_the_lint_gate``;
+- removing the ``pull_request`` trigger failed
+  ``test_the_lint_gate_runs_on_pull_requests``.
 
 Run via ``make test-workflow-contracts``.
 """
@@ -76,15 +97,26 @@ def _env_scopes(workflow: dict[str, Any]) -> list[tuple[str, Any]]:
     return [(label, env) for label, env in scopes if env is not None]
 
 
-def _lint_steps(workflow: dict[str, Any]) -> list[str]:
-    """Return every run command in the workflow that invokes the lint gate."""
-    commands: list[str] = []
-    for job in _jobs(workflow).values():
+def _lint_sites(workflow: dict[str, Any]) -> list[tuple[str, Any, dict[str, Any]]]:
+    """Return each lint invocation with the job and step that carry it."""
+    sites: list[tuple[str, Any, dict[str, Any]]] = []
+    for job_name, job in _jobs(workflow).items():
         for step in _steps(job):
             run = step.get("run")
             if isinstance(run, str) and BARE_LINT_COMMAND in run:
-                commands.append(run.strip())
-    return commands
+                sites.append((job_name, job, step))
+    return sites
+
+
+def _triggers(workflow: dict[str, Any]) -> dict[str, Any]:
+    """Return the ``on:`` mapping.
+
+    YAML 1.1 reads a bare ``on`` key as the boolean true, so PyYAML stores
+    the triggers under ``True`` rather than under the string.
+    """
+    triggers = workflow.get("on", workflow.get(True))
+    assert isinstance(triggers, dict), "ci.yml must declare an on: mapping"
+    return triggers
 
 
 def test_lint_step_runs_make_lint_bare(workflow: dict[str, Any]) -> None:
@@ -93,12 +125,49 @@ def test_lint_step_runs_make_lint_bare(workflow: dict[str, Any]) -> None:
     A step that passed its own flags would bypass the Makefile default that
     `tests/clippy_env_policy_tests.rs` asserts.
     """
-    commands = _lint_steps(workflow)
-    assert commands, "ci.yml must run the lint gate"
-    for command in commands:
+    sites = _lint_sites(workflow)
+    assert sites, "ci.yml must run the lint gate"
+    for _, _, step in sites:
+        command = str(step["run"]).strip()
         assert command == BARE_LINT_COMMAND, (
             f"the lint gate must run {BARE_LINT_COMMAND!r} bare, found {command!r}"
         )
+
+
+def test_nothing_conditions_away_the_lint_gate(workflow: dict[str, Any]) -> None:
+    """Neither the lint step nor its job carries a condition.
+
+    A condition skips the gate with the run command untouched, so asserting
+    the command alone would certify a step that never executes. The absence
+    of a condition is required rather than particular values, because a
+    condition that looks plausible, such as one restricting the step to
+    pushes, disables the merge gate just as completely as `if: false`.
+    """
+    sites = _lint_sites(workflow)
+    assert sites, "ci.yml must run the lint gate"
+    conditioned = [
+        f"job {job_name} carries if: {job['if']!r}"
+        for job_name, job, _ in sites
+        if isinstance(job, dict) and "if" in job
+    ] + [
+        f"the lint step in job {job_name} carries if: {step['if']!r}"
+        for job_name, _, step in sites
+        if "if" in step
+    ]
+    assert not conditioned, f"nothing may condition the lint gate; found {conditioned}"
+
+
+def test_the_lint_gate_runs_on_pull_requests(workflow: dict[str, Any]) -> None:
+    """The workflow is triggered by pull requests.
+
+    The lint gate blocks a merge only if it runs before one. A workflow
+    restricted to pushes would leave every assertion above satisfied and the
+    gate absent from the pull request.
+    """
+    triggers = _triggers(workflow)
+    assert "pull_request" in triggers, (
+        f"ci.yml must be triggered by pull_request, found {sorted(map(str, triggers))}"
+    )
 
 
 def test_no_env_scope_overrides_the_clippy_flags(workflow: dict[str, Any]) -> None:
