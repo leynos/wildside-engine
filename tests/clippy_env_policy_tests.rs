@@ -4,8 +4,8 @@
 //! configuration that makes it fire: the `disallowed-methods` entries in the
 //! root `clippy.toml`, the workspace `disallowed_methods` deny, each package's
 //! enforcement of that deny, the hygiene lints that stop an item-scoped
-//! `#[allow]` lowering it, and the gate that runs Clippy over every workspace
-//! target and feature in CI.
+//! `#[allow]` lowering it, and the Make target that runs Clippy over every
+//! workspace target and feature.
 //!
 //! Every file read here is embedded with `include_str!`, so moving or deleting
 //! one is a compile failure rather than a runtime error, and the test needs no
@@ -32,8 +32,11 @@
 //!   `workspace_contains_the_expected_packages`;
 //! - drop `--all-targets` from `CLIPPY_FLAGS` —
 //!   `clippy_gate_covers_every_workspace_target_and_feature`;
-//! - give the CI lint step `make lint CLIPPY_FLAGS=--workspace` —
-//!   `ci_runs_the_lint_gate_without_overriding_the_clippy_flags`.
+//! - remove the `[lints]` table from `wildside-fs/Cargo.toml` — the same test.
+//!
+//! `tests/workflow_contracts/lint_gate_test.py` carries the matching assertion
+//! about CI, which needs to read every `env` scope in the workflow and so
+//! belongs with the other `PyYAML` workflow contracts.
 
 use std::collections::BTreeSet;
 use std::process::Command;
@@ -51,9 +54,6 @@ const ROOT_MANIFEST: &str = include_str!("../Cargo.toml");
 
 /// The Make targets that run the lint gate.
 const MAKEFILE: &str = include_str!("../Makefile");
-
-/// The CI workflow that runs that gate on a pull request.
-const CI_WORKFLOW: &str = include_str!("../.github/workflows/ci.yml");
 
 /// Environment methods that no package may call outside a composition root.
 const FORBIDDEN_ENVIRONMENT_METHODS: [&str; 6] = [
@@ -167,26 +167,23 @@ fn parse_package_names(stdout: &[u8]) -> Result<BTreeSet<String>, Failure> {
 /// #124 completes that migration, by denying `disallowed_methods` and the two
 /// hygiene lints itself.
 fn policy_gap(manifest: &Value) -> Option<String> {
-    let lints = manifest.get("lints")?;
+    let Some(lints) = manifest.get("lints") else {
+        return Some("it declares no [lints] table".to_owned());
+    };
     if lints.get("workspace").and_then(Value::as_bool) == Some(true) {
         return None;
     }
-    let clippy = lints.get("clippy")?;
+    let Some(clippy) = lints.get("clippy") else {
+        return Some(
+            "it neither inherits the workspace lints nor declares [lints.clippy]".to_owned(),
+        );
+    };
     for lint in std::iter::once("disallowed_methods").chain(REQUIRED_HYGIENE_LINTS) {
         if clippy.get(lint).and_then(Value::as_str) != Some("deny") {
             return Some(format!("{lint} is not denied"));
         }
     }
     None
-}
-
-/// Return the trimmed CI steps that invoke the lint gate.
-fn ci_lint_steps() -> Vec<&'static str> {
-    CI_WORKFLOW
-        .lines()
-        .map(str::trim)
-        .filter(|line| line.contains("make lint"))
-        .collect()
 }
 
 /// Scenario: a contributor edits the Clippy configuration.
@@ -272,23 +269,5 @@ fn clippy_gate_covers_every_workspace_target_and_feature() -> Result<(), Failure
     ensure_that(
         MAKEFILE.contains("$(CARGO) clippy $(CLIPPY_FLAGS)"),
         "the lint target must invoke Cargo Clippy with the workspace-wide contract".to_owned(),
-    )
-}
-
-/// Scenario: the CI lint step passes its own Clippy flags to Make.
-///
-/// Invariant: CI runs `make lint` bare, so the flags asserted above are the
-/// flags CI actually uses. `CLIPPY_FLAGS ?=` is overridable by design for local
-/// work; the gate that blocks a merge must not exercise that.
-#[test]
-fn ci_runs_the_lint_gate_without_overriding_the_clippy_flags() -> Result<(), Failure> {
-    let lint_steps = ci_lint_steps();
-    ensure_that(
-        lint_steps.contains(&"run: make lint"),
-        format!("ci.yml must run `make lint` bare, found {lint_steps:?}"),
-    )?;
-    ensure_that(
-        !lint_steps.iter().any(|line| line.contains("CLIPPY_FLAGS")),
-        format!("no CI lint step may override CLIPPY_FLAGS, found {lint_steps:?}"),
     )
 }

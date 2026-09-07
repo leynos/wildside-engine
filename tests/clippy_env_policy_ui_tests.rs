@@ -13,6 +13,12 @@
 //! diagnostic, and the no-feature control proves a failure is attributable to
 //! the probe under test rather than to the fixture itself.
 //!
+//! Colour is forced off in the child, and `assert_no_escapes` fails if it ever
+//! comes back. GitHub Actions sets `CARGO_TERM_COLOR=always`, which put escape
+//! sequences between `error` and `:` and made every diagnostic here read as
+//! absent; the first CI run of this file reported "0 disallowed-method errors,
+//! expected 6" against output that plainly contained all six.
+//!
 //! Mutation proof (run 2026-09-07). Each mutation failed only the test named
 //! beside it:
 //!
@@ -34,7 +40,7 @@
 //! `#[expect]` then goes unfulfilled and warns. That coupling is inherent: the
 //! sanctioned escape only means anything while the method is disallowed.
 
-use std::process::{Command, Output};
+use std::process::Command;
 
 /// Error type carried by the helpers and tests.
 type Failure = Box<dyn std::error::Error>;
@@ -48,11 +54,28 @@ fn ensure_that(condition: bool, message: String) -> Result<(), Failure> {
     }
 }
 
+/// The outcome of linting one probe: whether Clippy accepted it, and what it
+/// said.
+struct LintOutcome {
+    /// Whether Clippy exited successfully.
+    accepted: bool,
+    /// Clippy's diagnostics, guaranteed free of terminal escape sequences.
+    diagnostics: String,
+}
+
 /// Lint the fixture crate with `features` enabled and return Clippy's output.
 ///
 /// The build lands in this test target's own temporary directory, so it shares
-/// nothing with the workspace build that is running this test.
-fn lint_probe(features: &str) -> Result<Output, Failure> {
+/// nothing with the workspace build that is running this test. The child's
+/// environment is composed explicitly, which is what this policy asks of any
+/// test that needs a controlled child.
+///
+/// Colour is disabled two ways because it is not cosmetic here. A parent that
+/// sets `CARGO_TERM_COLOR=always`, as GitHub Actions does, makes Clippy write
+/// `error` and `:` with escape sequences between them, and every assertion in
+/// this file matches on that text. `assert_no_escapes` then fails loudly rather
+/// than letting a diagnostic go unrecognized and read as absent.
+fn lint_probe(features: &str) -> Result<LintOutcome, Failure> {
     let manifest = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/env_policy_probe/Cargo.toml"
@@ -62,8 +85,11 @@ fn lint_probe(features: &str) -> Result<Output, Failure> {
     // Name the repository's configuration outright rather than relying on
     // Clippy's walk up from the fixture directory.
     command.env("CLIPPY_CONF_DIR", env!("CARGO_MANIFEST_DIR"));
+    command.env("CARGO_TERM_COLOR", "never");
     command.args([
         "clippy",
+        "--color",
+        "never",
         "--manifest-path",
         manifest,
         "--target-dir",
@@ -72,36 +98,58 @@ fn lint_probe(features: &str) -> Result<Output, Failure> {
     if !features.is_empty() {
         command.args(["--features", features]);
     }
-    command
+    let output = command
         .args(["--", "-D", "warnings"])
         .output()
-        .map_err(|err| -> Failure { format!("run clippy on the {features} probe: {err}").into() })
+        .map_err(|err| -> Failure {
+            format!("run clippy on the {features} probe: {err}").into()
+        })?;
+    let diagnostics = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert_no_escapes(&diagnostics)?;
+    Ok(LintOutcome {
+        accepted: output.status.success(),
+        diagnostics,
+    })
+}
+
+/// Reject diagnostics carrying terminal escape sequences.
+///
+/// Every assertion here matches Clippy's plain text. Coloured output splits
+/// that text and would make a present diagnostic look absent, so fail on the
+/// escape rather than on the assertion it would break.
+fn assert_no_escapes(diagnostics: &str) -> Result<(), Failure> {
+    ensure_that(
+        !diagnostics.contains('\u{1b}'),
+        format!("Clippy coloured its output; the diagnostics are unmatchable:\n{diagnostics}"),
+    )
 }
 
 /// Lint a probe and require that Clippy rejected it, returning the diagnostics.
 fn rejected_probe(features: &str) -> Result<String, Failure> {
-    let output = lint_probe(features)?;
-    let diagnostics = String::from_utf8_lossy(&output.stderr).into_owned();
+    let outcome = lint_probe(features)?;
     ensure_that(
-        !output.status.success(),
-        format!("Clippy accepted the {features} probe; it must reject it\n{diagnostics}"),
+        !outcome.accepted,
+        format!(
+            "Clippy accepted the {features} probe; it must reject it\n{}",
+            outcome.diagnostics
+        ),
     )?;
-    Ok(diagnostics)
+    Ok(outcome.diagnostics)
 }
 
 /// Lint a probe and require that Clippy accepted it.
 fn accepted_probe(features: &str) -> Result<(), Failure> {
-    let output = lint_probe(features)?;
+    let outcome = lint_probe(features)?;
     let label = if features.is_empty() {
         "no-feature"
     } else {
         features
     };
     ensure_that(
-        output.status.success(),
+        outcome.accepted,
         format!(
             "Clippy rejected the {label} probe; it must accept it\n{}",
-            String::from_utf8_lossy(&output.stderr)
+            outcome.diagnostics
         ),
     )
 }
