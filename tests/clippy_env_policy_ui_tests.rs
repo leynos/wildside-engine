@@ -19,11 +19,13 @@
 //! absent; the first CI run of this file reported "0 disallowed-method errors,
 //! expected 6" against output that plainly contained all six.
 //!
-//! Mutation proof (run 2026-09-07). Each mutation failed only the test named
-//! beside it:
+//! Mutation proof, re-run in full against this mechanism on 2026-09-07:
 //!
 //! - delete any one entry from `clippy.toml` — the error count drops and
-//!   `every_prohibited_method_is_rejected_with_its_guidance` fails;
+//!   `every_prohibited_method_is_rejected_with_its_guidance` fails. This also
+//!   fails `clippy_config_disallows_every_environment_method` in the
+//!   configuration contract, which guards the same entries from the other
+//!   side;
 //! - change the `std::env::var` entry's reason string in `clippy.toml` —
 //!   `every_prohibited_method_is_rejected_with_its_guidance`, on the guidance
 //!   assertion. An earlier draft searched the whole output for the reason and
@@ -34,11 +36,14 @@
 //! - remove the `reason` from the fixture's `#[expect]` —
 //!   `a_reasoned_expect_at_a_composition_root_is_accepted`.
 //!
-//! Deleting the `std::env::var` entry outright fails
-//! `every_prohibited_method_is_rejected_with_its_guidance` and also
-//! `a_reasoned_expect_at_a_composition_root_is_accepted`, because the fixture's
-//! `#[expect]` then goes unfulfilled and warns. That coupling is inherent: the
-//! sanctioned escape only means anything while the method is disallowed.
+//! Deleting the `std::env::var` entry is the broadest mutation of the three: it
+//! fails those two tests and `a_reasoned_expect_at_a_composition_root_is_accepted`
+//! as well, because the fixture's `#[expect]` then goes unfulfilled and warns.
+//! That coupling is inherent, not an overlap worth removing: the sanctioned
+//! escape only means anything while the method is disallowed.
+//!
+//! The other two mutations here fail exactly one test each, and the unmutated
+//! tree fails none.
 
 use std::process::Command;
 

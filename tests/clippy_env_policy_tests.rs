@@ -18,11 +18,13 @@
 //! without an entry in that array. A member added, removed, or known only to
 //! Cargo therefore fails this contract instead of escaping it.
 //!
-//! Mutation proof (run 2026-09-07). Each mutation failed only the test named
-//! beside it:
+//! Mutation proof, re-run in full against this mechanism on 2026-09-07:
 //!
 //! - delete the `std::env::set_var` entry from `clippy.toml` —
-//!   `clippy_config_disallows_every_environment_method`;
+//!   `clippy_config_disallows_every_environment_method`, and also
+//!   `every_prohibited_method_is_rejected_with_its_guidance` in the UI tests,
+//!   because the two files guard the same six entries from different angles.
+//!   Deleting an entry is the one mutation that legitimately fails both;
 //! - change the workspace `disallowed_methods` deny to `"warn"` —
 //!   `workspace_lint_table_denies_disallowed_methods`;
 //! - remove `[lints.clippy] disallowed_methods` from `wildside-fs/Cargo.toml` —
@@ -32,7 +34,11 @@
 //!   `workspace_contains_the_expected_packages`;
 //! - drop `--all-targets` from `CLIPPY_FLAGS` —
 //!   `clippy_gate_covers_every_workspace_target_and_feature`;
-//! - remove the `[lints]` table from `wildside-fs/Cargo.toml` — the same test.
+//! - remove the `[lints]` table from `wildside-fs/Cargo.toml` —
+//!   `every_workspace_package_enforces_the_environment_policy` again.
+//!
+//! Every mutation but the first fails exactly one test, and the unmutated tree
+//! fails none.
 //!
 //! `tests/workflow_contracts/lint_gate_test.py` carries the matching assertion
 //! about CI, which needs to read every `env` scope in the workflow and so
