@@ -34,6 +34,13 @@
 //!   `workspace_contains_the_expected_packages`;
 //! - drop `--all-targets` from `CLIPPY_FLAGS` —
 //!   `clippy_gate_covers_every_workspace_target_and_feature`;
+//! - comment the assignment out and add a weaker one elsewhere — the same
+//!   test, which an earlier whole-file `contains` survived;
+//! - prefix the Clippy recipe line with `-`, or append `|| true` — that test
+//!   and `no_lint_command_discards_its_exit_status` together, since the line
+//!   is then neither the expected command nor status-carrying;
+//! - prefix the Whitaker recipe line with `-` —
+//!   `no_lint_command_discards_its_exit_status` alone;
 //! - remove the `[lints]` table from `wildside-fs/Cargo.toml` —
 //!   `every_workspace_package_enforces_the_environment_policy` again.
 //!
@@ -260,20 +267,78 @@ fn every_workspace_package_enforces_the_environment_policy() -> Result<(), Failu
     Ok(())
 }
 
+/// The flag assignment the lint gate must carry, as a whole line.
+const CLIPPY_FLAGS_ASSIGNMENT: &str =
+    "CLIPPY_FLAGS ?= --workspace --all-targets --all-features -- -D warnings";
+
+/// The Clippy invocation the lint recipe must carry, as a whole command.
+const CLIPPY_INVOCATION: &str = "$(CARGO) clippy $(CLIPPY_FLAGS)";
+
+/// Return the command lines of a Makefile target's recipe.
+///
+/// Recipe lines are the tab-indented lines following the target line, up to the
+/// first line that is neither indented nor blank.
+fn recipe_lines(target: &str) -> Vec<&'static str> {
+    let mut lines = MAKEFILE
+        .lines()
+        .skip_while(|line| !line.starts_with(target));
+    lines.next();
+    lines
+        .take_while(|line| line.starts_with('\t') || line.trim().is_empty())
+        .filter_map(|line| line.strip_prefix('\t'))
+        .map(str::trim_end)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect()
+}
+
+/// Strip make's silencing prefix, which does not affect a command's status.
+fn spoken_command(line: &str) -> &str {
+    line.strip_prefix('@').unwrap_or(line)
+}
+
 /// Scenario: the Clippy gate is narrowed to the default target and features.
 ///
-/// Invariant: the lint target runs Clippy across every workspace package,
+/// Invariant: the lint recipe runs Clippy across every workspace package,
 /// target kind and feature with warnings denied, so test code is covered too.
+///
+/// Both assertions judge whole lines rather than substrings. A substring match
+/// on the invocation passes when the recipe reads `-$(CARGO) clippy ...`, which
+/// tells make to ignore the exit status: the gate then prints a real finding
+/// and exits 0. Measured on this repository before this test was tightened.
 #[test]
 fn clippy_gate_covers_every_workspace_target_and_feature() -> Result<(), Failure> {
     ensure_that(
         MAKEFILE
-            .contains("CLIPPY_FLAGS ?= --workspace --all-targets --all-features -- -D warnings"),
-        "CLIPPY_FLAGS must cover every workspace target and feature with warnings denied"
-            .to_owned(),
+            .lines()
+            .map(str::trim_end)
+            .any(|line| line == CLIPPY_FLAGS_ASSIGNMENT),
+        format!("the Makefile must assign exactly {CLIPPY_FLAGS_ASSIGNMENT:?}"),
     )?;
+    let recipe = recipe_lines("lint:");
     ensure_that(
-        MAKEFILE.contains("$(CARGO) clippy $(CLIPPY_FLAGS)"),
-        "the lint target must invoke Cargo Clippy with the workspace-wide contract".to_owned(),
+        recipe
+            .iter()
+            .any(|line| spoken_command(line) == CLIPPY_INVOCATION),
+        format!("the lint recipe must run exactly {CLIPPY_INVOCATION:?}, found {recipe:?}"),
     )
+}
+
+/// Scenario: a lint command's failure is made not to fail the target.
+///
+/// Invariant: no command in the lint recipe is prefixed with `-`, which tells
+/// make to ignore its status, or joined with `||`, which swallows it in the
+/// shell. Either would leave the gate reporting success over a real finding.
+#[test]
+fn no_lint_command_discards_its_exit_status() -> Result<(), Failure> {
+    for line in recipe_lines("lint:") {
+        ensure_that(
+            !line.starts_with('-'),
+            format!("a lint command must not ignore its status: {line:?}"),
+        )?;
+        ensure_that(
+            !line.contains("||"),
+            format!("a lint command must not swallow its status: {line:?}"),
+        )?;
+    }
+    Ok(())
 }
