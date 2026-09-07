@@ -36,11 +36,11 @@
 //!   `clippy_gate_covers_every_workspace_target_and_feature`;
 //! - comment the assignment out and add a weaker one elsewhere — the same
 //!   test, which an earlier whole-file `contains` survived;
-//! - prefix the Clippy recipe line with `-`, or append `|| true` — that test
-//!   and `no_lint_command_discards_its_exit_status` together, since the line
-//!   is then neither the expected command nor status-carrying;
-//! - prefix the Whitaker recipe line with `-` —
-//!   `no_lint_command_discards_its_exit_status` alone;
+//! - prefix either recipe line with `-` or `@-`, or append `|| true`,
+//!   `; true`, or `| tee` to either — `no_lint_command_discards_its_exit_status`
+//!   in every case, plus the coverage test where the Clippy line's text also
+//!   changes. Before this test judged each command separately, the three
+//!   appended forms and the `@-` prefix all passed on the Whitaker line;
 //! - remove the `[lints]` table from `wildside-fs/Cargo.toml` —
 //!   `every_workspace_package_enforces_the_environment_policy` again.
 //!
@@ -291,9 +291,22 @@ fn recipe_lines(target: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// Strip make's silencing prefix, which does not affect a command's status.
-fn spoken_command(line: &str) -> &str {
-    line.strip_prefix('@').unwrap_or(line)
+/// Shell operators that hand a command's exit status to something else.
+///
+/// `||` substitutes a fallback's status, `|` substitutes the last stage's, and
+/// `;` substitutes the next command's. Each leaves a failing gate reporting
+/// success, so the lint recipe uses none of them.
+const STATUS_DISCARDING_OPERATORS: [&str; 3] = ["||", "|", ";"];
+
+/// Split a recipe line into make's prefix characters and the command itself.
+///
+/// Make accepts `@`, `-` and `+` in any order and combination. Reading the run
+/// as a whole matters: an assertion that only rejects a leading `-` accepts
+/// `@-`, which silences the command and ignores its status together.
+fn split_prefix(line: &str) -> (&str, &str) {
+    let command = line.trim_start_matches(['@', '-', '+']);
+    let prefix = line.get(..line.len() - command.len()).unwrap_or_default();
+    (prefix, command)
 }
 
 /// Scenario: the Clippy gate is narrowed to the default target and features.
@@ -318,27 +331,32 @@ fn clippy_gate_covers_every_workspace_target_and_feature() -> Result<(), Failure
     ensure_that(
         recipe
             .iter()
-            .any(|line| spoken_command(line) == CLIPPY_INVOCATION),
+            .any(|line| split_prefix(line).1 == CLIPPY_INVOCATION),
         format!("the lint recipe must run exactly {CLIPPY_INVOCATION:?}, found {recipe:?}"),
     )
 }
 
 /// Scenario: a lint command's failure is made not to fail the target.
 ///
-/// Invariant: no command in the lint recipe is prefixed with `-`, which tells
-/// make to ignore its status, or joined with `||`, which swallows it in the
-/// shell. Either would leave the gate reporting success over a real finding.
+/// Invariant: every command in the lint recipe carries its own exit status to
+/// make. This is checked per command, not on the recipe as a whole, because a
+/// gate is only as strong as its weakest line: appending `|| true` to the
+/// Whitaker command leaves the Clippy command untouched and every whole-recipe
+/// assertion satisfied, while the suite it disables reports success.
 #[test]
 fn no_lint_command_discards_its_exit_status() -> Result<(), Failure> {
     for line in recipe_lines("lint:") {
+        let (prefix, command) = split_prefix(line);
         ensure_that(
-            !line.starts_with('-'),
-            format!("a lint command must not ignore its status: {line:?}"),
+            !prefix.contains('-'),
+            format!("a lint command must not tell make to ignore its status: {line:?}"),
         )?;
-        ensure_that(
-            !line.contains("||"),
-            format!("a lint command must not swallow its status: {line:?}"),
-        )?;
+        for operator in STATUS_DISCARDING_OPERATORS {
+            ensure_that(
+                !command.contains(operator),
+                format!("a lint command must not hand its status to {operator:?}: {line:?}"),
+            )?;
+        }
     }
     Ok(())
 }
