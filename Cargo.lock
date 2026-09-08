@@ -3626,6 +3626,8 @@ dependencies = [
 name = "wildside-engine"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
+ "toml 0.9.6",
  "wildside-core",
  "wildside-solver-ortools",
  "wildside-solver-vrp",

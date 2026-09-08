@@ -43,6 +43,10 @@ ignore = [
   'Then the unlinked POI has a zero normalised score',
   '#\[then\("the heritage POI has the highest normalised score"\)\]',
   '#\[then\("the unlinked POI has a zero normalised score"\)\]',
+  # Cargo's own spellings. The UI test must name them exactly to force
+  # colour off, or Clippy's diagnostics arrive unmatchable.
+  'command\.env\("CARGO_TERM_COLOR", "never"\);',
+  '"--color",',
 ]
 
 [files]

@@ -12,6 +12,12 @@ wildside-core = { path = "wildside-core", default-features = false }
 wildside-solver-vrp = { workspace = true, optional = true }
 wildside-solver-ortools = { workspace = true, optional = true }
 
+[dev-dependencies]
+# The environment-access policy contract parses the configuration files it
+# embeds with `include_str!`, and reads Cargo's resolved package list as JSON.
+serde_json = { workspace = true }
+toml = "0.9.6"
+
 [features]
 default = ["serde", "solver-vrp", "store-sqlite"]
 serde = ["wildside-core/serde"]
@@ -33,6 +39,9 @@ members = [
     "wildside-solver-vrp",
     "wildside-solver-ortools",
 ]
+# The UI-test fixture is linted on its own by tests/clippy_env_policy_ui_tests.rs
+# and must never join a workspace build; its probes fail Clippy by design.
+exclude = ["tests/fixtures/env_policy_probe"]
 resolver = "2"
 
 [workspace.package]
@@ -73,6 +82,7 @@ allow_attributes                    = "deny"
 allow_attributes_without_reason     = "deny"
 blanket_clippy_restriction_lints    = "deny"
 cognitive_complexity                = "deny"
+disallowed_methods                  = "deny"
 needless_pass_by_value              = "deny"
 implicit_hasher                     = "deny"
 
