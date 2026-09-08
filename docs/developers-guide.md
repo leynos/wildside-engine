@@ -140,6 +140,41 @@ compile failure rather than a runtime error. The package list comes from
 an in-tree path dependency to a member without an entry in that array, and is
 then compared with the eight names it expects.
 
+A third file, [`clippy_env_policy_source_tests.rs`][source-scan], parses the
+sources themselves and rejects any `allow` of `clippy::disallowed_methods`, of
+its group `clippy::style`, or of `clippy::all` or `warnings`.
+`clippy::allow_attributes` does not fire on inner attributes, so a crate-level
+`#![allow(clippy::disallowed_methods)]` would otherwise switch the policy off
+for a whole crate with every other contract and the lint gate green. Naming a
+group is enough to do the same, because Clippy places `disallowed_methods` in
+`style`.
+
+[source-scan]: ../tests/clippy_env_policy_source_tests.rs
+
+The hygiene lints are not protected. They stop an item-scoped `#[allow]`
+lowering the deny, which mattered while nothing read the sources; now that an
+`allow` of the policy lint is reported wherever it sits, suppressing them buys
+nothing, and protecting them would reject reasoned suppressions of unrelated
+lints. An `#[allow(clippy::disallowed_methods)]` beneath an enclosing
+`#[expect(clippy::allow_attributes, ..)]` is still reported.
+
+The sources are parsed with `syn` rather than searched. A text scan cannot
+follow `#[cfg_attr(<any condition>, allow(...))]`, which Clippy honours, cannot
+tell an attribute from attribute-shaped text in a string literal or a doc
+comment, and is defeated by a space before the parenthesis or a parenthesis
+inside a `reason`. Lint paths are compared rather than matched as substrings, so
+`clippy::alloc_instead_of_core` is not read as `clippy::all`, and raw
+identifiers are unwrapped first, so `clippy::r#style` cannot slip past as a
+different name.
+
+`expect` is judged by scope rather than waved through. An item-scoped
+`#[expect(..., reason = "...")]` at a composition root is the sanctioned form:
+it covers one item, still reports the lint everywhere else, and warns once that
+site grows a seam. A crate-scoped `#![expect(...)]` is a different thing
+wearing the same clothes. One matching call fulfils it for the whole crate, so
+every other call is silenced and no unfulfilled-expectation warning is raised.
+Write the item-scoped form.
+
 Four packages do not yet inherit the workspace lint table, so they deny
 `disallowed_methods` in their own manifests, together with `allow_attributes`
 and `allow_attributes_without_reason`. Those two matter: an item-scoped

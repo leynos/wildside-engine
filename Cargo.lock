@@ -2832,6 +2832,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3626,7 +3637,11 @@ dependencies = [
 name = "wildside-engine"
 version = "0.1.0"
 dependencies = [
+ "camino",
+ "cap-std",
+ "proc-macro2",
  "serde_json",
+ "syn 3.0.5",
  "toml 0.9.6",
  "wildside-core",
  "wildside-solver-ortools",
