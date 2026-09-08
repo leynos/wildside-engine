@@ -15,10 +15,14 @@ only the lint step's own line.
 Asserting the command is not enough on its own. A gate can be neutralized
 without its ``run`` value changing at all: ``if: false`` on the step or on
 its job skips it, and so does any plausible-looking condition such as one
-restricting the step to pushes. Removing the ``pull_request`` trigger has
-the same effect on the merge gate specifically, since nothing then runs
-before the merge. These tests therefore require the command, the absence
-of any condition on the step and its job, and the trigger.
+restricting the step to pushes. A ``needs`` prerequisite does it more
+quietly still, because a skipped prerequisite skips its dependents and
+GitHub reports a skipped job as successful. Removing the ``pull_request``
+trigger, or narrowing it with branch, path, or activity-type filters,
+takes the gate off the merge path for the pull requests the filter
+excludes. These tests therefore require the command, the absence of any
+condition or prerequisite on the step and its job, and an unfiltered
+trigger.
 
 No falsy spelling is enumerated. Requiring the absence of a condition
 covers every value a condition could take, which matters because PyYAML
@@ -34,10 +38,12 @@ beside it:
 - ``env: {CLIPPY_FLAGS: --workspace}`` at workflow, job, and step level each
   failed ``test_no_env_scope_overrides_the_clippy_flags``; an earlier draft
   that read only the step's own line survived all three;
-- ``if: false`` on the step, ``if: false`` on the job, and a push-only
-  condition on the step each failed
-  ``test_nothing_conditions_away_the_lint_gate``;
-- removing the ``pull_request`` trigger failed
+- ``if: false`` on the step, ``if: false`` on the job, a push-only condition
+  on the step, and ``needs`` on the job named either as a string or as a
+  list each failed ``test_nothing_conditions_away_the_lint_gate``. An empty
+  ``needs: []`` is accepted, because it gates on nothing;
+- removing the ``pull_request`` trigger, and narrowing it with ``branches``,
+  ``paths``, or ``types``, each failed
   ``test_the_lint_gate_runs_on_pull_requests``.
 
 Run via ``make test-workflow-contracts``.
@@ -58,6 +64,10 @@ CLIPPY_FLAGS = "CLIPPY_FLAGS"
 
 #: The lint gate's invocation, with no arguments of its own.
 BARE_LINT_COMMAND = "make lint"
+
+
+#: Trigger filters that would exclude some pull requests from the gate.
+TRIGGER_FILTERS = ("branches", "branches-ignore", "paths", "paths-ignore", "types")
 
 
 @pytest.fixture(scope="module")
@@ -135,13 +145,17 @@ def test_lint_step_runs_make_lint_bare(workflow: dict[str, Any]) -> None:
 
 
 def test_nothing_conditions_away_the_lint_gate(workflow: dict[str, Any]) -> None:
-    """Neither the lint step nor its job carries a condition.
+    """Neither the lint step nor its job carries a condition or prerequisite.
 
     A condition skips the gate with the run command untouched, so asserting
     the command alone would certify a step that never executes. The absence
     of a condition is required rather than particular values, because a
     condition that looks plausible, such as one restricting the step to
     pushes, disables the merge gate just as completely as `if: false`.
+
+    A `needs` prerequisite is the quieter form of the same thing: a skipped
+    prerequisite skips its dependents, and a skipped job reports as
+    successful. An empty `needs` is accepted because it waits on nothing.
     """
     sites = _lint_sites(workflow)
     assert sites, "ci.yml must run the lint gate"
@@ -153,20 +167,36 @@ def test_nothing_conditions_away_the_lint_gate(workflow: dict[str, Any]) -> None
         f"the lint step in job {job_name} carries if: {step['if']!r}"
         for job_name, _, step in sites
         if "if" in step
+    ] + [
+        f"job {job_name} carries needs: {job['needs']!r}"
+        for job_name, job, _ in sites
+        if isinstance(job, dict) and job.get("needs")
     ]
     assert not conditioned, f"nothing may condition the lint gate; found {conditioned}"
 
 
 def test_the_lint_gate_runs_on_pull_requests(workflow: dict[str, Any]) -> None:
-    """The workflow is triggered by pull requests.
+    """The workflow is triggered by every pull request, unfiltered.
 
     The lint gate blocks a merge only if it runs before one. A workflow
     restricted to pushes would leave every assertion above satisfied and the
-    gate absent from the pull request.
+    gate absent from the pull request. A branch, path, or activity-type
+    filter does the same for the pull requests it excludes, which is worse
+    for being selective: the gate still runs often enough to look present.
     """
     triggers = _triggers(workflow)
     assert "pull_request" in triggers, (
         f"ci.yml must be triggered by pull_request, found {sorted(map(str, triggers))}"
+    )
+    filters = triggers["pull_request"]
+    if filters is None:
+        return
+    assert isinstance(filters, dict), (
+        f"the pull_request trigger must be a mapping or empty, found {filters!r}"
+    )
+    narrowed = [key for key in TRIGGER_FILTERS if key in filters]
+    assert not narrowed, (
+        f"the pull_request trigger must not be narrowed; found {narrowed}"
     )
 
 
