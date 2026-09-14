@@ -1,0 +1,8 @@
+macro_rules! forward {
+    ($attr:meta) => {
+        #[$attr]
+        pub fn forwarded() -> Option<String> { std::env::var("HOME").ok() }
+    };
+}
+
+forward!(allow(clippy::disallowed_methods));

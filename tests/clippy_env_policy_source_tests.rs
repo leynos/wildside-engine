@@ -55,6 +55,28 @@
 //!   compared names by substring and would have reported it as suppressing
 //!   `clippy::all`, whose name it contains.
 //!
+//! The seventh route, found in review and measured on 2026-09-14, is an
+//! attribute whose body is a macro metavariable. A `macro_rules!` arm writing
+//! `#[$attr]` over a `std::env::var` call, invoked as
+//! `forward!(allow(clippy::disallowed_methods))`, silences the call: Clippy
+//! reported the unforwarded call beside it and nothing about the forwarded one,
+//! and `clippy::allow_attributes` said nothing about either. Neither half is
+//! visible to a scan on its own, because `#[$attr]` does not parse as a `Meta`
+//! and the invocation carries no `#`. The construction is therefore refused
+//! rather than resolved, and only where it could bear on the policy: a body
+//! beginning with `$`, or with `allow`, `expect` or `cfg_attr`. `#[doc = $doc]`
+//! and `#[derive($trait)]` fail to parse in exactly the same way and are not
+//! findings.
+//!
+//! That rule was mutation-proved in both directions, each applied alone and run
+//! through the build. Naming an unprotected lint in the forwarded finding, and
+//! dropping the sentinel from the reportable set, each fail
+//! `an_attribute_forwarded_from_a_macro_argument_is_an_offence`; widening the
+//! rule to every unparsable attribute body fails
+//! `a_forwarded_doc_or_derive_is_not_an_offence`. The second direction is the
+//! one worth keeping, since a contract that reports a false positive gets
+//! switched off.
+//!
 //! The contract is split across four files to stay within the 400-line limit.
 //! `env_policy_scan/support.rs` owns the source set and the workspace handle,
 //! `env_policy_scan/scan.rs` owns the attribute and token walk,
@@ -295,6 +317,38 @@ fn a_suppression_emitted_from_a_macro_is_an_offence(#[case] source: &str) -> Res
 fn a_macro_emitting_an_unrelated_allow_is_not_an_offence() -> Result<(), Failure> {
     no_findings(include_str!(
         "fixtures/env_policy_samples/benign_macro.rs.txt"
+    ))
+}
+
+/// Scenario: the attribute's body is a macro metavariable, and the call site
+/// supplies the lint.
+///
+/// Invariant: it is reported. Neither half is visible on its own: the
+/// definition's `#[$attr]` does not parse as a `Meta`, and the invocation
+/// `forward!(allow(clippy::disallowed_methods))` carries no `#` for the token
+/// walk to find. Measured with Clippy on a probe crate: the forwarded call is
+/// silenced, the unforwarded one beside it is reported, and
+/// `clippy::allow_attributes` says nothing about either.
+#[test]
+fn an_attribute_forwarded_from_a_macro_argument_is_an_offence() -> Result<(), Failure> {
+    exactly_one_finding(include_str!(
+        "fixtures/env_policy_samples/forwarded_attribute.rs.txt"
+    ))
+}
+
+/// Scenario: a macro forwards a doc string and a derive through metavariables.
+///
+/// Invariant: neither is a finding. Attribute forwarding is common and mostly
+/// has nothing to do with the policy, so only two shapes are refused: a body
+/// that begins with `$`, where the call site chooses the attribute itself, and
+/// one that begins with `allow`, `expect` or `cfg_attr`, where the attribute is
+/// known to be suppression-shaped but its arguments cannot be read. `#[doc =
+/// $doc]` and `#[derive($trait)]` fail to parse as a `Meta` exactly as
+/// `#[$attr]` does, and this is what keeps that from mattering.
+#[test]
+fn a_forwarded_doc_or_derive_is_not_an_offence() -> Result<(), Failure> {
+    no_findings(include_str!(
+        "fixtures/env_policy_samples/forwarded_doc_and_derive.rs.txt"
     ))
 }
 

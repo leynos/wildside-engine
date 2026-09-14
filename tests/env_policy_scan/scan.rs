@@ -34,6 +34,23 @@ pub const PROTECTED_LINTS: [&str; 4] = [
     "warnings",
 ];
 
+/// Stands in for the lint name when an attribute's body is decided elsewhere.
+///
+/// An attribute written `#[$attr]` in a `macro_rules!` arm names no lint at
+/// all: the call site supplies one. Measured with Clippy on a probe crate,
+/// `forward!(allow(clippy::disallowed_methods))` over a `std::env::var` call
+/// silences it, the unforwarded call beside it is still reported, and
+/// `clippy::allow_attributes` says nothing about either. Neither half of that
+/// construction is visible on its own, so the construction itself is refused
+/// rather than resolved, and the offence reads "allows whatever the call site
+/// passes".
+pub const FORWARDED_ATTRIBUTE: &str = "whatever the call site passes";
+
+/// Whether a finding is one this contract reports.
+fn is_reportable(lint: &str) -> bool {
+    PROTECTED_LINTS.contains(&lint) || lint == FORWARDED_ATTRIBUTE
+}
+
 /// Collect every attribute in a parsed file, wherever it sits.
 ///
 /// A visitor is used rather than a hand-rolled walk so that attributes on
@@ -148,11 +165,57 @@ fn suppressed_by(attribute: &Attribute) -> Vec<String> {
     )
 }
 
+/// An attribute recovered from a macro's token stream.
+enum RecoveredAttribute {
+    /// The body parsed as a `Meta`, so it can be judged like any attribute.
+    Parsed {
+        /// The parsed attribute body.
+        ///
+        /// Boxed because a `Meta` is far larger than the other variant's one
+        /// `String`, and `clippy::large_enum_variant` is denied.
+        meta: Box<Meta>,
+        /// The attribute as written, for a failure message.
+        rendered: String,
+        /// Whether it was written as an inner attribute.
+        inner: bool,
+    },
+    /// The body is decided by the call site, so it cannot be judged here.
+    Forwarded {
+        /// The attribute as written, for a failure message.
+        rendered: String,
+    },
+}
+
+/// Whether an unparsable attribute body is one the call site decides.
+///
+/// Two shapes qualify, and only those two. A body beginning with `$` is an
+/// attribute chosen entirely at the call site, as in `#[$attr]`. A body
+/// beginning with `allow`, `expect` or `cfg_attr` is known to be
+/// suppression-shaped while its arguments cannot be read, as in
+/// `#[allow($lint)]`.
+///
+/// Everything else is left alone, which is what keeps this from reporting the
+/// forwarding idioms that have nothing to do with the policy: `#[doc = $doc]`
+/// and `#[derive($trait)]` both fail to parse as a `Meta` and neither is a
+/// finding.
+fn is_forwarded(body: &TokenStream) -> bool {
+    match body.clone().into_iter().next() {
+        Some(TokenTree::Punct(punct)) => punct.as_char() == '$',
+        Some(TokenTree::Ident(ident)) => {
+            matches!(
+                ident.unraw().to_string().as_str(),
+                "allow" | "expect" | "cfg_attr"
+            )
+        }
+        Some(TokenTree::Group(_) | TokenTree::Literal(_)) | None => false,
+    }
+}
+
 /// Read an attribute when the token stream sits just after its `#`.
 ///
-/// Returns the parsed `Meta` and the attribute as written, or `None` when the
-/// `#` began something that is not an attribute.
-fn attribute_at(trees: &mut Peekable<token_stream::IntoIter>) -> Option<(Meta, String, bool)> {
+/// Returns `None` when the `#` began something that is not an attribute, or an
+/// attribute this contract has no view on.
+fn attribute_at(trees: &mut Peekable<token_stream::IntoIter>) -> Option<RecoveredAttribute> {
     let inner_style =
         matches!(trees.peek(), Some(TokenTree::Punct(punct)) if punct.as_char() == '!');
     if inner_style {
@@ -165,9 +228,17 @@ fn attribute_at(trees: &mut Peekable<token_stream::IntoIter>) -> Option<(Meta, S
         return None;
     }
     let body = group.stream();
-    let meta = syn::parse2::<Meta>(body.clone()).ok()?;
     let bang = if inner_style { "!" } else { "" };
-    Some((meta, format!("#{bang}[{body}]"), inner_style))
+    let rendered = format!("#{bang}[{body}]");
+    match syn::parse2::<Meta>(body.clone()) {
+        Ok(meta) => Some(RecoveredAttribute::Parsed {
+            meta: Box::new(meta),
+            rendered,
+            inner: inner_style,
+        }),
+        Err(_) if is_forwarded(&body) => Some(RecoveredAttribute::Forwarded { rendered }),
+        Err(_) => None,
+    }
 }
 
 /// Return the lints suppressed by an attribute beginning at the current `#`.
@@ -175,13 +246,20 @@ fn attribute_at(trees: &mut Peekable<token_stream::IntoIter>) -> Option<(Meta, S
 /// Empty when the `#` began something that is not an attribute, or when the
 /// attribute suppresses nothing.
 fn suppression_at(trees: &mut Peekable<token_stream::IntoIter>) -> Vec<(String, String)> {
-    let Some((meta, rendered, inner)) = attribute_at(trees) else {
-        return Vec::new();
-    };
-    suppressed_by_meta(&meta, inner)
-        .into_iter()
-        .map(|lint| (lint, rendered.clone()))
-        .collect()
+    match attribute_at(trees) {
+        Some(RecoveredAttribute::Parsed {
+            meta,
+            rendered,
+            inner,
+        }) => suppressed_by_meta(&meta, inner)
+            .into_iter()
+            .map(|lint| (lint, rendered.clone()))
+            .collect(),
+        Some(RecoveredAttribute::Forwarded { rendered }) => {
+            vec![(FORWARDED_ATTRIBUTE.to_owned(), rendered)]
+        }
+        None => Vec::new(),
+    }
 }
 
 /// Return every lint suppressed inside a macro's token stream.
@@ -233,6 +311,6 @@ pub fn suppressed_lints(contents: &str) -> Result<Vec<(String, String)>, Failure
     for body in collector.macro_bodies {
         found.extend(suppressed_in_tokens(body));
     }
-    found.retain(|(lint, _)| PROTECTED_LINTS.contains(&lint.as_str()));
+    found.retain(|(lint, _)| is_reportable(lint));
     Ok(found)
 }

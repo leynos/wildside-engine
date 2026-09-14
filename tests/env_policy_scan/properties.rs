@@ -39,7 +39,12 @@ const UNPROTECTED_LINTS: [&str; 5] = [
     "clippy::pedantic",
 ];
 
-/// A way of writing a suppression that Clippy honours beyond one item.
+/// A way of writing a suppression the policy refuses.
+///
+/// Most of these reach past the item they are written on. `ItemAllow` does
+/// not: it lowers the deny for one item, and is refused because the policy's
+/// rule is `expect`, never `allow`, precisely so that a suppression warns once
+/// its site stops needing it.
 #[derive(Debug, Clone, Copy)]
 enum OffendingForm {
     /// A crate-level `allow`, which `clippy::allow_attributes` cannot see.
@@ -122,7 +127,7 @@ fn any_lint() -> impl Strategy<Value = &'static str> {
     prop_oneof![protected_lint(), unprotected_lint()]
 }
 
-/// A way of writing a suppression Clippy honours beyond one item.
+/// A way of writing a suppression the policy refuses.
 fn offending_form() -> impl Strategy<Value = OffendingForm> {
     proptest::sample::select(OFFENDING_FORMS.to_vec())
 }
@@ -133,8 +138,8 @@ fn reason() -> impl Strategy<Value = String> {
 }
 
 proptest! {
-    /// Scenario: a protected lint is suppressed in any form Clippy honours
-    /// beyond a single item.
+    /// Scenario: a protected lint is suppressed in any form the policy
+    /// refuses.
     ///
     /// Invariant: the scan reports exactly that lint, once, whatever the form
     /// and whatever the reason string says. The example-based tests each pin

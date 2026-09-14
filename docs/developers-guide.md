@@ -180,6 +180,16 @@ suppressions of unrelated lints. An `#[allow(clippy::disallowed_methods)]`
 beneath an enclosing `#[expect(clippy::allow_attributes, ..)]` is still
 reported.
 
+An attribute whose body is a macro metavariable is refused rather than
+resolved. A `macro_rules!` arm writing `#[$attr]`, invoked as
+`forward!(allow(clippy::disallowed_methods))`, silences the policy lint with no
+diagnostic of any kind, and neither half is visible to a scan: `#[$attr]` does
+not parse as an attribute body, and the invocation carries no `#`. Only the
+shapes that could bear on the policy are refused, those whose body begins with
+`$`, or with `allow`, `expect` or `cfg_attr`; `#[doc = $doc]` and
+`#[derive($trait)]` are left alone. Write the lint into the attribute rather
+than passing it in.
+
 The sources are parsed with `syn` rather than searched. A text scan cannot
 follow `#[cfg_attr(<any condition>, allow(...))]`, which Clippy honours, cannot
 tell an attribute from attribute-shaped text in a string literal or a doc
