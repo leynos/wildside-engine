@@ -1,0 +1,2 @@
+#[expect(clippy::disallowed_methods, reason = "composition root")]
+fn read() -> Option<String> { std::env::var("HOME").ok() }

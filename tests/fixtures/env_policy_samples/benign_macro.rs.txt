@@ -1,0 +1,6 @@
+macro_rules! define {
+    ($name:ident) => {
+        #[allow(dead_code, reason = "generated")]
+        fn $name() {}
+    };
+}

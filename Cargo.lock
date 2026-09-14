@@ -3640,6 +3640,7 @@ dependencies = [
  "camino",
  "cap-std",
  "proc-macro2",
+ "rstest",
  "serde_json",
  "syn 3.0.5",
  "toml 0.9.6",

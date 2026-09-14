@@ -1,0 +1,5 @@
+#[expect(clippy::allow_attributes, reason = "fields vary by binary")]
+struct Config {
+    #[allow(clippy::disallowed_methods)]
+    home: String,
+}
