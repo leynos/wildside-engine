@@ -151,12 +151,24 @@ group is enough to do the same, because Clippy places `disallowed_methods` in
 
 [source-scan]: ../tests/clippy_env_policy_source_tests.rs
 
-The hygiene lints are not protected. They stop an item-scoped `#[allow]`
-lowering the deny, which mattered while nothing read the sources; now that an
-`allow` of the policy lint is reported wherever it sits, suppressing them buys
-nothing, and protecting them would reject reasoned suppressions of unrelated
-lints. An `#[allow(clippy::disallowed_methods)]` beneath an enclosing
-`#[expect(clippy::allow_attributes, ..)]` is still reported.
+It scans every tracked Rust source. One file is exempt,
+`tests/fixtures/env_policy_probe/src/lib.rs`, whose whole purpose is to be
+rejected by Clippy; the list is closed, and `only_the_ui_fixture_is_exempt`
+fails if it gains a second entry. The contract is split across
+`tests/env_policy_scan/support.rs` for the source set,
+`tests/env_policy_scan/scan.rs` for the attribute and token walk, and the test
+root for the judgements, with the sample sources held as `.rs.txt`
+files under `tests/fixtures/env_policy_samples` so the scan does not read its
+own fixtures as offences.
+
+The hygiene lints `clippy::allow_attributes` and
+`clippy::allow_attributes_without_reason` are not protected. They stop an
+item-scoped `#[allow]` lowering the deny, which mattered while nothing read the
+sources; now that an `allow` of the policy lint is reported wherever it sits,
+suppressing them buys nothing, and protecting them would reject reasoned
+suppressions of unrelated lints. An `#[allow(clippy::disallowed_methods)]`
+beneath an enclosing `#[expect(clippy::allow_attributes, ..)]` is still
+reported.
 
 The sources are parsed with `syn` rather than searched. A text scan cannot
 follow `#[cfg_attr(<any condition>, allow(...))]`, which Clippy honours, cannot
