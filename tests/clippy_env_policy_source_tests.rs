@@ -55,10 +55,12 @@
 //!   compared names by substring and would have reported it as suppressing
 //!   `clippy::all`, whose name it contains.
 //!
-//! The contract is split across three files to stay within the 400-line limit.
+//! The contract is split across four files to stay within the 400-line limit.
 //! `env_policy_scan/support.rs` owns the source set and the workspace handle,
-//! `env_policy_scan/scan.rs` owns the attribute and token walk, and the
-//! contracts below own the judgements.
+//! `env_policy_scan/scan.rs` owns the attribute and token walk,
+//! `env_policy_scan/properties.rs` states the scan's judgement as properties
+//! over generated lint names, forms and reason strings, and the contracts below
+//! own the example-based judgements.
 //! The sample sources live in `tests/fixtures/env_policy_samples` and are
 //! loaded with `include_str!`. Their `.rs.txt` extension is deliberate: a
 //! tracked `.rs` sample would be scanned by `no_source_allows_a_policy_lint`
@@ -77,6 +79,8 @@
 // `clippy::self_named_module_files` rejects a `foo.rs` beside a `foo/`. Files
 // under a `tests/` subdirectory are not built as test binaries of their own,
 // which is what keeps this contract in one binary.
+#[path = "env_policy_scan/properties.rs"]
+mod properties;
 #[path = "env_policy_scan/scan.rs"]
 mod scan;
 #[path = "env_policy_scan/support.rs"]

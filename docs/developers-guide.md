@@ -156,10 +156,20 @@ It scans every tracked Rust source. One file is exempt,
 rejected by Clippy; the list is closed, and `only_the_ui_fixture_is_exempt`
 fails if it gains a second entry. The contract is split across
 `tests/env_policy_scan/support.rs` for the source set,
-`tests/env_policy_scan/scan.rs` for the attribute and token walk, and the test
-root for the judgements, with the sample sources held as `.rs.txt`
-files under `tests/fixtures/env_policy_samples` so the scan does not read its
-own fixtures as offences.
+`tests/env_policy_scan/scan.rs` for the attribute and token walk,
+`tests/env_policy_scan/properties.rs` for the judgement stated as properties
+over generated lint names, forms and reason strings, and the test root for the
+example-based judgements. The sample sources are held as `.rs.txt` files under
+`tests/fixtures/env_policy_samples`, so the scan does not read its own fixtures
+as offences.
+
+The example-based tests and the property tests answer different questions. Each
+example pins a route that measurement found, such as a `cfg_attr` or a
+`macro_rules!` arm; the properties say that what the scan reports is decided by
+the lint named and by the scope the attribute takes, and by nothing else, over
+generated lint names, forms and reason strings. Reason strings are generated
+with spaces, commas and parentheses, because a parenthesis inside a reason
+defeated the text scan this contract replaced.
 
 The hygiene lints `clippy::allow_attributes` and
 `clippy::allow_attributes_without_reason` are not protected. They stop an

@@ -3640,6 +3640,7 @@ dependencies = [
  "camino",
  "cap-std",
  "proc-macro2",
+ "proptest",
  "rstest",
  "serde_json",
  "syn 3.0.5",
