@@ -140,6 +140,73 @@ compile failure rather than a runtime error. The package list comes from
 an in-tree path dependency to a member without an entry in that array, and is
 then compared with the eight names it expects.
 
+A third file, [`clippy_env_policy_source_tests.rs`][source-scan], parses the
+sources themselves and rejects any `allow` of `clippy::disallowed_methods`, of
+its group `clippy::style`, or of `clippy::all` or `warnings`.
+`clippy::allow_attributes` does not fire on inner attributes, so a crate-level
+`#![allow(clippy::disallowed_methods)]` would otherwise switch the policy off
+for a whole crate with every other contract and the lint gate green. Naming a
+group is enough to do the same, because Clippy places `disallowed_methods` in
+`style`.
+
+[source-scan]: ../tests/clippy_env_policy_source_tests.rs
+
+It scans every tracked Rust source. One file is exempt,
+`tests/fixtures/env_policy_probe/src/lib.rs`, whose whole purpose is to be
+rejected by Clippy; the list is closed, and `only_the_ui_fixture_is_exempt`
+fails if it gains a second entry. The contract is split across
+`tests/env_policy_scan/support.rs` for the source set,
+`tests/env_policy_scan/scan.rs` for the attribute and token walk,
+`tests/env_policy_scan/properties.rs` for the judgement stated as properties
+over generated lint names, forms and reason strings, and the test root for the
+example-based judgements. The sample sources are held as `.rs.txt` files under
+`tests/fixtures/env_policy_samples`, so the scan does not read its own fixtures
+as offences.
+
+The example-based tests and the property tests answer different questions. Each
+example pins a route that measurement found, such as a `cfg_attr` or a
+`macro_rules!` arm; the properties say that what the scan reports is decided by
+the lint named and by the scope the attribute takes, and by nothing else, over
+generated lint names, forms and reason strings. Reason strings are generated
+with spaces, commas and parentheses, because a parenthesis inside a reason
+defeated the text scan this contract replaced.
+
+The hygiene lints `clippy::allow_attributes` and
+`clippy::allow_attributes_without_reason` are not protected. They stop an
+item-scoped `#[allow]` lowering the deny, which mattered while nothing read the
+sources; now that an `allow` of the policy lint is reported wherever it sits,
+suppressing them buys nothing, and protecting them would reject reasoned
+suppressions of unrelated lints. An `#[allow(clippy::disallowed_methods)]`
+beneath an enclosing `#[expect(clippy::allow_attributes, ..)]` is still
+reported.
+
+An attribute whose body is a macro metavariable is refused rather than
+resolved. A `macro_rules!` arm writing `#[$attr]`, invoked as
+`forward!(allow(clippy::disallowed_methods))`, silences the policy lint with no
+diagnostic of any kind, and neither half is visible to a scan: `#[$attr]` does
+not parse as an attribute body, and the invocation carries no `#`. Only the
+shapes that could bear on the policy are refused, those whose body begins with
+`$`, or with `allow`, `expect` or `cfg_attr`; `#[doc = $doc]` and
+`#[derive($trait)]` are left alone. Write the lint into the attribute rather
+than passing it in.
+
+The sources are parsed with `syn` rather than searched. A text scan cannot
+follow `#[cfg_attr(<any condition>, allow(...))]`, which Clippy honours, cannot
+tell an attribute from attribute-shaped text in a string literal or a doc
+comment, and is defeated by a space before the parenthesis or a parenthesis
+inside a `reason`. Lint paths are compared rather than matched as substrings, so
+`clippy::alloc_instead_of_core` is not read as `clippy::all`, and raw
+identifiers are unwrapped first, so `clippy::r#style` cannot slip past as a
+different name.
+
+`expect` is judged by scope rather than waved through. An item-scoped
+`#[expect(..., reason = "...")]` at a composition root is the sanctioned form:
+it covers one item, still reports the lint everywhere else, and warns once that
+site grows a seam. A crate-scoped `#![expect(...)]` is a different thing
+wearing the same clothes. One matching call fulfils it for the whole crate, so
+every other call is silenced and no unfulfilled-expectation warning is raised.
+Write the item-scoped form.
+
 Four packages do not yet inherit the workspace lint table, so they deny
 `disallowed_methods` in their own manifests, together with `allow_attributes`
 and `allow_attributes_without_reason`. Those two matter: an item-scoped

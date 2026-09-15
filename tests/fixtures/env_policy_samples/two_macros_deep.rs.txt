@@ -1,0 +1,9 @@
+macro_rules! outer {
+    () => {
+        macro_rules! inner {
+            () => {
+                #![allow(clippy::style)]
+            };
+        }
+    };
+}

@@ -1,0 +1,7 @@
+macro_rules! documented {
+    ($doc:expr, $trait:path, $name:ident) => {
+        #[doc = $doc]
+        #[derive($trait)]
+        pub struct $name;
+    };
+}
