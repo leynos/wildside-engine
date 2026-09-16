@@ -50,6 +50,8 @@ ignore = [
   # colour off, or Clippy's diagnostics arrive unmatchable.
   'command\.env\("CARGO_TERM_COLOR", "never"\);',
   '"--color",',
+  # Inline code spans are masked; the shared dictionary does not mask them yet.
+  '`[^`\n]+`',
 ]
 
 [files]

@@ -37,27 +37,31 @@ make nixie
 
 ## Spelling policy
 
-The `make spelling` gate enforces en-GB-oxendict spelling across tracked text.
-It runs Typos 1.48.0 and a phrase checker that rejects the hyphenated form in
-favour of `handwritten`. `make markdownlint` depends on the same spelling gate.
+Run the spelling gate with:
 
-The tracked `typos.toml` is generated from the shared Oxford dictionary and the
-repository-specific `typos.local.toml` overlay. The generator is the focused
-`typos-config-builder` command pinned to commit
-`b604f198797fdd36a567dd0f8f07b13f9539b241`. It refreshes the untracked
-`.typos-oxendict-base.toml` cache only when the authority is newer than the
-local copy; `.typos-oxendict-base.json` records refresh metadata.
+```sh
+make spelling
+```
 
-Use `make spelling-config-write` after changing `typos.local.toml`, and use
-`make spelling-config` to check deterministic output. Never edit `typos.toml`
-directly. Keep repository exceptions narrow: preserve external APIs, formal
-names, wire values and immutable fixtures without adding ordinary bare-word
-exceptions.
+The gate enforces en-GB-oxendict spelling across tracked text, including hidden
+files, and also enforces the shared phrase corrections Typos cannot express.
+`make markdownlint` depends on the same gate.
 
-The standalone phrase helper and its tests use Python 3.14 at runtime, Pathspec
-1.1.1 and a Python 3.13 Ruff compatibility target. Continuous integration
-installs Nixie 1.1.0 and Merman CLI 0.7.0 before validating the repository's
-Mermaid diagrams with `make nixie`.
+The tracked `typos.toml` is regenerated on every run from the live shared
+dictionary and the repository-specific `typos.local.toml` overlay. Never edit
+generated entries by hand; add only narrow repository terminology to the
+overlay. Because the dictionary is live, `typos.toml` must never be drift
+checked in continuous integration.
+
+The shared `typos-config-builder` CLI refreshes the estate dictionary into the
+untracked `.typos-oxendict-base.toml` cache only when the authoritative copy is
+newer; `.typos-oxendict-base.json` records refresh metadata. A valid cache
+remains usable when the network is unavailable. Keep repository exceptions
+narrow: preserve external APIs, formal names, wire values and immutable
+fixtures without adding ordinary bare-word exceptions.
+
+Continuous integration installs Nixie 1.1.0 and Merman CLI 0.7.0 before
+validating the repository's Mermaid diagrams with `make nixie`.
 
 ## Environment access policy
 
