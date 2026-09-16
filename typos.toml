@@ -47,6 +47,7 @@ extend-ignore-re = [
     "Then the unlinked POI has a zero normalised score",
     "\\.map_err\\(\\|source\\| PopularityError::Serialise \\{",
     "\\.map_err\\(\\|source\\| WikidataDumpError::InitialiseLog \\{",
+    "\\bFORCE_COLOR\\b",
     "\\brust-analyzer\\b",
     "`[^`\\n]+`",
     "and query all enriched records, then use Diesel or bulk INSERTs to update the",

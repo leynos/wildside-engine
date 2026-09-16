@@ -30,6 +30,13 @@ jobs:
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
         with:
           tool: cargo-nextest
+      - name: Install mdtablefix
+        # `make check-fmt` runs `mdtablefix --check --git`; 0.6.0 is the
+        # first release with `--check` and `--git`.
+        uses: leynos/shared-actions/.github/actions/install-mdtablefix@c5a54701c8603a0fa756a6b34c49bc2af75a6c11
+        with:
+          version: "0.6.0"
+
       - name: Check formatting
         run: make check-fmt
       - name: Cache whitaker-installer
