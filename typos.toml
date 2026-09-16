@@ -37,8 +37,10 @@ extend-ignore-re = [
     "<Self as Scorer>::sanitise\\(blended\\)",
     "<Self as Scorer>::sanitise\\(relevance\\)",
     "<Self as Scorer>::sanitise\\(sum\\)",
+    "Azure\\s+Architecture\\s+Center\\s*\\|\\s*Microsoft\\s+Learn\\b",
     "ClaimsSchemaError, PersistClaimsError, SCHEMA_VERSION, initialise_schema, persist_claims,",
     "Connection::open\\(path\\)\\.map_err\\(\\|source\\| WikidataDumpError::InitialiseLog \\{",
+    "GitHub\\s+Flavored\\s+Markdown\\b(?:\\s\\(GFM\\))?",
     "InitialiseLog \\{",
     "Ok\\(handle\\) if handle\\.runtime_flavor\\(\\) == RuntimeFlavor::MultiThread => \\{",
     "Scenario: summarising a known dataset",
@@ -793,6 +795,10 @@ extend-ignore-re = [
 "equalizers" = "equalizers"
 "equalizes" = "equalizes"
 "equalizing" = "equalizing"
+"exercize" = "exercise"
+"exercized" = "exercised"
+"exercizes" = "exercises"
+"exercizing" = "exercising"
 "externalisable" = "externalizable"
 "externalisably" = "externalizably"
 "externalisation" = "externalization"
@@ -1736,6 +1742,7 @@ extend-ignore-re = [
 "organizers" = "organizers"
 "organizes" = "organizes"
 "organizing" = "organizing"
+"otherwize" = "otherwise"
 "oxendict" = "oxendict"
 "oxidisable" = "oxidizable"
 "oxidisably" = "oxidizably"
@@ -2057,6 +2064,10 @@ extend-ignore-re = [
 "quantizers" = "quantizers"
 "quantizes" = "quantizes"
 "quantizing" = "quantizing"
+"raize" = "raise"
+"raized" = "raised"
+"raizes" = "raises"
+"raizing" = "raising"
 "randomisable" = "randomizable"
 "randomisably" = "randomizably"
 "randomisation" = "randomization"
