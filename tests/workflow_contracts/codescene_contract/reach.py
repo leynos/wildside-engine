@@ -185,6 +185,45 @@ def codescene_contacts(document: Document) -> list[str]:
     ]
 
 
+#: A whole `${{ }}` expression, which is where Actions reads contexts.
+_EXPRESSION: typ.Final[re.Pattern[str]] = re.compile(r"\$\{\{(.*?)\}\}", re.DOTALL)
+
+#: A read of the `secrets` context that does not name one secret literally,
+#: such as `toJSON(secrets)` or `secrets[format('CS_{0}', 'ACCESS_TOKEN')]`.
+#: The named forms `secrets.NAME` and `secrets['NAME']` are what the
+#: credential sweeps can see, so only they pass.
+_UNNAMED_SECRETS: typ.Final[re.Pattern[str]] = re.compile(
+    r"(?<![\w.-])secrets(?![\w-])"
+    r"(?!\s*\.\s*[a-z_][a-z0-9_]*)"
+    r"(?!\s*\[\s*'[^']*'\s*\])"
+)
+
+
+def unnamed_secret_references(document: Document) -> list[str]:
+    """Return every expression reading secrets without naming one literally.
+
+    A sweep for the credential's name cannot see `toJSON(secrets)`, which
+    hands over every secret, or a name assembled at run time, so a read of
+    the context that names nothing is refused wherever such a sweep runs.
+
+    Examples
+    --------
+    >>> unnamed_secret_references({"run": "echo ${{ toJSON(secrets) }}"})
+    ['echo ${{ toJSON(secrets) }}']
+    >>> unnamed_secret_references({"run": "echo ${{ secrets.OTHER }}"})
+    []
+
+    """
+    return [
+        text
+        for text in texts(document)
+        if any(
+            _UNNAMED_SECRETS.search(body.casefold())
+            for body in _EXPRESSION.findall(text)
+        )
+    ]
+
+
 def inherited_secrets(document: Document) -> list[str]:
     """Return the jobs forwarding every secret with `secrets: inherit`.
 
@@ -208,6 +247,10 @@ def pull_request_violations(
         for name, document in sorted(closure.items())
         for finding in (
             *(f"names {text!r}" for text in codescene_contacts(document)),
+            *(
+                f"reads secrets without naming one: {text!r}"
+                for text in unnamed_secret_references(document)
+            ),
             *(
                 f"job {job} uses secrets: inherit"
                 for job in inherited_secrets(document)

@@ -24,6 +24,26 @@ if typ.TYPE_CHECKING:
     from pathlib import Path
 
 
+def test_an_unhashable_key_is_refused() -> None:
+    """A mapping used as a key is refused as a reading error, not a TypeError."""
+    with pytest.raises(WorkflowReadingError, match="unhashable key"):
+        load_workflow("? {a: 1}\n: b\n")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("on: push\n", {"on": "push"}),
+        ("a: yes\nb: no\nc: off\n", {"a": "yes", "b": "no", "c": "off"}),
+        ("a: true\nb: False\n", {"a": True, "b": False}),
+    ],
+)
+def test_only_true_and_false_are_booleans(text: str, expected: dict[str, object]) -> None:
+    """GitHub reads `yes`, `no`, `on` and `off` as strings, so the loader does."""
+    loaded = load_workflow(text)
+    assert loaded == expected, loaded
+
+
 def test_a_duplicate_key_is_refused() -> None:
     """A job declaring `runs-on` twice cannot hide the first value."""
     text = (

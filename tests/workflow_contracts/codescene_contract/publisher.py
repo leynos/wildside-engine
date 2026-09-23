@@ -20,7 +20,7 @@ import typing as typ
 
 from .expressions import ConditionError, missing_terms
 from .loading import Document, WorkflowReadingError
-from .reach import codescene_contacts
+from .reach import codescene_contacts, unnamed_secret_references
 from .reading import jobs, steps, texts, trigger_filters, triggers
 
 UPLOAD_ACTION: typ.Final[str] = (
@@ -81,8 +81,17 @@ def action_steps(document: Document, action: str) -> list[dict[str, object]]:
         step
         for job in jobs(document).values()
         for step in steps(job)
-        if str(step.get("uses", "")).split("@", 1)[0] == action
+        if _action_of(step) == action.casefold()
     ]
+
+
+def _action_of(step: dict[str, object]) -> str:
+    """Return a step's action reference without its ref, case-folded.
+
+    GitHub resolves the owner and repository without regard to case, so a
+    differently cased reference runs the same action.
+    """
+    return str(step.get("uses", "")).split("@", 1)[0].casefold()
 
 
 def pin_of(step: dict[str, object]) -> str:
@@ -174,11 +183,33 @@ def check_step_violations(document: Document) -> list[str]:
         return [f"the upload job must hold one `{CHECK_STEP_ID}` step"]
     extra = sorted(str(key) for key in check if key not in CHECK_STEP_KEYS)
     problems = [f"the check step may not declare {key!r}" for key in extra]
+    problems.extend(_run_defaults_violations(document))
     if str(check.get("run", "")).strip() != CHECK_COMMAND:
         problems.append(f"the check step must run exactly {CHECK_COMMAND!r}")
     if _position(job_steps, check) > _position(job_steps, upload_step(document)):
         problems.append("the check step must run before the upload step")
     return problems
+
+
+def _run_defaults_violations(document: Document) -> list[str]:
+    """Refuse `defaults.run` on the workflow or the upload job.
+
+    A default shell or working directory reshapes the check step as a
+    step-level `shell` would: `bash -c 'exit 0; {0}'` skips its command, the
+    output is never written, and the upload skips for ever.
+    """
+    holders = (("workflow", document), ("upload job", upload_job(document)))
+    return [
+        f"the {scope} may not set `defaults.run`; it reshapes the check step"
+        for scope, holder in holders
+        if _sets_run_defaults(holder)
+    ]
+
+
+def _sets_run_defaults(holder: dict[object, object]) -> bool:
+    """Return whether a workflow or job declares `defaults.run`."""
+    defaults = holder.get("defaults")
+    return isinstance(defaults, dict) and "run" in defaults
 
 
 def _position(job_steps: list[dict[str, object]], step: dict[str, object]) -> int:
@@ -267,7 +298,49 @@ def token_scope_violations(document: Document) -> list[str]:
         for part in _without_permitted_references(document)
         for text in texts(part)
         if "cs_access_token" in text.casefold()
+    ] + [
+        f"the publisher reads secrets without naming one: {text!r}"
+        for text in unnamed_secret_references(document)
     ]
+
+
+def permissions_violations(document: Document) -> list[str]:
+    """Require the publisher's workflow-level token to hold no scope.
+
+    Each job then opts in to what it needs; a scope granted at workflow
+    level reaches every job, the check and upload steps included.
+    """
+    declared = document.get("permissions")
+    return (
+        []
+        if declared == {}
+        else [f"workflow permissions are {declared!r}, not {{}}"]
+    )
+
+
+def wiring_violations(document: Document) -> list[str]:
+    """Require the upload to read the file, in the format, the publisher writes.
+
+    Otherwise the upload sends nothing useful, or fails, while every other
+    clause passes.
+    """
+    generators = action_steps(document, COVERAGE_ACTION)
+    written = [
+        (_input(step, "output-path"), _input(step, "format")) for step in generators
+    ]
+    upload = upload_step(document)
+    read = (_input(upload, "path"), _input(upload, "format"))
+    return (
+        []
+        if read in written
+        else [f"the upload reads {read!r}; the publisher writes {written!r}"]
+    )
+
+
+def _input(step: dict[str, object], name: str) -> object:
+    """Return one `with` input of a step, or None when it has none."""
+    inputs = step.get("with")
+    return inputs.get(name) if isinstance(inputs, dict) else None
 
 
 def retired_checksum_violations(documents: dict[str, Document]) -> list[str]:

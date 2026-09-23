@@ -26,10 +26,12 @@ from codescene_contract.publisher import (
     check_step_violations,
     concurrency_violations,
     find_publisher,
+    permissions_violations,
     retired_checksum_violations,
     token_scope_violations,
     trigger_violations,
     upload_step_violations,
+    wiring_violations,
 )
 
 AVAILABLE = "steps.codescene-token.outputs.available == 'true'"
@@ -132,6 +134,24 @@ def test_the_check_step_runs_its_one_command(old: str, new: str) -> None:
     assert found, found
 
 
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("jobs:\n", "defaults:\n  run:\n    shell: bash -c 'exit 0; {0}'\njobs:\n"),
+        (
+            "    runs-on: ubuntu-latest\n",
+            "    runs-on: ubuntu-latest\n    defaults:\n      run:\n"
+            "        shell: bash -c 'exit 0; {0}'\n",
+        ),
+    ],
+)
+def test_run_defaults_cannot_reshape_the_check(old: str, new: str) -> None:
+    """A workflow or upload-job default shell reaches the check step too."""
+    texts = mutate("coverage-main.yml", old, new)
+    found = check_step_violations(_publisher(texts))
+    assert found, found
+
+
 def test_the_check_step_must_precede_the_upload() -> None:
     """A check step after the upload leaves the guard reading nothing."""
     text = PUBLISHER.replace(CHECK_STEP, "") + CHECK_STEP
@@ -171,6 +191,45 @@ def test_the_token_is_refused_outside_its_two_uses(old: str, new: str) -> None:
     """An `env` binding at any level, or another step, may not hold the token."""
     texts = mutate("coverage-main.yml", old, new)
     found = token_scope_violations(_publisher(texts))
+    assert found, found
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        "echo ${{ toJSON(secrets) }}",
+        "echo ${{ secrets[format('CS_{0}', 'ACCESS_TOKEN')] }}",
+    ],
+)
+def test_an_unnamed_secret_read_is_refused_in_the_publisher(run: str) -> None:
+    """Reading the secrets context without a literal name escapes the sweep."""
+    texts = mutate(
+        "coverage-main.yml",
+        "      - uses: actions/checkout@v4\n",
+        f"      - run: {run}\n",
+    )
+    found = token_scope_violations(_publisher(texts))
+    assert found, found
+
+
+def test_the_publisher_grants_no_workflow_scope() -> None:
+    """A workflow-level scope reaches every job, so it must be empty."""
+    texts = mutate("coverage-main.yml", "permissions: {}\n", "")
+    found = permissions_violations(_publisher(texts))
+    assert found, found
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("      path: coverage.xml\n", "      path: other.xml\n"),
+        ("      mode: upload\n", "      mode: upload\n          format: lcov\n"),
+    ],
+)
+def test_the_upload_reads_what_the_publisher_writes(old: str, new: str) -> None:
+    """An upload reading another file or format sends nothing useful."""
+    texts = mutate("coverage-main.yml", old, new)
+    found = wiring_violations(_publisher(texts))
     assert found, found
 
 
@@ -274,6 +333,9 @@ def test_the_checksum_refresher_is_refused() -> None:
     [
         ("          with-ratchet: 'true'\n", ""),
         ("          publish-artefact: 'false'\n", ""),
+        # GitHub passes `yes` and `no` to the action as strings.
+        ("          with-ratchet: 'true'\n", "          with-ratchet: yes\n"),
+        ("          publish-artefact: 'false'\n", "          publish-artefact: no\n"),
     ],
 )
 def test_a_pull_request_lane_ratchets_and_publishes_nothing(old: str, new: str) -> None:
@@ -295,6 +357,16 @@ def test_a_pull_request_lane_ratchets_and_publishes_nothing(old: str, new: str) 
 def test_a_push_lane_cannot_write_a_second_baseline(guard: str) -> None:
     """Coverage on a push outside the publisher is refused."""
     texts = mutate("ci.yml", "        if: github.event_name == 'pull_request'\n", guard)
+    found = second_writer_violations(_documents(texts), "coverage-main.yml", REPOSITORY)
+    assert found, found
+
+
+def test_a_differently_cased_action_is_still_a_second_writer() -> None:
+    """GitHub resolves the owner without case, so the rule must too."""
+    texts = mutate("ci.yml", "        if: github.event_name == 'pull_request'\n", "")
+    texts["ci.yml"] = texts["ci.yml"].replace(
+        "leynos/shared-actions", "Leynos/Shared-Actions"
+    )
     found = second_writer_violations(_documents(texts), "coverage-main.yml", REPOSITORY)
     assert found, found
 

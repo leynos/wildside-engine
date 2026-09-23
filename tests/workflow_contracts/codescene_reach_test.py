@@ -109,6 +109,11 @@ def test_the_closure_follows_a_chain_of_calls() -> None:
             f"      - run: 'true'\n        env:\n          OTHER: {REFERENCE}\n",
         ),
         ("shell curl", "      - run: curl https://API.CodeScene.IO/v2\n"),
+        ("every secret", "      - run: echo '${{ toJSON(secrets) }}'\n"),
+        (
+            "assembled name",
+            "      - run: echo ${{ secrets[format('CS_{0}', 'ACCESS_TOKEN')] }}\n",
+        ),
         ("client", "      - run: cs-coverage check coverage.xml\n"),
         (
             "uploader",
@@ -120,6 +125,18 @@ def test_a_pull_request_step_cannot_reach_codescene(where: str, text: str) -> No
     """The credential, host, client or uploader in any step is refused."""
     texts = mutate("ci.yml", "      - uses: actions/checkout@v4\n", text)
     assert _findings(texts), where
+
+
+@pytest.mark.parametrize(
+    "run",
+    ["echo ${{ secrets.OTHER }}", "echo ${{ secrets['OTHER'] }}", "echo secrets"],
+)
+def test_a_named_secret_read_is_not_an_unnamed_one(run: str) -> None:
+    """A literal name, or the word outside an expression, is not refused."""
+    texts = mutate(
+        "ci.yml", "      - uses: actions/checkout@v4\n", f"      - run: {run}\n"
+    )
+    assert not _findings(texts), run
 
 
 def test_named_secret_forwarding_is_refused() -> None:

@@ -23,10 +23,12 @@ from codescene_contract.publisher import (
     check_step_violations,
     concurrency_violations,
     find_publisher,
+    permissions_violations,
     retired_checksum_violations,
     token_scope_violations,
     trigger_violations,
     upload_step_violations,
+    wiring_violations,
 )
 from codescene_contract.reach import pull_request_closure, pull_request_violations
 from codescene_contract.reading import triggers
@@ -93,6 +95,18 @@ def test_the_upload_is_guarded_and_bound(publisher: Document) -> None:
 def test_the_token_reaches_only_its_two_uses(publisher: Document) -> None:
     """No `env` at any level, and no other step, holds the credential."""
     found = token_scope_violations(publisher)
+    assert not found, found
+
+
+def test_the_publisher_grants_no_workflow_scope(publisher: Document) -> None:
+    """The workflow-level token holds no scope; the upload job opts in."""
+    found = permissions_violations(publisher)
+    assert not found, found
+
+
+def test_the_upload_reads_what_the_publisher_writes(publisher: Document) -> None:
+    """The upload's path and format are the coverage step's output."""
+    found = wiring_violations(publisher)
     assert not found, found
 
 

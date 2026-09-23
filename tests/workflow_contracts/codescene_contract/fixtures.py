@@ -20,10 +20,12 @@ from .publisher import (
     check_step_violations,
     concurrency_violations,
     find_publisher,
+    permissions_violations,
     retired_checksum_violations,
     token_scope_violations,
     trigger_violations,
     upload_step_violations,
+    wiring_violations,
 )
 from .reach import pull_request_closure, pull_request_violations
 
@@ -58,6 +60,7 @@ PUBLISHER: typ.Final[str] = textwrap.dedent(f"""\
       push:
         branches: [main]
       workflow_dispatch:
+    permissions: {{}}
     concurrency:
       group: coverage-main-${{{{ github.ref }}}}
       cancel-in-progress: false
@@ -140,6 +143,8 @@ def violations(texts: dict[str, str]) -> list[str]:
         *check_step_violations(publisher),
         *upload_step_violations(publisher),
         *token_scope_violations(publisher),
+        *permissions_violations(publisher),
+        *wiring_violations(publisher),
         *retired_checksum_violations(documents),
         *pull_request_lane_violations(closure),
         *second_writer_violations(documents, name, REPOSITORY),

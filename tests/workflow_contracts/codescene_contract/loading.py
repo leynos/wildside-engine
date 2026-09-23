@@ -8,6 +8,8 @@ repository complying.
 
 from __future__ import annotations
 
+import collections.abc as cabc
+import re
 import typing as typ
 
 import yaml
@@ -16,10 +18,20 @@ from yaml.constructor import ConstructorError
 if typ.TYPE_CHECKING:
     from pathlib import Path
 
-#: A parsed workflow. The key type is `object` because YAML 1.1 resolves
-#: an unquoted `on:` to the boolean `True`, so a real workflow's trigger
-#: key is not a string at all.
+#: A parsed workflow. The key type is `object` because a key need not be a
+#: string: `true:` parses to the boolean `True`, and a reader handed a
+#: document from a YAML 1.1 loader sees an unquoted `on:` that way too.
 Document: typ.TypeAlias = dict[object, object]
+
+#: The YAML tag PyYAML gives a resolved boolean.
+_BOOL_TAG: typ.Final[str] = "tag:yaml.org,2002:bool"
+
+#: The scalars GitHub reads as booleans. YAML 1.1 also resolves `yes`,
+#: `no`, `on` and `off`, but GitHub passes those to an action as strings,
+#: so an input such as `with-ratchet: yes` must stay the string it is.
+_GITHUB_BOOL: typ.Final[re.Pattern[str]] = re.compile(
+    r"^(?:true|True|TRUE|false|False|FALSE)$"
+)
 
 #: File suffixes GitHub runs as workflows, compared without case.
 WORKFLOW_SUFFIXES: typ.Final[frozenset[str]] = frozenset({".yml", ".yaml"})
@@ -34,8 +46,14 @@ class _UniqueKeyLoader(yaml.SafeLoader):
 
     PyYAML keeps the last of two equal keys and says nothing, so a job
     declaring `runs-on` twice parses into a document holding only the
-    second value while the rules read the half GitHub may not run.
+    second value while the rules read the half GitHub may not run. Only
+    `true` and `false` resolve to booleans, as GitHub reads them.
     """
+
+    yaml_implicit_resolvers: typ.ClassVar[dict[str, list[tuple[str, typ.Any]]]] = {
+        first: [pair for pair in resolvers if pair[0] != _BOOL_TAG]
+        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
 
     def construct_mapping(
         self, node: yaml.MappingNode, deep: bool = False
@@ -45,12 +63,19 @@ class _UniqueKeyLoader(yaml.SafeLoader):
         Raises
         ------
         ConstructorError
-            If a key appears twice, naming it and where it appears.
+            If a key appears twice or cannot be hashed, naming it and where
+            it appears.
 
         """
         seen: set[object] = set()
         for key_node, _ in node.value:
             key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, cabc.Hashable):
+                context = "while constructing a mapping"
+                problem = f"found unhashable key {key!r}"
+                raise ConstructorError(
+                    context, node.start_mark, problem, key_node.start_mark
+                )
             if key in seen:
                 context = "while constructing a mapping"
                 problem = f"found duplicate key {key!r}"
@@ -61,18 +86,22 @@ class _UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
+_UniqueKeyLoader.add_implicit_resolver(_BOOL_TAG, _GITHUB_BOOL, list("tTfF"))
+
+
 def load_workflow(text: str) -> Document:
     r"""Parse one workflow, refusing duplicate keys and non-mapping documents.
 
     Raises
     ------
     WorkflowReadingError
-        If the text is not YAML, repeats a key, or is not a mapping.
+        If the text is not YAML, repeats a key, uses a key that cannot be
+        hashed, or is not a mapping.
 
     Examples
     --------
     >>> load_workflow("on: push\njobs: {}\n")
-    {True: 'push', 'jobs': {}}
+    {'on': 'push', 'jobs': {}}
 
     """
     # What `yaml.load` does, spelt out so no linter mistakes the strict
