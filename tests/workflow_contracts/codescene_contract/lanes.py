@@ -17,11 +17,12 @@ from .publisher import (
     PINNED_COMMIT,
     UPLOAD_ACTION,
     action_steps,
+    invokes,
     pin_of,
     upload_step,
 )
 from .reach import reachable
-from .reading import triggers
+from .reading import jobs, steps, triggers
 
 if typ.TYPE_CHECKING:
     from .loading import Document
@@ -54,7 +55,19 @@ def _is_false(value: object) -> bool:
 
 
 def pull_request_lane_violations(closure: dict[str, Document]) -> list[str]:
-    """Require every pull-request lane to ratchet and publish nothing."""
+    """Require every pull-request lane to ratchet and publish nothing.
+
+    Parameters
+    ----------
+    closure : dict[str, Document]
+        The pull-request-reachable workflows, by file name.
+
+    Returns
+    -------
+    list[str]
+        Every violation of the pull-request lanes' ratchet-only shape.
+
+    """
     lanes = [
         (name, step)
         for name, document in sorted(closure.items())
@@ -73,12 +86,27 @@ def pull_request_lane_violations(closure: dict[str, Document]) -> list[str]:
     ]
 
 
-def _guarded_to_pull_requests(step: dict[str, object]) -> bool:
-    """Return whether a step runs only for a pull request."""
+def _guarded_to_pull_requests(holder: dict[str, object]) -> bool:
+    """Return whether a step or a job runs only for a pull request."""
     try:
-        return not missing_terms(step.get("if"), PULL_REQUEST_GUARD)
+        return not missing_terms(holder.get("if"), PULL_REQUEST_GUARD)
     except ConditionError:
         return False
+
+
+def _push_coverage_steps(document: Document) -> list[dict[str, object]]:
+    """Return the coverage steps that can run when a push starts the document.
+
+    A job guarded to pull requests never runs on a push, and neither does
+    any step in it, whatever the step's own condition says.
+    """
+    return [
+        step
+        for job in jobs(document).values()
+        if not _guarded_to_pull_requests(job)
+        for step in steps(job)
+        if invokes(step, COVERAGE_ACTION) and not _guarded_to_pull_requests(step)
+    ]
 
 
 def second_writer_violations(
@@ -89,20 +117,36 @@ def second_writer_violations(
     A lane running on both events would write a second baseline on every
     push to main, so each generate-coverage step that another push-started
     workflow reaches, itself or through a local reusable workflow it
-    calls, must run for pull requests only.
+    calls, must run for pull requests only. A guard on the step or on its
+    job counts, and a call made from a job guarded to pull requests is not
+    followed, since that job never runs on a push.
+
+    Parameters
+    ----------
+    documents : dict[str, Document]
+        Every parsed workflow, by file name.
+    publisher : str
+        The publisher's file name.
+    repository : str
+        The owner and name of the repository the workflows belong to.
+
+    Returns
+    -------
+    list[str]
+        Every violation of the second-writer rule.
+
     """
     seeds = [
         name
         for name, document in documents.items()
         if name != publisher and "push" in triggers(document)
     ]
-    closure = reachable(documents, seeds, repository)
+    closure = reachable(documents, seeds, repository, _guarded_to_pull_requests)
     return [
         f"{name}: generate-coverage can run on a push; guard it to pull requests"
         for name, document in sorted(closure.items())
         if name != publisher
-        for step in action_steps(document, COVERAGE_ACTION)
-        if not _guarded_to_pull_requests(step)
+        for _ in _push_coverage_steps(document)
     ]
 
 
@@ -123,6 +167,19 @@ def publisher_lane_violations(
     The publisher's generator, its uploader and every pull-request
     generator share one commit pin, so the lanes measure with the same
     action that writes their baseline.
+
+    Parameters
+    ----------
+    publisher : Document
+        The publisher workflow document.
+    closure : dict[str, Document]
+        The pull-request-reachable workflows, by file name.
+
+    Returns
+    -------
+    list[str]
+        Every violation of the shared-selection and shared-pin rules.
+
     """
     generators = action_steps(publisher, COVERAGE_ACTION)
     if len(generators) != 1:

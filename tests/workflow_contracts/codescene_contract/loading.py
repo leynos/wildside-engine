@@ -92,6 +92,16 @@ _UniqueKeyLoader.add_implicit_resolver(_BOOL_TAG, _GITHUB_BOOL, list("tTfF"))
 def load_workflow(text: str) -> Document:
     r"""Parse one workflow, refusing duplicate keys and non-mapping documents.
 
+    Parameters
+    ----------
+    text : str
+        The workflow's YAML text.
+
+    Returns
+    -------
+    Document
+        The parsed workflow.
+
     Raises
     ------
     WorkflowReadingError
@@ -125,6 +135,16 @@ def read_workflows(directory: Path) -> dict[str, Document]:
 
     Both suffixes are read, whatever their case, because GitHub runs a
     workflow named either way.
+
+    Parameters
+    ----------
+    directory : Path
+        The directory to read workflows from.
+
+    Returns
+    -------
+    dict[str, Document]
+        Every workflow under `directory`, by file name.
 
     Raises
     ------

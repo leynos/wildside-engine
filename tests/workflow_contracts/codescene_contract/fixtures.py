@@ -10,19 +10,19 @@ from __future__ import annotations
 import textwrap
 import typing as typ
 
+from .credential import check_step_violations, token_scope_violations
 from .lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
     second_writer_violations,
 )
 from .loading import Document, load_workflow
-from .publisher import (
-    check_step_violations,
+from .publisher import find_publisher
+from .publisher_rules import (
     concurrency_violations,
-    find_publisher,
+    condition_violations,
     permissions_violations,
     retired_checksum_violations,
-    token_scope_violations,
     trigger_violations,
     upload_step_violations,
     wiring_violations,
@@ -97,6 +97,19 @@ def tree(*, extra: dict[str, str] | None = None, **replaced: str) -> dict[str, s
     """Return the compliant tree's texts with files replaced or added.
 
     A keyword names a file by its stem (`ci`, `coverage_main`).
+
+    Parameters
+    ----------
+    extra : dict[str, str] | None, optional
+        Additional files to add, keyed by their full file name.
+    **replaced : str
+        Replacement texts for compliant files, keyed by file stem.
+
+    Returns
+    -------
+    dict[str, str]
+        The compliant tree's file names mapped to their texts.
+
     """
     texts = dict(TREE)
     for stem, text in replaced.items():
@@ -106,6 +119,21 @@ def tree(*, extra: dict[str, str] | None = None, **replaced: str) -> dict[str, s
 
 def mutate(name: str, old: str, new: str) -> dict[str, str]:
     """Return the compliant tree with one exact substitution in one file.
+
+    Parameters
+    ----------
+    name : str
+        The file name to mutate, matching a key in the compliant tree.
+    old : str
+        The text to replace.
+    new : str
+        The replacement text.
+
+    Returns
+    -------
+    dict[str, str]
+        The compliant tree's file names mapped to their texts, with
+        `name`'s text mutated.
 
     Raises
     ------
@@ -123,6 +151,16 @@ def mutate(name: str, old: str, new: str) -> dict[str, str]:
 
 def violations(texts: dict[str, str]) -> list[str]:
     """Return every CV-005 finding over a tree of workflow texts.
+
+    Parameters
+    ----------
+    texts : dict[str, str]
+        Workflow file names mapped to their YAML texts.
+
+    Returns
+    -------
+    list[str]
+        Every CV-005 violation found across the tree.
 
     Raises
     ------
@@ -145,6 +183,7 @@ def violations(texts: dict[str, str]) -> list[str]:
         *token_scope_violations(publisher),
         *permissions_violations(publisher),
         *wiring_violations(publisher),
+        *condition_violations(publisher),
         *retired_checksum_violations(documents),
         *pull_request_lane_violations(closure),
         *second_writer_violations(documents, name, REPOSITORY),

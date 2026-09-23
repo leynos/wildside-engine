@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import pytest
 
+from codescene_contract.credential import check_step_violations, token_scope_violations
 from codescene_contract.fixtures import PUBLISHER, mutate, tree
 from codescene_contract.loading import Document, WorkflowReadingError, load_workflow
-from codescene_contract.publisher import (
-    check_step_violations,
+from codescene_contract.publisher import find_publisher
+from codescene_contract.publisher_rules import (
     concurrency_violations,
-    find_publisher,
+    condition_violations,
     permissions_violations,
     retired_checksum_violations,
-    token_scope_violations,
     trigger_violations,
     upload_step_violations,
     wiring_violations,
@@ -223,6 +223,49 @@ def test_the_upload_reads_what_the_publisher_writes(old: str, new: str) -> None:
     """An upload reading another file or format sends nothing useful."""
     texts = mutate("coverage-main.yml", old, new)
     found = wiring_violations(_publisher(texts))
+    assert found, found
+
+
+#: The publisher fixture's coverage step, for the cases that move it.
+GENERATOR = PUBLISHER[
+    PUBLISHER.index("      - name: Generate coverage\n") : PUBLISHER.index(
+        "      - name: Check for the CodeScene token\n"
+    )
+]
+
+
+def test_the_report_is_written_before_the_upload() -> None:
+    """A generator after the upload leaves the uploader nothing to read."""
+    text = PUBLISHER.replace(GENERATOR, "") + GENERATOR
+    found = wiring_violations(load_workflow(text))
+    assert found, found
+
+
+def test_a_report_from_another_job_is_refused() -> None:
+    """The uploader reads its own job's workspace, not another job's."""
+    other = "  measure:\n    runs-on: ubuntu-latest\n    steps:\n" + GENERATOR
+    text = PUBLISHER.replace(GENERATOR, "").replace("jobs:\n", "jobs:\n" + other)
+    found = wiring_violations(load_workflow(text))
+    assert found, found
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (
+            "    runs-on: ubuntu-latest\n",
+            "    runs-on: ubuntu-latest\n    if: github.event_name == 'workflow_dispatch'\n",
+        ),
+        (
+            "      - name: Generate coverage\n",
+            "      - name: Generate coverage\n        if: github.event_name == 'workflow_dispatch'\n",
+        ),
+    ],
+)
+def test_nothing_can_skip_the_publisher_on_a_push(old: str, new: str) -> None:
+    """A job or coverage-step condition could skip the baseline on a push."""
+    texts = mutate("coverage-main.yml", old, new)
+    found = condition_violations(_publisher(texts))
     assert found, found
 
 

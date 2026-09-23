@@ -79,6 +79,16 @@ def _normalize(term: str) -> str:
 def conjuncts(condition: object) -> list[str]:
     """Return the whole terms of an `&&` conjunction.
 
+    Parameters
+    ----------
+    condition : object
+        The `if:` value to read, normally a string.
+
+    Returns
+    -------
+    list[str]
+        The condition's whole, normalized `&&` terms.
+
     Raises
     ------
     ConditionError
@@ -112,6 +122,18 @@ def missing_terms(condition: object, required: frozenset[str]) -> list[str]:
     """Return the required terms a condition does not carry whole.
 
     Extra terms are permitted, since they only narrow when a step runs.
+
+    Parameters
+    ----------
+    condition : object
+        The `if:` value to read, normally a string.
+    required : frozenset[str]
+        The terms the condition must carry whole.
+
+    Returns
+    -------
+    list[str]
+        The required terms `condition` does not carry, sorted.
 
     Raises
     ------

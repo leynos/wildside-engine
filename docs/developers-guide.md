@@ -252,8 +252,8 @@ call to `main` keeps such a change off every pull request's critical path.
 - Merges made by the Dependabot automerge workflow with `GITHUB_TOKEN` fire no
   push, so they reach the publisher only through a later push or a dispatch.
 - A dispatch that replaces a pending push uploads the same or a newer commit.
-  generate-coverage saves the baseline only on a push, so the baseline stays
-  one commit behind until the next push.
+  generate-coverage saves the baseline only on a push, so the baseline can lag
+  by more than one commit until a later push saves it.
 
 `tests/workflow_contracts/codescene_repository_test.py` holds this shape over
 the repository's own workflows, using the readers and rules in

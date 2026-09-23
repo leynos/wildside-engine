@@ -32,6 +32,16 @@ PULL_REQUEST_TRIGGERS: typ.Final[frozenset[str]] = frozenset({
 def trigger_declaration(document: Document) -> object:
     """Return the `on:` value, read under the string key or the boolean one.
 
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    object
+        The `on:` declaration, in whatever shape it was written.
+
     Raises
     ------
     WorkflowReadingError
@@ -48,6 +58,16 @@ def trigger_declaration(document: Document) -> object:
 
 def triggers(document: Document) -> frozenset[str]:
     """Return the trigger names in the scalar, sequence or mapping form.
+
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    frozenset[str]
+        The declared trigger names.
 
     Raises
     ------
@@ -69,6 +89,18 @@ def triggers(document: Document) -> frozenset[str]:
 def trigger_filters(document: Document, trigger: str) -> dict[str, object]:
     """Return one trigger's filters, empty when it declares none.
 
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+    trigger : str
+        The trigger name to look up.
+
+    Returns
+    -------
+    dict[str, object]
+        The trigger's filters, or an empty mapping when it declares none.
+
     Raises
     ------
     WorkflowReadingError
@@ -85,6 +117,16 @@ def trigger_filters(document: Document, trigger: str) -> dict[str, object]:
 
 def jobs(document: Document) -> dict[str, dict[str, object]]:
     """Return every job, by identifier.
+
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    dict[str, dict[str, object]]
+        Every job, by identifier.
 
     Raises
     ------
@@ -103,6 +145,16 @@ def jobs(document: Document) -> dict[str, dict[str, object]]:
 
 def steps(job: dict[str, object]) -> list[dict[str, object]]:
     """Return one job's steps; a reusable-workflow call has none.
+
+    Parameters
+    ----------
+    job : dict[str, object]
+        The job to read.
+
+    Returns
+    -------
+    list[dict[str, object]]
+        The job's steps, in document order.
 
     Raises
     ------
@@ -124,6 +176,16 @@ def texts(value: object) -> cabc.Iterator[str]:
 
     Keys are read as well as values: a callee's `workflow_call` secret
     declaration names the secret only as a key.
+
+    Parameters
+    ----------
+    value : object
+        The parsed document, or any part of it, to walk.
+
+    Returns
+    -------
+    cabc.Iterator[str]
+        Every key and scalar found, as text.
 
     Examples
     --------
