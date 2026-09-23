@@ -218,6 +218,48 @@ and `allow_attributes_without_reason`. Those two matter: an item-scoped
 policy would be bypassable in exactly the packages that carry it locally. Issue
 124 folds all three into `[lints] workspace = true`.
 
+## CodeScene coverage publication
+
+Main owns CodeScene. `.github/workflows/coverage-main.yml` is the one
+publisher: on each push to `main` it measures coverage, writes the ratchet
+baseline, and uploads the report. Pull requests measure coverage in `ci.yml`
+and ratchet it against that baseline, but never contact CodeScene. The shared
+uploader verifies the `cs-coverage` archive against a committed digest, so the
+artefact is pinned. What cannot be pinned is the CodeScene API the tool calls,
+and the tool refuses to run when that API's answers change shape. Moving the
+call to `main` keeps such a change off every pull request's critical path.
+
+- The pull-request lane sets `with-ratchet: 'true'` and
+  `publish-artefact: 'false'`, and holds no CodeScene step, client, host, or
+  credential. The rule covers every workflow a pull request can start,
+  including local reusable workflows those workflows call.
+- `ci.yml` also runs on a push to `main`, so its coverage step is guarded to
+  `github.event_name == 'pull_request'`. Unguarded, it would write a second
+  ratchet baseline on every push.
+- The publisher's check step runs one exact command,
+  `echo "available=${{ secrets.CS_ACCESS_TOKEN != '' }}" >> "$GITHUB_OUTPUT"`.
+  The upload step runs only when that output is `true` and the ref is
+  `refs/heads/main`, and passes the secret straight to the uploader's
+  `access-token` input. No `env` block holds the token, because the uploader is
+  a composite action that hands its step's `env` to the nested steps it runs.
+- The publisher's concurrency group is `coverage-main-${{ github.ref }}`,
+  never cancelled. Runs for `main` never overlap, and the newest trigger
+  survives any replacement, so uploads land in commit order.
+- Merges made by the Dependabot automerge workflow with `GITHUB_TOKEN` fire no
+  push, so they reach the publisher only through a later push or a dispatch.
+- A dispatch that replaces a pending push uploads the same or a newer commit.
+  generate-coverage saves the baseline only on a push, so the baseline stays
+  one commit behind until the next push.
+
+`tests/workflow_contracts/codescene_repository_test.py` holds this shape over
+the repository's own workflows, using the readers and rules in
+`tests/workflow_contracts/codescene_contract/`. The other `codescene_*_test.py`
+files prove that each rule refuses the shape it exists to refuse. Each case
+starts from a compliant fixture tree and changes one thing. Workflows are read
+strictly: a duplicate key, or a workflow declaring both a quoted and an unquoted
+`on` key, is refused rather than silently resolved. Run the suite with
+`make test-workflow-contracts`.
+
 ## Workflow pins and Dependabot
 
 Dependabot owns the upgrade of GitHub Actions and reusable workflows, including
