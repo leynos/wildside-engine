@@ -25,8 +25,11 @@ permissions: {}
 
 # One group per ref, never cancelled. Runs for main never overlap, and
 # GitHub keeps at most one pending run per group, so the survivor of any
-# replacement is the newest trigger and uploads land in commit order. A
-# cancelled run would abandon both its upload and its baseline write.
+# replacement is the newest trigger: triggered runs (push and dispatch)
+# upload in commit order. A manual re-run of an older run keeps its original
+# SHA; it is an operator action that republishes that commit's coverage and
+# baseline until the next push supersedes it. A cancelled run would abandon
+# both its upload and its baseline write.
 concurrency:
   group: coverage-main-${{ github.ref }}
   cancel-in-progress: false

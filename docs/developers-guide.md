@@ -244,7 +244,10 @@ call to `main` keeps such a change off every pull request's critical path.
   a composite action that hands its step's `env` to the nested steps it runs.
 - The publisher's concurrency group is `coverage-main-${{ github.ref }}`,
   never cancelled. Runs for `main` never overlap, and the newest trigger
-  survives any replacement, so uploads land in commit order.
+  survives any replacement, so triggered runs (push and dispatch) upload in
+  commit order. A manual re-run of an older run keeps its original SHA; it is
+  an operator action that republishes that commit's coverage and baseline until
+  the next push supersedes it.
 - Merges made by the Dependabot automerge workflow with `GITHUB_TOKEN` fire no
   push, so they reach the publisher only through a later push or a dispatch.
 - A dispatch that replaces a pending push uploads the same or a newer commit.
