@@ -56,13 +56,14 @@ def triggers(document: Document) -> frozenset[str]:
 
     """
     declared = trigger_declaration(document)
-    names = [declared] if isinstance(declared, str) else declared
-    if not isinstance(names, list | dict) or not all(
-        isinstance(name, str) for name in names
-    ):
-        message = f"unreadable trigger declaration {declared!r}"
-        raise WorkflowReadingError(message)
-    return frozenset(typ.cast("cabc.Iterable[str]", names))
+    match declared:
+        case str():
+            return frozenset({declared})
+        case list() | dict() if all(isinstance(name, str) for name in declared):
+            return frozenset(str(name) for name in declared)
+        case _:
+            message = f"unreadable trigger declaration {declared!r}"
+            raise WorkflowReadingError(message)
 
 
 def trigger_filters(document: Document, trigger: str) -> dict[str, object]:

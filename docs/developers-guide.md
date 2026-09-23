@@ -242,12 +242,13 @@ call to `main` keeps such a change off every pull request's critical path.
   `refs/heads/main`, and passes the secret straight to the uploader's
   `access-token` input. No `env` block holds the token, because the uploader is
   a composite action that hands its step's `env` to the nested steps it runs.
-- The publisher's concurrency group is `coverage-main-${{ github.ref }}`,
-  never cancelled. Runs for `main` never overlap, and the newest trigger
-  survives any replacement, so triggered runs (push and dispatch) upload in
-  commit order. A manual re-run of an older run keeps its original SHA; it is
-  an operator action that republishes that commit's coverage and baseline until
-  the next push supersedes it.
+- The publisher's concurrency group is `coverage-main-${{ github.ref }}`, never
+  cancelled. Runs for `main` never overlap, and a newer trigger replaces an
+  older pending run rather than queueing behind it. GitHub does not promise to
+  start runs in trigger order, so this does not guarantee commit order. A
+  manual re-run of an older run keeps its SHA and its run id: it republishes
+  that commit's coverage to CodeScene, but replaces no ratchet baseline unless
+  the original run saved none.
 - Merges made by the Dependabot automerge workflow with `GITHUB_TOKEN` fire no
   push, so they reach the publisher only through a later push or a dispatch.
 - A dispatch that replaces a pending push uploads the same or a newer commit.

@@ -24,12 +24,13 @@ on:
 permissions: {}
 
 # One group per ref, never cancelled. Runs for main never overlap, and
-# GitHub keeps at most one pending run per group, so the survivor of any
-# replacement is the newest trigger: triggered runs (push and dispatch)
-# upload in commit order. A manual re-run of an older run keeps its original
-# SHA; it is an operator action that republishes that commit's coverage and
-# baseline until the next push supersedes it. A cancelled run would abandon
-# both its upload and its baseline write.
+# GitHub keeps at most one pending run per group, so a newer trigger replaces
+# an older pending run rather than queueing behind it. GitHub does not promise
+# to start runs in trigger order, so this is not a guarantee of commit order.
+# A manual re-run of an older run keeps its SHA and its run id: it republishes
+# that commit's coverage to CodeScene, but its baseline cache key already
+# exists, so it replaces no baseline unless the original run saved none. A
+# cancelled run would abandon both its upload and its baseline write.
 concurrency:
   group: coverage-main-${{ github.ref }}
   cancel-in-progress: false

@@ -137,6 +137,13 @@ def test_an_unquoted_disjunction_is_refused(condition: str) -> None:
         conjuncts(condition)
 
 
+@pytest.mark.parametrize("condition", ["a && ${{ b }}", "${{ a }} && ${{ b }}", "'${{ a }}'"])
+def test_an_embedded_expression_is_refused(condition: str) -> None:
+    """GitHub renders a condition embedding `${{ }}` as a string, always true."""
+    with pytest.raises(ConditionError, match="embeds"):
+        conjuncts(condition)
+
+
 @pytest.mark.parametrize("condition", ["(a && b", "a) && (b", "a == 'x && b"])
 def test_an_unbalanced_condition_is_refused(condition: str) -> None:
     """An unclosed group or literal cannot be split into trustworthy terms."""

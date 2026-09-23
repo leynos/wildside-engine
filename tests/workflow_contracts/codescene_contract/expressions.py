@@ -82,8 +82,9 @@ def conjuncts(condition: object) -> list[str]:
     Raises
     ------
     ConditionError
-        If the condition is not text, is unbalanced, or carries an
-        ungrouped, unquoted `||`, which would make every term optional.
+        If the condition is not text, is unbalanced, embeds a `${{ }}`
+        inside a larger condition, or carries an ungrouped, unquoted `||`,
+        which would make every term optional.
 
     Examples
     --------
@@ -95,6 +96,12 @@ def conjuncts(condition: object) -> list[str]:
         message = f"condition {condition!r} is not an expression"
         raise ConditionError(message)
     body = _unwrap(condition)
+    if "${{" in body:
+        # GitHub interpolates an expression embedded in a larger `if:` as a
+        # template, and the non-empty string that results is always true,
+        # so `a && b && ${{ false }}` runs everywhere.
+        message = f"condition {condition!r} embeds a `${{{{ }}}}` expression"
+        raise ConditionError(message)
     if len(_split_top_level(body, "||")) > 1:
         message = f"condition {condition!r} carries an unquoted `||`"
         raise ConditionError(message)

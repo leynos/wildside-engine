@@ -41,8 +41,10 @@ def _is_chained_on_a_run(document: Document) -> bool:
     return "workflow_run" in triggers(document)
 
 
-#: Push filters that confine a push trigger to the trunk or to tags.
-TRUNK_OR_TAG_FILTERS: typ.Final[tuple[dict[str, object], ...]] = (
+#: Push filters that confine a push trigger to the trunk. A tags-only push
+#: is judged separately; the publisher rules read the same filters, so the
+#: publisher can never seed the pull-request closure.
+TRUNK_FILTERS: typ.Final[tuple[dict[str, object], ...]] = (
     {"branches": ["main"]},
     {"branches": "main"},
 )
@@ -59,7 +61,7 @@ def _pushes_other_branches(document: Document) -> bool:
         return False
     filters = trigger_filters(document, "push")
     is_tags_only = bool(filters) and set(filters) <= {"tags", "tags-ignore"}
-    return not is_tags_only and filters not in TRUNK_OR_TAG_FILTERS
+    return not is_tags_only and filters not in TRUNK_FILTERS
 
 
 def is_pull_request_seed(document: Document) -> bool:

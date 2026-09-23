@@ -20,7 +20,7 @@ import typing as typ
 
 from .expressions import ConditionError, missing_terms
 from .loading import Document, WorkflowReadingError
-from .reach import codescene_contacts, unnamed_secret_references
+from .reach import TRUNK_FILTERS, codescene_contacts, unnamed_secret_references
 from .reading import jobs, steps, texts, trigger_filters, triggers
 
 UPLOAD_ACTION: typ.Final[str] = (
@@ -49,9 +49,9 @@ UPLOAD_GUARD: typ.Final[frozenset[str]] = frozenset({MAIN_REF_GUARD, AVAILABLE_G
 
 #: The publisher's one concurrency declaration, held exactly. Keyed on the
 #: ref alone, so every run for main shares one group: runs never overlap,
-#: and the survivor of any replacement is the newest trigger, so uploads
-#: land in commit order. Adding the event name would let an earlier
-#: dispatch finish after a newer push and upload older coverage last.
+#: and a newer trigger replaces an older pending run. Adding the event name
+#: would split main into two groups, letting an earlier dispatch overlap or
+#: finish after a newer push and upload older coverage last.
 PUBLISHER_CONCURRENCY: typ.Final[dict[str, object]] = {
     "group": "coverage-main-${{ github.ref }}",
     "cancel-in-progress": False,
@@ -133,10 +133,7 @@ def trigger_violations(document: Document) -> list[str]:
     ]
     if "push" not in triggers(document):
         found.append("the publisher does not run on a push")
-    if trigger_filters(document, "push") not in (
-        {"branches": ["main"]},
-        {"branches": "main"},
-    ):
+    if trigger_filters(document, "push") not in TRUNK_FILTERS:
         found.append("the push trigger must filter on exactly `branches: [main]`")
     return found
 
