@@ -38,7 +38,7 @@ clean: ## Remove build artefacts
 test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
-test-workflow-contracts: ## Validate the mutation-testing caller contract
+test-workflow-contracts: ## Validate the workflow contracts, including the CV-005 CodeScene shape
 	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
 
 bench: ## Run performance benchmarks
