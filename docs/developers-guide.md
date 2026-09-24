@@ -264,6 +264,27 @@ strictly: a duplicate key, or a workflow declaring both a quoted and an unquoted
 `on` key, is refused rather than silently resolved. Run the suite with
 `make test-workflow-contracts`.
 
+## The default test selection runs once per event
+
+The coverage run is the one run of the default test selection. On a pull
+request it is the coverage step in `ci.yml`, and on a push to `main` it is
+`coverage-main.yml`. Both run nextest over the workspace with
+`--features test-support`, which is everything `make test` selects except the
+bench targets: 385 of its 388 tests at a37e992. The `build` job therefore runs
+`make test-benches`, the three `wildside-solver-vrp` Criterion bench cases,
+rather than `make test`, which ran the other 385 a second time on every event.
+
+`make test-benches` passes `--benches` with the filter `kind(bench)`, because
+`--benches` also selects every library, whose `bench` setting defaults to true.
+The feature-matrix legs still run `make test`, each with a feature set of its
+own; that is the matrix's purpose, not a repeat.
+
+`tests/workflow_contracts/suite_runs_once_test.py` holds the split. `build`
+runs no whole-suite command and runs the bench step on every event. The recipe
+is exact and uses `make test`'s features. Both coverage steps keep those
+features and leave `all-targets` off, so the bench step does not repeat them.
+Every feature-matrix leg names flags of its own.
+
 ## Workflow pins and Dependabot
 
 Dependabot owns the upgrade of GitHub Actions and reusable workflows, including

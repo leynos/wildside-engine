@@ -58,8 +58,13 @@ jobs:
           whitaker-installer
       - name: Lint
         run: make lint
-      - name: Test
-        run: make test
+      # The coverage step below (and coverage-main.yml on a push) runs every
+      # target `make test` selects except the benches, under the same
+      # features and nextest profile, so running `make test` here as well
+      # ran 385 tests twice. Only the bench targets are left to this step.
+      # tests/workflow_contracts/suite_runs_once_test.py holds the split.
+      - name: Test benchmark targets
+        run: make test-benches
       - name: Generate coverage
         # Pull requests ratchet against the baseline coverage-main.yml writes
         # on main and never contact CodeScene; that workflow is the one
