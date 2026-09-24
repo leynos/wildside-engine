@@ -283,7 +283,9 @@ own; that is the matrix's purpose, not a repeat.
 runs no whole-suite command and runs the bench step on every event. The recipe
 is exact and uses `make test`'s features. Both coverage steps keep those
 features and leave `all-targets` off, so the bench step does not repeat them.
-Every feature-matrix leg names flags of its own.
+No feature-matrix leg keeps the default configuration: each leg either passes
+`--no-default-features` or `--all-features`, or enables a feature outside the
+defaults and `test-support`.
 
 ## Workflow pins and Dependabot
 

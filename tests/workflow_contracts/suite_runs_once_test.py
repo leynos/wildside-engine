@@ -17,8 +17,9 @@ test-benches`, the bench targets alone. These tests hold that split:
   `test`;
 - both coverage steps keep the features `test` uses and leave the bench
   targets out, so the bench step is not itself a duplicate;
-- every feature-matrix leg names a feature set of its own, since a leg with
-  no flags would repeat the default selection a third time.
+- no feature-matrix leg keeps the default configuration: a leg that
+  neither drops the defaults nor enables all features, and enables nothing
+  beyond them, would repeat the default selection a third time.
 
 Run via ``make test-workflow-contracts``.
 """
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -38,8 +40,10 @@ WORKFLOWS = REPOSITORY_ROOT / ".github" / "workflows"
 MAKEFILE = REPOSITORY_ROOT / "Makefile"
 
 #: A command that runs the whole default selection, or could.
+#: Variable assignments and options may precede the target (`make -j2 test`).
 WHOLE_SUITE = re.compile(
-    r"\bmake\s+(\S+=\S+\s+)*test(?![-\w])|\bnextest\s+run\b|\bcargo\s+test\b"
+    r"\bmake\s+((?:\S+=\S+|-\S+)\s+)*test(?![-\w])"
+    r"|\bnextest\s+run\b|\bcargo\s+test\b"
 )
 BENCH_STEP_COMMAND = "make test-benches"
 TEST_BENCHES_RECIPE = (
@@ -132,15 +136,75 @@ def test_coverage_runs_the_test_features_without_the_bench_targets() -> None:
         )
 
 
+def _default_features() -> set[str]:
+    """Return the root package's default feature list."""
+    manifest = tomllib.loads((REPOSITORY_ROOT / "Cargo.toml").read_text("utf-8"))
+    return set(manifest["features"]["default"])
+
+
+def _repeats_the_default(flags: str, default: set[str]) -> bool:
+    """Report whether `make test` with *flags* selects the default configuration.
+
+    `make test` always adds ``--features test-support``. A leg keeps the
+    default configuration when it neither drops the defaults nor enables
+    every feature, and enables nothing beyond the defaults and
+    ``test-support``. A leg passing ``--no-default-features`` resolves
+    different artefacts even when it names the defaults again, so it counts
+    as a configuration of its own.
+    """
+    words = shlex.split(flags)
+    if "--no-default-features" in words or "--all-features" in words:
+        return False
+    named = {
+        feature
+        for value in _features(flags)
+        for feature in value.replace(",", " ").split()
+    }
+    return named <= default | {"test-support"}
+
+
+@pytest.mark.parametrize(
+    ("flags", "repeats"),
+    [
+        ("", True),
+        ("--features test-support", True),
+        ("--features serde,solver-vrp", True),
+        ("--features solver-ortools", False),
+        ("--no-default-features --features solver-vrp,store-sqlite", False),
+        ("--all-features", False),
+    ],
+)
+def test_the_default_configuration_is_recognized(flags: str, *, repeats: bool) -> None:
+    """Pin which leg flags the matrix check treats as the default selection."""
+    assert _repeats_the_default(flags, {"serde", "solver-vrp", "store-sqlite"}) is repeats
+
+
+@pytest.mark.parametrize(
+    ("command", "runs_suite"),
+    [
+        ("make test", True),
+        ("make -j2 test", True),
+        ("make TEST_FLAGS=--all-features test", True),
+        ("cargo nextest run --workspace", True),
+        ("make test-benches", False),
+        ("make test-workflow-contracts", False),
+    ],
+)
+def test_the_whole_suite_pattern(command: str, *, runs_suite: bool) -> None:
+    """Recognize every spelling of a whole-suite run, and nothing longer."""
+    assert bool(WHOLE_SUITE.search(command)) is runs_suite, command
+
+
 @pytest.mark.parametrize(
     "leg",
     _workflow("ci.yml")["jobs"]["feature-matrix"]["strategy"]["matrix"]["include"],
     ids=lambda leg: str(leg.get("name")),
 )
-def test_every_feature_matrix_leg_names_its_own_feature_set(
+def test_every_feature_matrix_leg_differs_from_the_default(
     leg: dict[str, Any],
 ) -> None:
-    """Refuse a leg with no flags, which would rerun the default selection."""
-    assert str(leg.get("test_flags", "")).strip(), (
+    """Refuse a leg whose flags leave the default configuration unchanged."""
+    flags = str(leg.get("test_flags", ""))
+    assert not _repeats_the_default(flags, _default_features()), (
         f"feature-matrix leg {leg.get('name')!r} repeats the default selection"
     )
