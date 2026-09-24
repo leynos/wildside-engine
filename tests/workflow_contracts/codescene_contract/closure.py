@@ -70,8 +70,8 @@ def local_callee(reference: str, repository: str) -> str | None:
     return str(path.relative_to(directory))
 
 
-def _skip_none(_job: dict[str, object]) -> bool:
-    """Skip no job, so every local call is followed."""
+def _skip_none(_holder: dict[str, object]) -> bool:
+    """Skip no job or step, so every local call is followed."""
     return False
 
 
@@ -109,7 +109,7 @@ def called_workflows(
     return frozenset(name for name in names if name is not None)
 
 
-def local_action(reference: str) -> str | None:
+def local_action(reference: str, repository: str) -> str | None:
     """Return the tree path a step-level `uses:` names, or None for a remote one.
 
     The path is the key `actions.read_actions` files the action under.
@@ -118,6 +118,8 @@ def local_action(reference: str) -> str | None:
     ----------
     reference : str
         The step's `uses:` reference.
+    repository : str
+        The owner and name of the repository the workflow belongs to.
 
     Returns
     -------
@@ -128,16 +130,20 @@ def local_action(reference: str) -> str | None:
     Raises
     ------
     WorkflowReadingError
-        If a local spelling carries an `@ref`, which names a version of the
-        action this checkout does not hold.
+        If a local spelling carries an `@ref`, or the reference names this
+        repository qualified by a ref: either runs a version of the action
+        this checkout does not hold, so following it would prove nothing.
 
     Examples
     --------
-    >>> local_action("./.github/actions/build")
+    >>> local_action("./.github/actions/build", "leynos/example")
     '.github/actions/build'
-    >>> local_action("actions/checkout@v4")
+    >>> local_action("actions/checkout@v4", "leynos/example")
 
     """
+    if _names_this_repository(reference, repository):
+        message = f"{reference!r} runs this repository's action at a ref; use `./`"
+        raise WorkflowReadingError(message)
     if not reference.startswith(("./", "$/")):
         return None
     if "@" in reference:
@@ -146,21 +152,33 @@ def local_action(reference: str) -> str | None:
     return PurePosixPath(reference.removeprefix("$/")).as_posix()
 
 
+def _names_this_repository(reference: str, repository: str) -> bool:
+    """Return whether a reference names this repository by owner and name."""
+    target = reference.casefold().split("@", 1)[0]
+    own = repository.casefold()
+    return target == own or target.startswith(f"{own}/")
+
+
 def called_actions(
     document: Document,
+    repository: str,
     skip: cabc.Callable[[dict[str, object]], bool] = _skip_none,
 ) -> frozenset[str]:
     """Return the local actions one document's steps run.
 
     A local composite action runs in its caller's job with the caller's
     secrets, so the closure follows it as it follows a called workflow.
+    `skip` is asked about each job and each step, since a guard on either
+    keeps the action from running.
 
     Parameters
     ----------
     document : Document
         The workflow document to read.
+    repository : str
+        The owner and name of the repository the workflow belongs to.
     skip : cabc.Callable[[dict[str, object]], bool], optional
-        Called on each job; a job it answers true for is not followed.
+        Called on each job and step; one it answers true for is not followed.
 
     Returns
     -------
@@ -173,9 +191,10 @@ def called_actions(
         for job in jobs(document).values()
         if not skip(job)
         for step in steps(job)
+        if not skip(step)
     )
     paths = (
-        local_action(reference)
+        local_action(reference, repository)
         for reference in references
         if isinstance(reference, str)
     )
@@ -227,5 +246,5 @@ def reachable(
             raise WorkflowReadingError(message)
         found[name] = documents[name]
         pending.extend(called_workflows(documents[name], repository, skip))
-        pending.extend(called_actions(documents[name], skip))
+        pending.extend(called_actions(documents[name], repository, skip))
     return found

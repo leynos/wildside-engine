@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import typing as typ
 
+from .actions import is_action
 from .loading import Document, WorkflowReadingError
 from .reach import codescene_contacts
 from .reading import jobs, steps
@@ -22,7 +23,7 @@ COVERAGE_ACTION: typ.Final[str] = (
     "leynos/shared-actions/.github/actions/generate-coverage"
 )
 PINNED_COMMIT: typ.Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{40}$")
-TOKEN_INPUT: typ.Final[str] = "${{ secrets.CS_ACCESS_TOKEN }}"  # ruff: ignore[hardcoded-password-string] -- an expression naming the secret, not one.
+TOKEN_INPUT: typ.Final[str] = "${{ secrets.CS_ACCESS_TOKEN }}"  # noqa: S105 - an expression naming the secret, not one.
 CHECK_STEP_ID: typ.Final[str] = "codescene-token"
 MAIN_REF_GUARD: typ.Final[str] = "github.ref == 'refs/heads/main'"
 AVAILABLE_GUARD: typ.Final[str] = f"steps.{CHECK_STEP_ID}.outputs.available == 'true'"
@@ -43,6 +44,10 @@ PERMITTED_TRIGGERS: typ.Final[frozenset[str]] = frozenset({"push", "workflow_dis
 def find_publisher(documents: dict[str, Document]) -> tuple[str, Document]:
     """Return the single workflow that contacts CodeScene.
 
+    Only workflows are candidates. A local action is judged where it runs:
+    in the pull-request closure, which refuses any CodeScene contact, or as
+    a step of the publisher, whose own rules apply.
+
     Parameters
     ----------
     documents : dict[str, Document]
@@ -59,7 +64,11 @@ def find_publisher(documents: dict[str, Document]) -> tuple[str, Document]:
         If none does, or more than one does.
 
     """
-    found = [name for name, doc in documents.items() if codescene_contacts(doc)]
+    found = [
+        name
+        for name, doc in documents.items()
+        if not is_action(name) and codescene_contacts(doc)
+    ]
     if len(found) != 1:
         message = f"exactly one workflow may contact CodeScene; found {found}"
         raise WorkflowReadingError(message)

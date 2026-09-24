@@ -86,7 +86,7 @@ PUBLISHER: typ.Final[str] = textwrap.dedent(f"""\
               path: coverage.xml
               mode: upload
               access-token: ${{{{ secrets.CS_ACCESS_TOKEN }}}}
-    """)  # ruff: ignore[line-too-long] -- two lines must match the real workflow's.
+    """)  # noqa: E501 - two lines must match the real workflow's.
 
 TREE: typ.Final[dict[str, str]] = {
     "ci.yml": PULL_REQUEST_LANE,

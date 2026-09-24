@@ -13,7 +13,7 @@ from codescene_contract.credential import (
     check_step_violations,
     token_scope_violations,
 )
-from codescene_contract.fixtures import PUBLISHER, mutate, tree
+from codescene_contract.fixtures import PUBLISHER, mutate, parse_tree, tree
 from codescene_contract.loading import (
     Document,
     WorkflowReadingError,
@@ -40,7 +40,7 @@ CHECK_STEP = (
     "        id: codescene-token\n" + CHECK_RUN
 )
 UPLOAD_NAME = "      - name: Upload coverage data to CodeScene\n"
-TOKEN_INPUT = "          access-token: ${{ secrets.CS_ACCESS_TOKEN }}\n"  # ruff: ignore[hardcoded-password-string] -- an expression, not a secret.
+TOKEN_INPUT = "          access-token: ${{ secrets.CS_ACCESS_TOKEN }}\n"  # noqa: S105 - an expression, not a secret.
 
 
 def _publisher(texts: dict[str, str]) -> Document:
@@ -297,6 +297,17 @@ def test_a_second_uploader_is_refused() -> None:
     texts = tree(extra={"second.yml": PUBLISHER})
     with pytest.raises(WorkflowReadingError, match="exactly one workflow"):
         find_publisher(_documents(texts))
+
+
+def test_a_local_action_is_not_a_second_publisher() -> None:
+    """Only workflows are candidates; an action is judged where it runs."""
+    action = (
+        "runs:\n  using: composite\n  steps:\n"
+        "    - uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@abc\n"
+    )
+    texts = tree(extra={".github/actions/upload": action})
+    name, _ = find_publisher(parse_tree(texts))
+    assert name == "coverage-main.yml", name
 
 
 @pytest.mark.parametrize(

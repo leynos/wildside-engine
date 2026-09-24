@@ -101,3 +101,22 @@ def test_nothing_can_skip_the_publisher_on_a_push(old: str, new: str) -> None:
     texts = mutate("coverage-main.yml", old, new)
     found = condition_violations(_publisher(texts))
     assert found, found
+
+
+@pytest.mark.parametrize(
+    ("anchor", "addition"),
+    [
+        ("    runs-on: ubuntu-latest\n", "    continue-on-error: true\n"),
+        ("      - name: Generate coverage\n", "        continue-on-error: true\n"),
+        (
+            "      - name: Upload coverage data to CodeScene\n",
+            "        continue-on-error: true\n",
+        ),
+    ],
+)
+def test_nothing_in_the_publisher_may_fail_quietly(anchor: str, addition: str) -> None:
+    """`continue-on-error` would leave a failed baseline or upload green."""
+    texts = mutate("coverage-main.yml", anchor, anchor + addition)
+    found = condition_violations(_publisher(texts))
+    assert any("continue-on-error" in item for item in found), found
+

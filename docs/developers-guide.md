@@ -261,9 +261,15 @@ the repository's own workflows and local actions, using the readers and rules in
 `tests/workflow_contracts/codescene_contract/`. The other
 `codescene_*_test.py` files prove that each rule refuses the shape it exists to
 refuse. Each case starts from a compliant fixture tree and changes one thing.
-Workflows are read strictly: a duplicate key, or a workflow declaring both a
-quoted and an unquoted `on` key, is refused rather than silently resolved. Run
-the suite with `make test-workflow-contracts`.
+Only `loading.read_workflows` and `actions.read_actions` touch the disk.
+`read_actions` lists every directory under `.github/actions` explicitly and
+refuses one it cannot list, keying each action by the path a step names after
+`./`, and the closure follows those actions from workflow and action steps
+alike. A step or job guarded to pull requests is not followed on the push side.
+Nothing in the publisher may carry `continue-on-error`, and only its upload
+step may carry an `if:`. Workflows are read strictly: a duplicate key, or a
+workflow declaring both a quoted and an unquoted `on` key, is refused rather
+than silently resolved. Run the suite with `make test-workflow-contracts`.
 
 ## The default test selection runs once per event
 

@@ -13,6 +13,7 @@ from codescene_contract.fixtures import (
     PULL_REQUEST_LANE,
     REPOSITORY,
     mutate,
+    parse_tree,
     tree,
 )
 from codescene_contract.lanes import (
@@ -96,6 +97,31 @@ def test_a_call_from_a_guarded_job_is_not_a_push_writer(
     ).replace("        if: github.event_name == 'pull_request'\n", "")
     documents = _documents(tree(extra={"caller.yml": caller, "cov.yml": callee}))
     found = second_writer_violations(documents, "coverage-main.yml", REPOSITORY)
+    assert bool(found) == expected, found
+
+
+@pytest.mark.parametrize(
+    ("guard", "expected"),
+    [
+        ("        if: github.event_name == 'pull_request'\n", False),
+        ("", True),
+    ],
+)
+def test_a_guarded_step_running_a_local_action_is_not_a_push_writer(
+    guard: str, *, expected: bool
+) -> None:
+    """A step guarded to pull requests never runs its local action on a push."""
+    caller = (
+        "on: push\njobs:\n  lane:\n    runs-on: x\n    steps:\n"
+        "      - uses: ./.github/actions/cov\n" + guard
+    )
+    action = (
+        "runs:\n  using: composite\n  steps:\n"
+        "    - uses: leynos/shared-actions/.github/actions/generate-coverage@abc\n"
+        "      with:\n        with-ratchet: 'true'\n"
+    )
+    texts = tree(extra={"caller.yml": caller, ".github/actions/cov": action})
+    found = second_writer_violations(parse_tree(texts), "coverage-main.yml", REPOSITORY)
     assert bool(found) == expected, found
 
 

@@ -53,7 +53,7 @@ class _UniqueKeyLoader(yaml.SafeLoader):
     def construct_mapping(
         self,
         node: yaml.MappingNode,
-        deep: bool = False,  # ruff: ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument] -- PyYAML's own signature, overridden.
+        deep: bool = False,  # noqa: FBT001, FBT002 - PyYAML's own signature, overridden.
     ) -> dict[typ.Hashable, typ.Any]:
         """Construct one mapping, refusing a key already seen in it.
 
@@ -164,7 +164,7 @@ def read_workflows(directory: Path) -> dict[str, Document]:
     """
     paths = [
         path
-        for path in _entries(directory)
+        for path in entries(directory)
         if path.suffix.casefold() in WORKFLOW_SUFFIXES
     ]
     if not paths:
@@ -173,7 +173,7 @@ def read_workflows(directory: Path) -> dict[str, Document]:
     return {path.name: load_file(path) for path in paths}
 
 
-def _entries(directory: Path) -> list[Path]:
+def entries(directory: Path) -> list[Path]:
     """List one directory in name order, naming it in any I/O failure."""
     try:
         return sorted(directory.iterdir())
@@ -183,12 +183,15 @@ def _entries(directory: Path) -> list[Path]:
 
 
 def load_file(
-    path: Path, parse: cabc.Callable[[str], Document] = load_workflow
+    path: Path,
+    parse: cabc.Callable[[str], Document] = load_workflow,
+    label: str | None = None,
 ) -> Document:
     """Read and parse one workflow or action file, naming it in any failure.
 
-    `actions.read_actions` passes its own parser; everything else here reads
-    workflows.
+    `actions.read_actions` passes its own parser, and a label naming the
+    action by its `uses:` path, since every action's file is `action.yml`;
+    everything else here reads workflows, named by their file name.
 
     Parameters
     ----------
@@ -196,6 +199,8 @@ def load_file(
         The file to read.
     parse : cabc.Callable[[str], Document], optional
         The parser for the file's text.
+    label : str | None, optional
+        The name failures give the file; its file name when omitted.
 
     Returns
     -------
@@ -208,13 +213,14 @@ def load_file(
         If the file cannot be read or does not parse, naming the file.
 
     """
+    name = label or path.name
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
-        message = f"{path.name} could not be read: {error}"
+        message = f"{name} could not be read: {error}"
         raise WorkflowReadingError(message) from error
     try:
         return parse(text)
     except WorkflowReadingError as error:
-        message = f"{path.name}: {error}"
+        message = f"{name}: {error}"
         raise WorkflowReadingError(message) from error

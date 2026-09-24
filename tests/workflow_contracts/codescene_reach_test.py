@@ -302,10 +302,19 @@ def test_a_local_action_the_tree_lacks_is_refused() -> None:
         _findings(texts)
 
 
-def test_a_local_action_at_a_ref_is_refused() -> None:
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "./.github/actions/outer@main",
+        "leynos/example/.github/actions/outer@main",
+        "LEYNOS/Example/.github/actions/outer@v1",
+        "leynos/example@main",
+    ],
+)
+def test_a_local_action_at_a_ref_is_refused(reference: str) -> None:
     """A local action at a ref runs a version this checkout does not hold."""
-    with pytest.raises(WorkflowReadingError, match="@ref"):
-        local_action("./.github/actions/outer@main")
+    with pytest.raises(WorkflowReadingError, match="ref"):
+        local_action(reference, REPOSITORY)
 
 
 def test_another_repository_is_not_followed() -> None:

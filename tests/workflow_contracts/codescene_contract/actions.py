@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import typing as typ
 
-from .loading import Document, WorkflowReadingError, load_file, load_workflow
+from .loading import Document, WorkflowReadingError, entries, load_file, load_workflow
 
 if typ.TYPE_CHECKING:
     from pathlib import Path
@@ -71,9 +71,12 @@ def read_actions(root: Path) -> dict[str, Document]:
     The key is the path a step names after `./`, such as
     `.github/actions/build`, so the closure can look an action up by the
     reference that runs it. An action this reads nothing for is refused
-    where it is called, not here, since a repository need hold none. Metadata
-    that cannot be read or parsed raises `WorkflowReadingError` naming the
-    file.
+    where it is called, not here, since a repository need hold none, so an
+    absent `.github/actions` reads as no actions. Every directory under it is
+    listed explicitly: `Path.rglob` would skip one it cannot list, and an
+    action there would then drop out of the closure in silence. A directory
+    that cannot be listed, or metadata that cannot be read or parsed, raises
+    `WorkflowReadingError` naming it.
 
     Parameters
     ----------
@@ -87,8 +90,47 @@ def read_actions(root: Path) -> dict[str, Document]:
 
     """
     directory = root / ".github" / "actions"
-    paths = sorted(path for name in ACTION_FILES for path in directory.rglob(name))
+    if not directory.exists():
+        return {}
+    paths = _action_files(directory)
+    keys = [path.parent.relative_to(root).as_posix() for path in paths]
     return {
-        path.parent.relative_to(root).as_posix(): load_file(path, load_action)
-        for path in paths
+        key: load_file(path, load_action, key)
+        for key, path in zip(keys, paths, strict=True)
     }
+
+
+def _action_files(directory: Path) -> list[Path]:
+    """Return every action metadata file under a directory, in path order."""
+    found: list[Path] = []
+    pending = [directory]
+    while pending:
+        listed = entries(pending.pop())
+        pending.extend(path for path in listed if path.is_dir())
+        found.extend(path for path in listed if path.name in ACTION_FILES)
+    return sorted(found)
+
+
+def is_action(name: str) -> bool:
+    """Return whether a document key names a local action, not a workflow.
+
+    Workflows are keyed by file name and actions by their path from the
+    repository root, so only an action's key holds a `/`.
+
+    Parameters
+    ----------
+    name : str
+        A key of the parsed document set.
+
+    Returns
+    -------
+    bool
+        Whether the key names a local action.
+
+    Examples
+    --------
+    >>> is_action(".github/actions/build"), is_action("ci.yml")
+    (True, False)
+
+    """
+    return "/" in name

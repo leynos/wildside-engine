@@ -15,6 +15,7 @@ from .publisher import (
     PINNED_COMMIT,
     PUBLISHER_CONCURRENCY,
     TOKEN_INPUT,
+    UPLOAD_ACTION,
     UPLOAD_GUARD,
     action_steps,
     invokes,
@@ -189,12 +190,18 @@ def wiring_violations(document: Document) -> list[str]:
     )
 
 
+#: Keys that let a job or step be skipped, or fail without failing the run.
+SKIPPING_KEYS: typ.Final[tuple[str, ...]] = ("if", "continue-on-error")
+
+
 def condition_violations(document: Document) -> list[str]:
     """Refuse a condition that could skip the publisher's work on a push.
 
     A job-level `if:` can skip the whole publisher, and one on the coverage
     step can skip the baseline while the upload guard still reads clean, so
     only the upload step, whose guard is asserted, may carry a condition.
+    `continue-on-error` is refused in the same places and on the upload step:
+    a failed baseline write or upload would then leave a green run.
 
     Parameters
     ----------
@@ -208,14 +215,21 @@ def condition_violations(document: Document) -> list[str]:
 
     """
     found = [
-        f"job {name} carries an `if:`"
+        f"job {name} carries `{key}`"
         for name, job in jobs(document).items()
-        if "if" in job
+        for key in SKIPPING_KEYS
+        if key in job
+    ]
+    found += [
+        f"the publisher's generate-coverage step carries `{key}`"
+        for step in action_steps(document, COVERAGE_ACTION)
+        for key in SKIPPING_KEYS
+        if key in step
     ]
     return found + [
-        "the publisher's generate-coverage step carries an `if:`"
-        for step in action_steps(document, COVERAGE_ACTION)
-        if "if" in step
+        "the upload step carries `continue-on-error`"
+        for step in action_steps(document, UPLOAD_ACTION)
+        if "continue-on-error" in step
     ]
 
 
