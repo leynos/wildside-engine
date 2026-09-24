@@ -56,8 +56,7 @@ def local_callee(reference: str, repository: str) -> str | None:
     >>> local_callee("leynos/other/.github/workflows/x.yml@main", "leynos/example")
 
     """
-    qualified_self = f"{repository}/{WORKFLOW_DIRECTORY}".casefold()
-    if reference.casefold().startswith(qualified_self):
+    if _names_this_repository(reference, repository):
         message = f"{reference!r} calls this repository at a ref; use `./`"
         raise WorkflowReadingError(message)
     path = PurePosixPath(reference.removeprefix("./").removeprefix("$/"))
@@ -100,12 +99,22 @@ def called_workflows(
         The same-repository workflow file names called by `document`.
 
     """
-    references = [job.get("uses") for job in jobs(document).values() if not skip(job)]
-    names = (
-        local_callee(reference, repository)
-        for reference in references
-        if isinstance(reference, str)
-    )
+    references = (job.get("uses") for job in _followed_jobs(document, skip))
+    return _resolved(references, lambda reference: local_callee(reference, repository))
+
+
+def _followed_jobs(
+    document: Document, skip: cabc.Callable[[dict[str, object]], bool]
+) -> list[dict[str, object]]:
+    """Return the jobs of a document that `skip` does not leave out."""
+    return [job for job in jobs(document).values() if not skip(job)]
+
+
+def _resolved(
+    references: cabc.Iterable[object], resolve: cabc.Callable[[str], str | None]
+) -> frozenset[str]:
+    """Return what each string reference resolves to, dropping remote ones."""
+    names = (resolve(item) for item in references if isinstance(item, str))
     return frozenset(name for name in names if name is not None)
 
 
@@ -188,17 +197,11 @@ def called_actions(
     """
     references = (
         step.get("uses")
-        for job in jobs(document).values()
-        if not skip(job)
+        for job in _followed_jobs(document, skip)
         for step in steps(job)
         if not skip(step)
     )
-    paths = (
-        local_action(reference, repository)
-        for reference in references
-        if isinstance(reference, str)
-    )
-    return frozenset(path for path in paths if path is not None)
+    return _resolved(references, lambda reference: local_action(reference, repository))
 
 
 def reachable(
