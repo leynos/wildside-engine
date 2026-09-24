@@ -1,4 +1,4 @@
-.PHONY: help all clean test test-workflow-contracts bench build release lint fmt check-fmt markdownlint spelling nixie typecheck
+.PHONY: help all clean test test-benches test-workflow-contracts bench build release lint fmt check-fmt markdownlint spelling nixie typecheck
 
 APP ?= wildside-engine
 CARGO ?= cargo
@@ -37,6 +37,14 @@ clean: ## Remove build artefacts
 
 test: ## Run tests with warnings treated as errors
 	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
+
+# The bench targets alone, under the same features as `test`. `--benches` also
+# selects every library, whose `bench` setting defaults to true, so the filter
+# keeps only the bench binaries. CI runs this instead of `test`, because the
+# coverage run already executes every other target `test` selects; see
+# tests/workflow_contracts/suite_runs_once_test.py.
+test-benches: ## Run the benchmark targets once each as tests
+	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --benches --features test-support -E 'kind(bench)' $(BUILD_JOBS)
 
 test-workflow-contracts: ## Validate the workflow contracts, including the CV-005 CodeScene shape
 	uv run --with 'pytest>=8' --with 'pyyaml>=6' pytest tests/workflow_contracts -q
