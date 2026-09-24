@@ -9,18 +9,23 @@ from __future__ import annotations
 
 import pytest
 
-from codescene_contract.credential import check_step_violations, token_scope_violations
+from codescene_contract.credential import (
+    check_step_violations,
+    token_scope_violations,
+)
 from codescene_contract.fixtures import PUBLISHER, mutate, tree
-from codescene_contract.loading import Document, WorkflowReadingError, load_workflow
+from codescene_contract.loading import (
+    Document,
+    WorkflowReadingError,
+    load_workflow,
+)
 from codescene_contract.publisher import find_publisher
 from codescene_contract.publisher_rules import (
     concurrency_violations,
-    condition_violations,
     permissions_violations,
     retired_checksum_violations,
     trigger_violations,
     upload_step_violations,
-    wiring_violations,
 )
 
 AVAILABLE = "steps.codescene-token.outputs.available == 'true'"
@@ -35,7 +40,7 @@ CHECK_STEP = (
     "        id: codescene-token\n" + CHECK_RUN
 )
 UPLOAD_NAME = "      - name: Upload coverage data to CodeScene\n"
-TOKEN_INPUT = "          access-token: ${{ secrets.CS_ACCESS_TOKEN }}\n"
+TOKEN_INPUT = "          access-token: ${{ secrets.CS_ACCESS_TOKEN }}\n"  # ruff: ignore[hardcoded-password-string] -- an expression, not a secret.
 
 
 def _publisher(texts: dict[str, str]) -> Document:
@@ -111,8 +116,11 @@ def test_the_upload_step_passes_the_token_directly(old: str, new: str) -> None:
         (CHECK_RUN, '        run: echo "available=true" >> "$GITHUB_OUTPUT"\n'),
         (
             CHECK_RUN,
-            "        run: false && echo \"available=${{ secrets.CS_ACCESS_TOKEN != '' }}\""
-            ' >> "$GITHUB_OUTPUT"\n',
+            (
+                "        run: false && echo "
+                "\"available=${{ secrets.CS_ACCESS_TOKEN != '' }}\""
+                ' >> "$GITHUB_OUTPUT"\n'
+            ),
         ),
         ("        id: codescene-token\n", "        id: token\n"),
         (CHECK_RUN, CHECK_RUN + "        if: github.actor == 'x'\n"),
@@ -133,8 +141,10 @@ def test_the_check_step_runs_its_one_command(old: str, new: str) -> None:
         ("jobs:\n", "defaults:\n  run:\n    shell: bash -c 'exit 0; {0}'\njobs:\n"),
         (
             "    runs-on: ubuntu-latest\n",
-            "    runs-on: ubuntu-latest\n    defaults:\n      run:\n"
-            "        shell: bash -c 'exit 0; {0}'\n",
+            (
+                "    runs-on: ubuntu-latest\n    defaults:\n      run:\n"
+                "        shell: bash -c 'exit 0; {0}'\n"
+            ),
         ),
     ],
 )
@@ -157,8 +167,10 @@ def test_the_check_step_must_precede_the_upload() -> None:
     [
         (
             "    runs-on: ubuntu-latest\n",
-            "    runs-on: ubuntu-latest\n"
-            "    env:\n      CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n",
+            (
+                "    runs-on: ubuntu-latest\n"
+                "    env:\n      CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n"
+            ),
         ),
         (
             "concurrency:\n",
@@ -166,13 +178,19 @@ def test_the_check_step_must_precede_the_upload() -> None:
         ),
         (
             UPLOAD_NAME,
-            UPLOAD_NAME + "        env:\n"
-            "          CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n",
+            UPLOAD_NAME
+            + (
+                "        env:\n"
+                "          CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n"
+            ),
         ),
         (
             "        id: codescene-token\n",
-            "        id: codescene-token\n"
-            "        env:\n          CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n",
+            (
+                "        id: codescene-token\n"
+                "        env:\n"
+                "          CS_ACCESS_TOKEN: ${{ secrets.CS_ACCESS_TOKEN }}\n"
+            ),
         ),
         (
             "      - uses: actions/checkout@v4\n",
@@ -209,63 +227,6 @@ def test_the_publisher_grants_no_workflow_scope() -> None:
     """A workflow-level scope reaches every job, so it must be empty."""
     texts = mutate("coverage-main.yml", "permissions: {}\n", "")
     found = permissions_violations(_publisher(texts))
-    assert found, found
-
-
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [
-        ("      path: coverage.xml\n", "      path: other.xml\n"),
-        ("      mode: upload\n", "      mode: upload\n          format: lcov\n"),
-    ],
-)
-def test_the_upload_reads_what_the_publisher_writes(old: str, new: str) -> None:
-    """An upload reading another file or format sends nothing useful."""
-    texts = mutate("coverage-main.yml", old, new)
-    found = wiring_violations(_publisher(texts))
-    assert found, found
-
-
-#: The publisher fixture's coverage step, for the cases that move it.
-GENERATOR = PUBLISHER[
-    PUBLISHER.index("      - name: Generate coverage\n") : PUBLISHER.index(
-        "      - name: Check for the CodeScene token\n"
-    )
-]
-
-
-def test_the_report_is_written_before_the_upload() -> None:
-    """A generator after the upload leaves the uploader nothing to read."""
-    text = PUBLISHER.replace(GENERATOR, "") + GENERATOR
-    found = wiring_violations(load_workflow(text))
-    assert found, found
-
-
-def test_a_report_from_another_job_is_refused() -> None:
-    """The uploader reads its own job's workspace, not another job's."""
-    other = "  measure:\n    runs-on: ubuntu-latest\n    steps:\n" + GENERATOR
-    text = PUBLISHER.replace(GENERATOR, "").replace("jobs:\n", "jobs:\n" + other)
-    found = wiring_violations(load_workflow(text))
-    assert found, found
-
-
-@pytest.mark.parametrize(
-    ("old", "new"),
-    [
-        (
-            "    runs-on: ubuntu-latest\n",
-            "    runs-on: ubuntu-latest\n    if: github.event_name == 'workflow_dispatch'\n",
-        ),
-        (
-            "      - name: Generate coverage\n",
-            "      - name: Generate coverage\n        if: github.event_name == 'workflow_dispatch'\n",
-        ),
-    ],
-)
-def test_nothing_can_skip_the_publisher_on_a_push(old: str, new: str) -> None:
-    """A job or coverage-step condition could skip the baseline on a push."""
-    texts = mutate("coverage-main.yml", old, new)
-    found = condition_violations(_publisher(texts))
     assert found, found
 
 

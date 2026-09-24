@@ -182,9 +182,9 @@ def texts(value: object) -> cabc.Iterator[str]:
     value : object
         The parsed document, or any part of it, to walk.
 
-    Returns
-    -------
-    cabc.Iterator[str]
+    Yields
+    ------
+    str
         Every key and scalar found, as text.
 
     Examples

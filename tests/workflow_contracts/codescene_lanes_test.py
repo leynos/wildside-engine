@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from codescene_contract.fixtures import PULL_REQUEST_LANE, REPOSITORY, mutate, tree
+from codescene_contract.fixtures import (
+    PULL_REQUEST_LANE,
+    REPOSITORY,
+    mutate,
+    tree,
+)
 from codescene_contract.lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
@@ -78,9 +83,13 @@ def test_a_job_level_pull_request_guard_is_accepted() -> None:
         ("", True),
     ],
 )
-def test_a_call_from_a_guarded_job_is_not_a_push_writer(guard: str, expected: bool) -> None:
+def test_a_call_from_a_guarded_job_is_not_a_push_writer(
+    guard: str, *, expected: bool
+) -> None:
     """A callee reached only through a pull-request job never runs on a push."""
-    caller = "on: push\njobs:\n  call:\n" + guard + "    uses: ./.github/workflows/cov.yml\n"
+    caller = (
+        "on: push\njobs:\n  call:\n" + guard + "    uses: ./.github/workflows/cov.yml\n"
+    )
     callee = PULL_REQUEST_LANE.replace(
         "on:\n  push:\n    branches: [main]\n  pull_request:\n",
         "on:\n  workflow_call:\n",

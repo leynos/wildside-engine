@@ -22,7 +22,7 @@ COVERAGE_ACTION: typ.Final[str] = (
     "leynos/shared-actions/.github/actions/generate-coverage"
 )
 PINNED_COMMIT: typ.Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{40}$")
-TOKEN_INPUT: typ.Final[str] = "${{ secrets.CS_ACCESS_TOKEN }}"
+TOKEN_INPUT: typ.Final[str] = "${{ secrets.CS_ACCESS_TOKEN }}"  # ruff: ignore[hardcoded-password-string] -- an expression naming the secret, not one.
 CHECK_STEP_ID: typ.Final[str] = "codescene-token"
 MAIN_REF_GUARD: typ.Final[str] = "github.ref == 'refs/heads/main'"
 AVAILABLE_GUARD: typ.Final[str] = f"steps.{CHECK_STEP_ID}.outputs.available == 'true'"
@@ -114,6 +114,12 @@ def _action_of(step: dict[str, object]) -> str:
 
     GitHub resolves the owner and repository without regard to case, so a
     differently cased reference runs the same action.
+
+    Returns
+    -------
+    str
+        The reference before any `@`, case-folded.
+
     """
     return str(step.get("uses", "")).split("@", 1)[0].casefold()
 

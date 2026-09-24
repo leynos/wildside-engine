@@ -10,9 +10,18 @@ import textwrap
 
 import pytest
 
-from codescene_contract.fixtures import REPOSITORY, mutate, tree, violations
-from codescene_contract.loading import Document, WorkflowReadingError, load_workflow
-from codescene_contract.reach import local_callee, pull_request_violations
+from codescene_contract.closure import local_action, local_callee
+from codescene_contract.fixtures import (
+    REPOSITORY,
+    mutate,
+    parse_tree,
+    tree,
+    violations,
+)
+from codescene_contract.loading import (
+    WorkflowReadingError,
+)
+from codescene_contract.reach import pull_request_violations
 
 #: A reusable workflow declaring only `workflow_call`, curling the
 #: CodeScene project API with the credential it inherits.
@@ -44,14 +53,9 @@ CALLER = textwrap.dedent("""\
     """)
 
 
-def _documents(texts: dict[str, str]) -> dict[str, Document]:
-    """Parse a tree of texts."""
-    return {name: load_workflow(text) for name, text in texts.items()}
-
-
 def _findings(texts: dict[str, str]) -> list[str]:
     """Return the pull-request surface findings over a tree."""
-    return pull_request_violations(_documents(texts), REPOSITORY)
+    return pull_request_violations(parse_tree(texts), REPOSITORY)
 
 
 def test_the_compliant_tree_passes_every_rule() -> None:
@@ -264,6 +268,44 @@ def test_a_call_to_a_missing_local_workflow_is_refused() -> None:
     texts = tree(extra={"probe.yml": CALLER.format(spelling="./", callee="absent.yml")})
     with pytest.raises(WorkflowReadingError, match="does not exist"):
         _findings(texts)
+
+
+#: A pull-request job running a local action, which runs another.
+ACTION_CALLER = (
+    "on: [pull_request]\njobs:\n  a:\n    runs-on: x\n    steps:\n"
+    "      - uses: {spelling}.github/actions/outer\n"
+)
+OUTER_ACTION = (
+    "runs:\n  using: composite\n  steps:\n    - uses: ./.github/actions/inner\n"
+)
+INNER_ACTION = "runs:\n  using: composite\n  steps:\n    - run: cs-coverage upload\n"
+
+
+@pytest.mark.parametrize("spelling", ["./", "$/"])
+def test_a_local_action_is_inside_the_closure(spelling: str) -> None:
+    """A local action runs in its caller's job, and so does one it runs."""
+    texts = tree(
+        extra={
+            "probe.yml": ACTION_CALLER.format(spelling=spelling),
+            ".github/actions/outer": OUTER_ACTION,
+            ".github/actions/inner": INNER_ACTION,
+        }
+    )
+    findings = _findings(texts)
+    assert any(item.startswith(".github/actions/inner") for item in findings), findings
+
+
+def test_a_local_action_the_tree_lacks_is_refused() -> None:
+    """A closure naming an action the tree lacks is the reader failing."""
+    texts = tree(extra={"probe.yml": ACTION_CALLER.format(spelling="./")})
+    with pytest.raises(WorkflowReadingError, match="does not exist"):
+        _findings(texts)
+
+
+def test_a_local_action_at_a_ref_is_refused() -> None:
+    """A local action at a ref runs a version this checkout does not hold."""
+    with pytest.raises(WorkflowReadingError, match="@ref"):
+        local_action("./.github/actions/outer@main")
 
 
 def test_another_repository_is_not_followed() -> None:

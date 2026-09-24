@@ -37,6 +37,11 @@ def _levels(text: str) -> list[int | None]:
     GitHub expressions quote strings with single quotes and escape one by
     doubling it, so toggling on every quote tracks the state correctly.
 
+    Returns
+    -------
+    list[int | None]
+        Each character's depth, or None where it is quoted.
+
     Raises
     ------
     ConditionError
@@ -121,7 +126,9 @@ def conjuncts(condition: object) -> list[str]:
 def missing_terms(condition: object, required: frozenset[str]) -> list[str]:
     """Return the required terms a condition does not carry whole.
 
-    Extra terms are permitted, since they only narrow when a step runs.
+    Extra terms are permitted, since they only narrow when a step runs. A
+    condition that cannot be read as a conjunction raises `ConditionError`
+    from `conjuncts`.
 
     Parameters
     ----------
@@ -134,11 +141,6 @@ def missing_terms(condition: object, required: frozenset[str]) -> list[str]:
     -------
     list[str]
         The required terms `condition` does not carry, sorted.
-
-    Raises
-    ------
-    ConditionError
-        If the condition cannot be read as a conjunction.
 
     """
     present = set(conjuncts(condition))

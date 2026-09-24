@@ -5,7 +5,8 @@ writes the ratchet baseline, and nothing a pull request can start talks to
 CodeScene or holds its credential.
 
 The readers here are pure over supplied text or parsed documents, apart
-from `loading.read_workflows`, which is the one filesystem boundary. That
+from `loading.read_workflows` and `actions.read_actions`, which are the
+filesystem boundary. That
 split is what lets the rule tests ask what a rule makes of a workflow this
 repository does not contain: the real files use one spelling of
 everything, so they cannot tell a working reader from a broken one.

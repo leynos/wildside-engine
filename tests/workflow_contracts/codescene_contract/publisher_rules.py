@@ -147,9 +147,7 @@ def permissions_violations(document: Document) -> list[str]:
     """
     declared = document.get("permissions")
     return (
-        []
-        if declared == {}
-        else [f"workflow permissions are {declared!r}, not {{}}"]
+        [] if declared == {} else [f"workflow permissions are {declared!r}, not {{}}"]
     )
 
 
@@ -158,7 +156,9 @@ def wiring_violations(document: Document) -> list[str]:
 
     The report must be written earlier in the upload's own job: a generator
     after the upload, or in another job, leaves the uploader nothing to read
-    while every other clause passes.
+    while every other clause passes. Both ends must name the file: two
+    absent inputs compare equal, and the actions' defaults are not read
+    here, so an empty reading would otherwise pass.
 
     Parameters
     ----------
@@ -180,6 +180,8 @@ def wiring_violations(document: Document) -> list[str]:
         if invokes(step, COVERAGE_ACTION)
     ]
     read = (_input(upload, "path"), _input(upload, "format"))
+    if not _names_a_file(read[0]):
+        return ["the upload must name its report with an explicit `path`"]
     return (
         []
         if read in written
@@ -221,6 +223,11 @@ def _input(step: dict[str, object], name: str) -> object:
     """Return one `with` input of a step, or None when it has none."""
     inputs = step.get("with")
     return inputs.get(name) if isinstance(inputs, dict) else None
+
+
+def _names_a_file(value: object) -> bool:
+    """Return whether an input value is a non-empty file name."""
+    return isinstance(value, str) and bool(value)
 
 
 def retired_checksum_violations(documents: dict[str, Document]) -> list[str]:

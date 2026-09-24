@@ -232,7 +232,8 @@ call to `main` keeps such a change off every pull request's critical path.
 - The pull-request lane sets `with-ratchet: 'true'` and
   `publish-artefact: 'false'`, and holds no CodeScene step, client, host, or
   credential. The rule covers every workflow a pull request can start,
-  including local reusable workflows those workflows call.
+  including local reusable workflows those workflows call and local composite
+  actions their steps run, which execute in the caller's job.
 - `ci.yml` also runs on a push to `main`, so its coverage step is guarded to
   `github.event_name == 'pull_request'`. Unguarded, it would write a second
   ratchet baseline on every push.
@@ -256,13 +257,13 @@ call to `main` keeps such a change off every pull request's critical path.
   by more than one commit until a later push saves it.
 
 `tests/workflow_contracts/codescene_repository_test.py` holds this shape over
-the repository's own workflows, using the readers and rules in
-`tests/workflow_contracts/codescene_contract/`. The other `codescene_*_test.py`
-files prove that each rule refuses the shape it exists to refuse. Each case
-starts from a compliant fixture tree and changes one thing. Workflows are read
-strictly: a duplicate key, or a workflow declaring both a quoted and an unquoted
-`on` key, is refused rather than silently resolved. Run the suite with
-`make test-workflow-contracts`.
+the repository's own workflows and local actions, using the readers and rules in
+`tests/workflow_contracts/codescene_contract/`. The other
+`codescene_*_test.py` files prove that each rule refuses the shape it exists to
+refuse. Each case starts from a compliant fixture tree and changes one thing.
+Workflows are read strictly: a duplicate key, or a workflow declaring both a
+quoted and an unquoted `on` key, is refused rather than silently resolved. Run
+the suite with `make test-workflow-contracts`.
 
 ## The default test selection runs once per event
 

@@ -23,7 +23,7 @@ if typ.TYPE_CHECKING:
 #: `false` before the shell starts, so the step binds nothing and holds no
 #: shell conditional that a prefix such as `false &&` could neutralize.
 CHECK_COMMAND: typ.Final[str] = (
-    "echo \"available=${{ secrets.CS_ACCESS_TOKEN != '' }}\" >> \"$GITHUB_OUTPUT\""
+    'echo "available=${{ secrets.CS_ACCESS_TOKEN != \'\' }}" >> "$GITHUB_OUTPUT"'
 )
 
 #: The only keys the check step may carry: no `if:`, `env`, `shell` or
@@ -89,6 +89,12 @@ def _run_defaults_violations(document: Document) -> list[str]:
     A default shell or working directory reshapes the check step as a
     step-level `shell` would: `bash -c 'exit 0; {0}'` skips its command, the
     output is never written, and the upload skips for ever.
+
+    Returns
+    -------
+    list[str]
+        One violation for each scope that declares `defaults.run`.
+
     """
     holders = (("workflow", document), ("upload job", upload_job(document)))
     return [
@@ -98,7 +104,7 @@ def _run_defaults_violations(document: Document) -> list[str]:
     ]
 
 
-def _sets_run_defaults(holder: dict[object, object]) -> bool:
+def _sets_run_defaults(holder: dict[object, object] | dict[str, object]) -> bool:
     """Return whether a workflow or job declares `defaults.run`."""
     defaults = holder.get("defaults")
     return isinstance(defaults, dict) and "run" in defaults
@@ -110,6 +116,13 @@ def _without_permitted_references(document: Document) -> list[object]:
     The check step's command and the upload step's `access-token` input are
     the only places the credential may appear; everything else, the
     workflow's and each job's `env` included, is returned for the sweep.
+
+    Returns
+    -------
+    list[object]
+        The workflow and job fields, and every step, less the two
+        permitted references.
+
     """
     upload = upload_step(document)
     check = check_step(document)

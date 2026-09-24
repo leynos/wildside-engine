@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import typing as typ
 
+from .closure import reachable
 from .expressions import ConditionError, missing_terms
 from .publisher import (
     COVERAGE_ACTION,
@@ -21,7 +22,6 @@ from .publisher import (
     pin_of,
     upload_step,
 )
-from .reach import reachable
 from .reading import jobs, steps, triggers
 
 if typ.TYPE_CHECKING:
@@ -99,6 +99,12 @@ def _push_coverage_steps(document: Document) -> list[dict[str, object]]:
 
     A job guarded to pull requests never runs on a push, and neither does
     any step in it, whatever the step's own condition says.
+
+    Returns
+    -------
+    list[dict[str, object]]
+        The coverage steps a push can run.
+
     """
     return [
         step

@@ -13,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from codescene_contract.credential import check_step_violations, token_scope_violations
+from codescene_contract.actions import read_actions
+from codescene_contract.credential import (
+    check_step_violations,
+    token_scope_violations,
+)
 from codescene_contract.lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
@@ -42,8 +46,8 @@ PUBLISHER_TRIGGERS: typ.Final[frozenset[str]] = frozenset({"push", "workflow_dis
 
 @pytest.fixture(scope="module")
 def documents() -> dict[str, Document]:
-    """Return this repository's workflows, parsed strictly."""
-    return read_workflows(WORKFLOWS)
+    """Return this repository's workflows and local actions, parsed strictly."""
+    return read_workflows(WORKFLOWS) | read_actions(ROOT)
 
 
 @pytest.fixture(scope="module")

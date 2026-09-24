@@ -1,9 +1,9 @@
 """Load GitHub Actions workflows strictly enough for a contract to trust.
 
-This is the one filesystem boundary in the package. A workflow that does
-not parse, repeats a key, or is not a mapping is refused with its file
-named, and an empty directory is the reader failing rather than the
-repository complying.
+This is the filesystem boundary for workflows; `actions` is the one for
+local actions. A workflow that does not parse, repeats a key, or is not a
+mapping is refused with its file named, and an empty directory is the
+reader failing rather than the repository complying.
 """
 
 from __future__ import annotations
@@ -50,15 +50,17 @@ class _UniqueKeyLoader(yaml.SafeLoader):
     `true` and `false` resolve to booleans, as GitHub reads them.
     """
 
-    yaml_implicit_resolvers: typ.ClassVar[dict[str, list[tuple[str, typ.Any]]]] = {
-        first: [pair for pair in resolvers if pair[0] != _BOOL_TAG]
-        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
-    }
-
     def construct_mapping(
-        self, node: yaml.MappingNode, deep: bool = False
+        self,
+        node: yaml.MappingNode,
+        deep: bool = False,  # ruff: ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument] -- PyYAML's own signature, overridden.
     ) -> dict[typ.Hashable, typ.Any]:
         """Construct one mapping, refusing a key already seen in it.
+
+        Returns
+        -------
+        dict[typ.Hashable, typ.Any]
+            The mapping PyYAML constructs once every key is unique.
 
         Raises
         ------
@@ -86,6 +88,12 @@ class _UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
+# PyYAML reads the resolver table from the class, so the YAML 1.1 boolean
+# resolvers are dropped there, and only GitHub's spellings are added back.
+_UniqueKeyLoader.yaml_implicit_resolvers = {
+    first: [pair for pair in resolvers if pair[0] != _BOOL_TAG]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
 _UniqueKeyLoader.add_implicit_resolver(_BOOL_TAG, _GITHUB_BOOL, list("tTfF"))
 
 
@@ -162,7 +170,7 @@ def read_workflows(directory: Path) -> dict[str, Document]:
     if not paths:
         message = f"no workflow was read from {directory}; the reader is broken"
         raise WorkflowReadingError(message)
-    return {path.name: _load_file(path) for path in paths}
+    return {path.name: load_file(path) for path in paths}
 
 
 def _entries(directory: Path) -> list[Path]:
@@ -174,15 +182,39 @@ def _entries(directory: Path) -> list[Path]:
         raise WorkflowReadingError(message) from error
 
 
-def _load_file(path: Path) -> Document:
-    """Read and parse one workflow file, naming it in any failure."""
+def load_file(
+    path: Path, parse: cabc.Callable[[str], Document] = load_workflow
+) -> Document:
+    """Read and parse one workflow or action file, naming it in any failure.
+
+    `actions.read_actions` passes its own parser; everything else here reads
+    workflows.
+
+    Parameters
+    ----------
+    path : Path
+        The file to read.
+    parse : cabc.Callable[[str], Document], optional
+        The parser for the file's text.
+
+    Returns
+    -------
+    Document
+        The parsed file.
+
+    Raises
+    ------
+    WorkflowReadingError
+        If the file cannot be read or does not parse, naming the file.
+
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
         message = f"{path.name} could not be read: {error}"
         raise WorkflowReadingError(message) from error
     try:
-        return load_workflow(text)
+        return parse(text)
     except WorkflowReadingError as error:
         message = f"{path.name}: {error}"
         raise WorkflowReadingError(message) from error
