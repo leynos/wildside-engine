@@ -11,11 +11,9 @@ from __future__ import annotations
 import re
 import typing as typ
 
+from .closure import reachable
 from .loading import Document, WorkflowReadingError
 from .reading import PULL_REQUEST_TRIGGERS, jobs, texts, trigger_filters, triggers
-
-#: Where a same-repository reusable workflow lives.
-WORKFLOW_DIRECTORY: typ.Final[str] = ".github/workflows/"
 
 #: Case-folded patterns no pull-request-reachable document may contain:
 #: the CodeScene host (a DNS name, so case-insensitive), the credential,
@@ -37,6 +35,12 @@ def _is_chained_on_a_run(document: Document) -> bool:
 
     A `workflow_run` workflow runs with secrets after whatever it names,
     which may be a pull-request workflow, so it is treated as reachable.
+
+    Returns
+    -------
+    bool
+        Whether the workflow declares `workflow_run`.
+
     """
     return "workflow_run" in triggers(document)
 
@@ -56,6 +60,12 @@ def _pushes_other_branches(document: Document) -> bool:
     A push to a pull request's branch runs the branch's own workflows
     with secrets, so a push not confined to `branches: [main]` or to tags
     alone is pull-request surface. An unrecognized filter fails closed.
+
+    Returns
+    -------
+    bool
+        Whether a push can run the workflow off the trunk.
+
     """
     if "push" not in triggers(document):
         return False
@@ -65,7 +75,19 @@ def _pushes_other_branches(document: Document) -> bool:
 
 
 def is_pull_request_seed(document: Document) -> bool:
-    """Return whether a workflow is started directly by a pull request."""
+    """Return whether a workflow is started directly by a pull request.
+
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    bool
+        Whether the workflow is a pull-request seed.
+
+    """
     return (
         bool(triggers(document) & PULL_REQUEST_TRIGGERS)
         or _is_chained_on_a_run(document)
@@ -73,55 +95,22 @@ def is_pull_request_seed(document: Document) -> bool:
     )
 
 
-def local_callee(reference: str, repository: str) -> str | None:
-    """Return the workflow file a job-level `uses:` names in this tree.
-
-    Matched by shape: strip a leading `./` or `$/` and ask whether the
-    rest is a file under the workflow directory. A reference to another
-    repository is not followed, since its content is not here.
-
-    Raises
-    ------
-    WorkflowReadingError
-        If a local spelling carries an `@ref`, or the reference names this
-        repository qualified by a ref: either runs a version of the file
-        this checkout does not hold, so following it would prove nothing.
-
-    Examples
-    --------
-    >>> local_callee("$/.github/workflows/x.yml", "leynos/example")
-    'x.yml'
-    >>> local_callee("leynos/other/.github/workflows/x.yml@main", "leynos/example")
-
-    """
-    qualified_self = f"{repository}/{WORKFLOW_DIRECTORY}".casefold()
-    if reference.casefold().startswith(qualified_self):
-        message = f"{reference!r} calls this repository at a ref; use `./`"
-        raise WorkflowReadingError(message)
-    path = reference.removeprefix("./").removeprefix("$/")
-    if not path.startswith(WORKFLOW_DIRECTORY):
-        return None
-    if "@" in path:
-        message = f"{reference!r} is a local call carrying an `@ref`"
-        raise WorkflowReadingError(message)
-    return path.removeprefix(WORKFLOW_DIRECTORY)
-
-
-def called_workflows(document: Document, repository: str) -> frozenset[str]:
-    """Return the same-repository workflows one document's jobs call."""
-    references = [job.get("uses") for job in jobs(document).values()]
-    names = (
-        local_callee(reference, repository)
-        for reference in references
-        if isinstance(reference, str)
-    )
-    return frozenset(name for name in names if name is not None)
-
-
 def pull_request_closure(
     documents: dict[str, Document], repository: str
 ) -> dict[str, Document]:
     """Return every workflow a pull request can start, transitively.
+
+    Parameters
+    ----------
+    documents : dict[str, Document]
+        Every parsed workflow, by file name.
+    repository : str
+        The owner and name of the repository the workflows belong to.
+
+    Returns
+    -------
+    dict[str, Document]
+        The pull-request-reachable workflows, by file name.
 
     Raises
     ------
@@ -138,41 +127,22 @@ def pull_request_closure(
     return reachable(documents, seeds, repository)
 
 
-def reachable(
-    documents: dict[str, Document], seeds: list[str], repository: str
-) -> dict[str, Document]:
-    """Return the seed workflows and every local workflow they call, transitively.
-
-    A called workflow runs in its caller's event context, so whatever a
-    rule asks of the caller it must also ask of everything the caller
-    reaches.
-
-    Raises
-    ------
-    WorkflowReadingError
-        If a call names a workflow this tree does not hold.
-
-    """
-    pending = list(seeds)
-    found: dict[str, Document] = {}
-    while pending:
-        name = pending.pop()
-        if name in found:
-            continue
-        if name not in documents:
-            message = f"a workflow calls {name}, which does not exist"
-            raise WorkflowReadingError(message)
-        found[name] = documents[name]
-        pending.extend(called_workflows(documents[name], repository))
-    return found
-
-
 def codescene_contacts(document: Document) -> list[str]:
     """Return every key or scalar in a document naming CodeScene.
 
     The whole document is read, case-folded, so neither a workflow-level
     `defaults.run.shell` nor a callee's secret declaration can reach the
     service unseen.
+
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    list[str]
+        Every key or scalar found naming CodeScene.
 
     Examples
     --------
@@ -208,6 +178,16 @@ def unnamed_secret_references(document: Document) -> list[str]:
     hands over every secret, or a name assembled at run time, so a read of
     the context that names nothing is refused wherever such a sweep runs.
 
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    list[str]
+        Every expression reading `secrets` without naming one literally.
+
     Examples
     --------
     >>> unnamed_secret_references({"run": "echo ${{ toJSON(secrets) }}"})
@@ -231,6 +211,17 @@ def inherited_secrets(document: Document) -> list[str]:
 
     `inherit` names nothing, so a sweep for the credential's name cannot
     see what it hands over; a pull-request-reachable job may not use it.
+
+    Parameters
+    ----------
+    document : Document
+        The workflow document to read.
+
+    Returns
+    -------
+    list[str]
+        The identifiers of jobs declaring `secrets: inherit`.
+
     """
     return [
         name
@@ -242,7 +233,21 @@ def inherited_secrets(document: Document) -> list[str]:
 def pull_request_violations(
     documents: dict[str, Document], repository: str
 ) -> list[str]:
-    """Return every way the pull-request surface reaches CodeScene."""
+    """Return every way the pull-request surface reaches CodeScene.
+
+    Parameters
+    ----------
+    documents : dict[str, Document]
+        Every parsed workflow, by file name.
+    repository : str
+        The owner and name of the repository the workflows belong to.
+
+    Returns
+    -------
+    list[str]
+        Every violation naming the workflow and what it found.
+
+    """
     closure = pull_request_closure(documents, repository)
     return [
         f"{name}: {finding}"

@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-from codescene_contract.fixtures import PULL_REQUEST_LANE, REPOSITORY, mutate, tree
+from codescene_contract.fixtures import (
+    PULL_REQUEST_LANE,
+    REPOSITORY,
+    mutate,
+    parse_tree,
+    tree,
+)
 from codescene_contract.lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
@@ -55,6 +61,68 @@ def test_a_push_lane_cannot_write_a_second_baseline(guard: str) -> None:
     texts = mutate("ci.yml", "        if: github.event_name == 'pull_request'\n", guard)
     found = second_writer_violations(_documents(texts), "coverage-main.yml", REPOSITORY)
     assert found, found
+
+
+def test_a_job_level_pull_request_guard_is_accepted() -> None:
+    """A job guarded to pull requests never runs on a push, nor do its steps."""
+    texts = mutate(
+        "ci.yml",
+        "    runs-on: ubuntu-latest\n",
+        "    runs-on: ubuntu-latest\n    if: github.event_name == 'pull_request'\n",
+    )
+    texts["ci.yml"] = texts["ci.yml"].replace(
+        "        if: github.event_name == 'pull_request'\n", ""
+    )
+    found = second_writer_violations(_documents(texts), "coverage-main.yml", REPOSITORY)
+    assert not found, found
+
+
+@pytest.mark.parametrize(
+    ("guard", "expected"),
+    [
+        ("    if: github.event_name == 'pull_request'\n", False),
+        ("", True),
+    ],
+)
+def test_a_call_from_a_guarded_job_is_not_a_push_writer(
+    guard: str, *, expected: bool
+) -> None:
+    """A callee reached only through a pull-request job never runs on a push."""
+    caller = (
+        "on: push\njobs:\n  call:\n" + guard + "    uses: ./.github/workflows/cov.yml\n"
+    )
+    callee = PULL_REQUEST_LANE.replace(
+        "on:\n  push:\n    branches: [main]\n  pull_request:\n",
+        "on:\n  workflow_call:\n",
+    ).replace("        if: github.event_name == 'pull_request'\n", "")
+    documents = _documents(tree(extra={"caller.yml": caller, "cov.yml": callee}))
+    found = second_writer_violations(documents, "coverage-main.yml", REPOSITORY)
+    assert bool(found) == expected, found
+
+
+@pytest.mark.parametrize(
+    ("guard", "expected"),
+    [
+        ("        if: github.event_name == 'pull_request'\n", False),
+        ("", True),
+    ],
+)
+def test_a_guarded_step_running_a_local_action_is_not_a_push_writer(
+    guard: str, *, expected: bool
+) -> None:
+    """A step guarded to pull requests never runs its local action on a push."""
+    caller = (
+        "on: push\njobs:\n  lane:\n    runs-on: x\n    steps:\n"
+        "      - uses: ./.github/actions/cov\n" + guard
+    )
+    action = (
+        "runs:\n  using: composite\n  steps:\n"
+        "    - uses: leynos/shared-actions/.github/actions/generate-coverage@abc\n"
+        "      with:\n        with-ratchet: 'true'\n"
+    )
+    texts = tree(extra={"caller.yml": caller, ".github/actions/cov": action})
+    found = second_writer_violations(parse_tree(texts), "coverage-main.yml", REPOSITORY)
+    assert bool(found) == expected, found
 
 
 def test_a_differently_cased_action_is_still_a_second_writer() -> None:

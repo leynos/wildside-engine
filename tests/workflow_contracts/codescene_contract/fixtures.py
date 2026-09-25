@@ -10,19 +10,20 @@ from __future__ import annotations
 import textwrap
 import typing as typ
 
+from .actions import load_action
+from .credential import check_step_violations, token_scope_violations
 from .lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
     second_writer_violations,
 )
 from .loading import Document, load_workflow
-from .publisher import (
-    check_step_violations,
+from .publisher import find_publisher
+from .publisher_rules import (
     concurrency_violations,
-    find_publisher,
+    condition_violations,
     permissions_violations,
     retired_checksum_violations,
-    token_scope_violations,
     trigger_violations,
     upload_step_violations,
     wiring_violations,
@@ -85,7 +86,7 @@ PUBLISHER: typ.Final[str] = textwrap.dedent(f"""\
               path: coverage.xml
               mode: upload
               access-token: ${{{{ secrets.CS_ACCESS_TOKEN }}}}
-    """)
+    """)  # noqa: E501 - two lines must match the real workflow's.
 
 TREE: typ.Final[dict[str, str]] = {
     "ci.yml": PULL_REQUEST_LANE,
@@ -97,6 +98,19 @@ def tree(*, extra: dict[str, str] | None = None, **replaced: str) -> dict[str, s
     """Return the compliant tree's texts with files replaced or added.
 
     A keyword names a file by its stem (`ci`, `coverage_main`).
+
+    Parameters
+    ----------
+    extra : dict[str, str] | None, optional
+        Additional files to add, keyed by their full file name.
+    **replaced : str
+        Replacement texts for compliant files, keyed by file stem.
+
+    Returns
+    -------
+    dict[str, str]
+        The compliant tree's file names mapped to their texts.
+
     """
     texts = dict(TREE)
     for stem, text in replaced.items():
@@ -107,33 +121,83 @@ def tree(*, extra: dict[str, str] | None = None, **replaced: str) -> dict[str, s
 def mutate(name: str, old: str, new: str) -> dict[str, str]:
     """Return the compliant tree with one exact substitution in one file.
 
+    Parameters
+    ----------
+    name : str
+        The file name to mutate, matching a key in the compliant tree.
+    old : str
+        The text to replace.
+    new : str
+        The replacement text.
+
+    Returns
+    -------
+    dict[str, str]
+        The compliant tree's file names mapped to their texts, with
+        `name`'s text mutated.
+
     Raises
     ------
     ValueError
-        If the text to replace is absent, since a mutation that changes
-        nothing would pass for a reason that proves nothing.
+        If the text to replace is absent or occurs more than once. A
+        mutation that changes nothing passes for a reason that proves
+        nothing, and one that changes two places can pass on the second.
 
     """
     text = TREE[name]
-    if old not in text:
-        message = f"{old!r} is not in {name}; the mutation would change nothing"
+    count = text.count(old)
+    if count != 1:
+        message = (
+            f"{old!r} occurs {count} times in {name}; a mutation must change "
+            "exactly one thing"
+        )
         raise ValueError(message)
-    return tree() | {name: text.replace(old, new)}
+    return tree() | {name: text.replace(old, new, 1)}
+
+
+def parse_tree(texts: dict[str, str]) -> dict[str, Document]:
+    """Parse a tree of texts as `read_workflows` and `read_actions` would.
+
+    A name holding a `/` is a local action's path, such as
+    `.github/actions/build`, as `read_actions` keys it; any other name is a
+    workflow file.
+
+    Parameters
+    ----------
+    texts : dict[str, str]
+        Workflow file names and action paths mapped to their YAML texts.
+
+    Returns
+    -------
+    dict[str, Document]
+        Each text parsed, by the same name.
+
+    """
+    return {
+        name: (load_action if "/" in name else load_workflow)(text)
+        for name, text in texts.items()
+    }
 
 
 def violations(texts: dict[str, str]) -> list[str]:
     """Return every CV-005 finding over a tree of workflow texts.
 
-    Raises
-    ------
-    WorkflowReadingError
-        If a workflow cannot be read, or the tree's shape defeats a
-        reading, such as a second publisher.
+    A workflow that cannot be read, or a tree whose shape defeats a
+    reading, such as one with a second publisher, raises
+    `WorkflowReadingError` from the reading it defeats.
+
+    Parameters
+    ----------
+    texts : dict[str, str]
+        Workflow file names mapped to their YAML texts.
+
+    Returns
+    -------
+    list[str]
+        Every CV-005 violation found across the tree.
 
     """
-    documents: dict[str, Document] = {
-        name: load_workflow(text) for name, text in texts.items()
-    }
+    documents = parse_tree(texts)
     closure = pull_request_closure(documents, REPOSITORY)
     name, publisher = find_publisher(documents)
     return [
@@ -145,6 +209,7 @@ def violations(texts: dict[str, str]) -> list[str]:
         *token_scope_violations(publisher),
         *permissions_violations(publisher),
         *wiring_violations(publisher),
+        *condition_violations(publisher),
         *retired_checksum_violations(documents),
         *pull_request_lane_violations(closure),
         *second_writer_violations(documents, name, REPOSITORY),

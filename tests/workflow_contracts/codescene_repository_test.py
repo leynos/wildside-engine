@@ -13,19 +13,23 @@ from pathlib import Path
 
 import pytest
 
+from codescene_contract.actions import read_actions
+from codescene_contract.credential import (
+    check_step_violations,
+    token_scope_violations,
+)
 from codescene_contract.lanes import (
     publisher_lane_violations,
     pull_request_lane_violations,
     second_writer_violations,
 )
 from codescene_contract.loading import Document, read_workflows
-from codescene_contract.publisher import (
-    check_step_violations,
+from codescene_contract.publisher import find_publisher
+from codescene_contract.publisher_rules import (
     concurrency_violations,
-    find_publisher,
+    condition_violations,
     permissions_violations,
     retired_checksum_violations,
-    token_scope_violations,
     trigger_violations,
     upload_step_violations,
     wiring_violations,
@@ -42,8 +46,8 @@ PUBLISHER_TRIGGERS: typ.Final[frozenset[str]] = frozenset({"push", "workflow_dis
 
 @pytest.fixture(scope="module")
 def documents() -> dict[str, Document]:
-    """Return this repository's workflows, parsed strictly."""
-    return read_workflows(WORKFLOWS)
+    """Return this repository's workflows and local actions, parsed strictly."""
+    return read_workflows(WORKFLOWS) | read_actions(ROOT)
 
 
 @pytest.fixture(scope="module")
@@ -107,6 +111,12 @@ def test_the_publisher_grants_no_workflow_scope(publisher: Document) -> None:
 def test_the_upload_reads_what_the_publisher_writes(publisher: Document) -> None:
     """The upload's path and format are the coverage step's output."""
     found = wiring_violations(publisher)
+    assert not found, found
+
+
+def test_nothing_can_skip_the_publisher_on_a_push(publisher: Document) -> None:
+    """No job and no coverage step of the publisher carries a condition."""
+    found = condition_violations(publisher)
     assert not found, found
 
 

@@ -38,7 +38,9 @@ def test_an_unhashable_key_is_refused() -> None:
         ("a: true\nb: False\n", {"a": True, "b": False}),
     ],
 )
-def test_only_true_and_false_are_booleans(text: str, expected: dict[str, object]) -> None:
+def test_only_true_and_false_are_booleans(
+    text: str, expected: dict[str, object]
+) -> None:
     """GitHub reads `yes`, `no`, `on` and `off` as strings, so the loader does."""
     loaded = load_workflow(text)
     assert loaded == expected, loaded
@@ -137,7 +139,9 @@ def test_an_unquoted_disjunction_is_refused(condition: str) -> None:
         conjuncts(condition)
 
 
-@pytest.mark.parametrize("condition", ["a && ${{ b }}", "${{ a }} && ${{ b }}", "'${{ a }}'"])
+@pytest.mark.parametrize(
+    "condition", ["a && ${{ b }}", "${{ a }} && ${{ b }}", "'${{ a }}'"]
+)
 def test_an_embedded_expression_is_refused(condition: str) -> None:
     """GitHub renders a condition embedding `${{ }}` as a string, always true."""
     with pytest.raises(ConditionError, match="embeds"):

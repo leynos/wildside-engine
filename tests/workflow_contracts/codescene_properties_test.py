@@ -17,7 +17,11 @@ import typing as typ
 
 import pytest
 
-from codescene_contract.expressions import ConditionError, conjuncts, missing_terms
+from codescene_contract.expressions import (
+    ConditionError,
+    conjuncts,
+    missing_terms,
+)
 from codescene_contract.fixtures import REPOSITORY
 from codescene_contract.loading import WorkflowReadingError
 from codescene_contract.reach import pull_request_closure
