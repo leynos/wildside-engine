@@ -47,9 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Setup Rust
-        uses: leynos/shared-actions/.github/actions/setup-rust@82feb2b7aac45b7efff40c9c4bb632551b14521c
+        uses: leynos/shared-actions/.github/actions/setup-rust@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
       - name: Generate coverage
-        uses: leynos/shared-actions/.github/actions/generate-coverage@82feb2b7aac45b7efff40c9c4bb632551b14521c
+        uses: leynos/shared-actions/.github/actions/generate-coverage@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
         with:
           output-path: lcov.info
           format: lcov
@@ -68,7 +68,7 @@ jobs:
         # main's. The token goes straight to the input rather than through
         # `env`, which the composite uploader would hand to its nested steps.
         if: steps.codescene-token.outputs.available == 'true' && github.ref == 'refs/heads/main'
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@82feb2b7aac45b7efff40c9c4bb632551b14521c
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
         with:
           format: lcov
           path: lcov.info
