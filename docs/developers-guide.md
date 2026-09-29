@@ -256,20 +256,18 @@ call to `main` keeps such a change off every pull request's critical path.
   generate-coverage saves the baseline only on a push, so the baseline can lag
   by more than one commit until a later push saves it.
 
-`tests/workflow_contracts/codescene_repository_test.py` holds this shape over
-the repository's own workflows and local actions, using the readers and rules in
-`tests/workflow_contracts/codescene_contract/`. The other
-`codescene_*_test.py` files prove that each rule refuses the shape it exists to
-refuse. Each case starts from a compliant fixture tree and changes one thing.
-Only `loading.read_workflows` and `actions.read_actions` touch the disk.
-`read_actions` lists every directory under `.github/actions` explicitly and
-refuses one it cannot list, keying each action by the path a step names after
-`./`, and the closure follows those actions from workflow and action steps
-alike. A step or job guarded to pull requests is not followed on the push side.
-Nothing in the publisher may carry `continue-on-error`, and only its upload
-step may carry an `if:`. Workflows are read strictly: a duplicate key, or a
-workflow declaring both a quoted and an unquoted `on` key, is refused rather
-than silently resolved. Run the suite with `make test-workflow-contracts`.
+`make test-workflow-contracts` holds this shape over the repository's own
+workflows and local actions by running `cv005-contracts check`, the shared
+contract library in `leynos/shared-actions` (`packages/cv005-contracts`), from
+a full commit named by `CV005_CONTRACTS_REF` in the Makefile. A fix to the
+rules is therefore a pin bump. The repository's only parameter is `repository`
+in `.github/cv005.toml`. The library's own suite proves each rule refuses the
+shape it exists to refuse, so this repository keeps no copy of the readers or
+the refusal cases. Workflows are read strictly: a duplicate key, or a workflow
+declaring both a quoted and an unquoted `on` key, is refused rather than
+silently resolved, and a reading failure exits 2 rather than passing. The
+remaining contracts in `tests/workflow_contracts` run under pytest in the same
+target.
 
 ## The default test selection runs once per event
 

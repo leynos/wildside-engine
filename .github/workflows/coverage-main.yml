@@ -46,6 +46,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          persist-credentials: false
       - name: Setup Rust
         uses: leynos/shared-actions/.github/actions/setup-rust@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
       - name: Generate coverage
