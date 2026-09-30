@@ -64,7 +64,7 @@ wildside-data = { path = "wildside-data" }
 wildside-scorer = { path = "wildside-scorer" }
 wildside-solver-vrp = { path = "wildside-solver-vrp" }
 wildside-solver-ortools = { path = "wildside-solver-ortools" }
-geo = "0.31.0"
+geo = "0.33.1"
 log = "0.4.22"
 paste = "1"
 rstest = "0.26.1"
