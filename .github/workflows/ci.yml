@@ -55,7 +55,7 @@ jobs:
         # publisher. Measuring here on the push to main as well would write a
         # second baseline. tests/workflow_contracts holds the shape.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@759da19f0379b6d2d7ddef93b7ad4c3b98154e41
+        uses: leynos/shared-actions/.github/actions/generate-coverage@7d751eded578e48dacf43ab173d5820e6437c474
         with:
           output-path: lcov.info
           format: lcov
