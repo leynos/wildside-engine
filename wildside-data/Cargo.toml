@@ -30,7 +30,7 @@ cap-std = { workspace = true }
 wildside-fs = { path = "../wildside-fs" }
 
 [dev-dependencies]
-base64 = "0.22"
+base64 = "0.23"
 rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
