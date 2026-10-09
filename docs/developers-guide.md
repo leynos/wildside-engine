@@ -43,6 +43,10 @@ Run the spelling gate with:
 make spelling
 ```
 
+`TYPOS_CONFIG_BUILDER_VERSION` in the `Makefile` pins the
+`typos-config-builder` release the gate runs (currently `v0.1.3`). Raise it
+together with the regenerated `typos.toml`, never on its own.
+
 The gate enforces en-GB-oxendict spelling across tracked text, including hidden
 files, and also enforces the shared phrase corrections Typos cannot express.
 `make markdownlint` depends on the same gate.
