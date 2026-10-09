@@ -34,7 +34,7 @@ extend-ignore-re = [
     "#\\[then\\(\"the heritage POI has the highest normalised score\"\\)\\]",
     "#\\[then\\(\"the unlinked POI has a zero normalised score\"\\)\\]",
     "(?s)```.*?```",
-    "--[a-zA-Z0-9-]*color[a-zA-Z0-9*-]*",
+    "--[A-Za-z0-9_-]*color(?:ed|s|ing|ize[ds]?|izing)?(?:\\b|_)",
     "<Self as Scorer>::sanitise\\(blended\\)",
     "<Self as Scorer>::sanitise\\(relevance\\)",
     "<Self as Scorer>::sanitise\\(sum\\)",
