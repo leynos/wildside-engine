@@ -11,7 +11,7 @@ osmpbf = "0.3.6"
 thiserror = "2"
 wildside-core = { workspace = true }
 wikidata-rust = { package = "wikidata", version = "1.1.0" }
-simd-json = { version = "0.17.0", features = ["serde"] }
+simd-json = { version = "0.18.1", features = ["serde"] }
 # Use the vendored SQLite build to guarantee consistent behaviour across CI
 # and developer machines.
 rusqlite = { workspace = true }
