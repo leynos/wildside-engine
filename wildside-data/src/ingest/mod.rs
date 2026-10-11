@@ -102,16 +102,22 @@ pub struct OsmIngestReport {
 /// Errors returned when ingesting an OSM PBF file.
 #[derive(Debug, Error)]
 pub enum OsmIngestError {
+    /// The PBF file could not be opened.
     #[error("failed to open OSM PBF file at {path:?}")]
     Open {
+        /// The underlying reader error.
         #[source]
         source: osmpbf::Error,
+        /// The file that could not be opened.
         path: PathBuf,
     },
+    /// The PBF data could not be decoded.
     #[error("failed to decode OSM PBF data at {path:?}")]
     Decode {
+        /// The underlying reader error.
         #[source]
         source: osmpbf::Error,
+        /// The file whose data could not be decoded.
         path: PathBuf,
     },
 }

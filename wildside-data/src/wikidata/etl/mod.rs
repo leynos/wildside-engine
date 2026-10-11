@@ -109,16 +109,22 @@ impl EntityClaims {
 /// Errors that can occur while extracting claims from a Wikidata dump.
 #[derive(Debug, Error)]
 pub enum WikidataEtlError {
+    /// A line of the dump could not be read.
     #[error("failed to read Wikidata dump at line {line}")]
     ReadLine {
+        /// The underlying I/O error.
         #[source]
         source: std::io::Error,
+        /// One-based line number in the dump.
         line: usize,
     },
+    /// A line of the dump was not a valid entity.
     #[error("failed to parse Wikidata entity at line {line}")]
     ParseEntity {
+        /// The JSON parser error.
         #[source]
         source: simd_json::Error,
+        /// One-based line number in the dump.
         line: usize,
     },
 }

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tempfile::TempPath;
 
 mod support {
-    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support.rs"));
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support/mod.rs"));
 }
 
 use support::{assert_close, decode_fixture};

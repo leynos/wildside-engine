@@ -297,21 +297,38 @@ pub fn persist_claims_to_path<P: AsRef<Path>>(
 /// Errors raised when persisting Wikidata claims.
 #[derive(Debug, Error)]
 pub enum PersistClaimsError {
+    /// The SQLite database could not be opened.
     #[error("failed to open SQLite database at {path:?}")]
     Open {
+        /// The database path.
         path: PathBuf,
+        /// The underlying SQLite error.
         #[source]
         source: SqliteError,
     },
+    /// Initializing the claims schema failed.
     #[error(transparent)]
     Schema(#[from] ClaimsSchemaError),
+    /// A POI identifier does not fit SQLite's signed 64-bit integer.
     #[error("POI id {poi_id} exceeds SQLite i64 range")]
-    PoiIdOutOfRange { poi_id: u64 },
+    PoiIdOutOfRange {
+        /// The identifier that is out of range.
+        poi_id: u64,
+    },
+    /// A claim references a POI that is not in the `pois` table.
     #[error("POI id {poi_id} referenced by entity {entity_id} is missing from the pois table")]
-    MissingPoi { poi_id: u64, entity_id: String },
+    MissingPoi {
+        /// The missing POI identifier.
+        poi_id: u64,
+        /// The Wikidata entity that references it.
+        entity_id: String,
+    },
+    /// A SQLite operation failed.
     #[error("failed to persist {operation}")]
     Sqlite {
+        /// The operation being performed, such as `"prepare insert claim"`.
         operation: &'static str,
+        /// The underlying SQLite error.
         #[source]
         source: SqliteError,
     },

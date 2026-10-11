@@ -8,6 +8,7 @@
 use rusqlite::{Connection, Error as SqliteError, OptionalExtension, Transaction};
 use thiserror::Error;
 
+/// Version of the Wikidata claims schema that this crate creates and expects.
 pub const SCHEMA_VERSION: i64 = 1;
 
 /// Initialize the Wikidata claims schema inside an existing SQLite database.
@@ -190,19 +191,30 @@ fn run_migration_step(
 /// Errors raised when initializing the Wikidata claims schema.
 #[derive(Debug, Error)]
 pub enum ClaimsSchemaError {
+    /// Enabling SQLite foreign-key enforcement failed.
     #[error("failed to enable SQLite foreign keys")]
     ForeignKeys {
+        /// The underlying SQLite error.
         #[source]
         source: SqliteError,
     },
+    /// A migration step failed.
     #[error("failed to execute migration step '{step}'")]
     Migration {
+        /// Name of the step that failed.
         step: &'static str,
+        /// The underlying SQLite error.
         #[source]
         source: SqliteError,
     },
+    /// The database holds a different schema version than this crate expects.
     #[error(
         "expected Wikidata schema version {expected} but found {found}; apply migrations before retrying"
     )]
-    VersionMismatch { expected: i64, found: i64 },
+    VersionMismatch {
+        /// The schema version this crate expects.
+        expected: i64,
+        /// The schema version found in the database.
+        found: i64,
+    },
 }

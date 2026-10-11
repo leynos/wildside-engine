@@ -10,34 +10,63 @@ use thiserror::Error;
 pub enum WikidataDumpError {
     /// The dump status manifest could not be fetched.
     #[error("failed to fetch dump status: {source}")]
-    StatusFetch { source: super::TransportError },
+    StatusFetch {
+        /// The transport error that stopped the fetch.
+        source: super::TransportError,
+    },
     /// The dump archive could not be downloaded.
     #[error("failed to download dump archive: {source}")]
-    Download { source: super::TransportError },
+    Download {
+        /// The transport error that stopped the download.
+        source: super::TransportError,
+    },
     /// Parsing the manifest failed.
     #[error("failed to parse dump status manifest: {source}")]
-    ParseManifest { source: simd_json::Error },
+    ParseManifest {
+        /// The JSON parser error.
+        source: simd_json::Error,
+    },
     /// The manifest did not contain a completed dump.
     #[error("manifest did not contain a completed JSON dump")]
     MissingDump,
     /// Preparing the output directory failed.
     #[error("failed to create output directory {path:?}: {source}")]
-    CreateDir { source: io::Error, path: PathBuf },
+    CreateDir {
+        /// The underlying I/O error.
+        source: io::Error,
+        /// The directory that could not be created.
+        path: PathBuf,
+    },
     /// Writing the dump to disk failed.
     #[error("failed to write dump to {path:?}: {source}")]
-    WriteDump { source: io::Error, path: PathBuf },
+    WriteDump {
+        /// The underlying I/O error.
+        source: io::Error,
+        /// The file that could not be written.
+        path: PathBuf,
+    },
     /// The downloaded archive size did not match the manifest metadata.
     #[error("downloaded size {actual} did not match manifest size {expected}")]
-    SizeMismatch { expected: u64, actual: u64 },
+    SizeMismatch {
+        /// The size the manifest declared, in bytes.
+        expected: u64,
+        /// The size actually downloaded, in bytes.
+        actual: u64,
+    },
     /// Initializing the download log failed.
     #[error("failed to initialize download log at {path:?}: {source}")]
     InitialiseLog {
+        /// The underlying SQLite error.
         source: rusqlite::Error,
+        /// The download log database.
         path: PathBuf,
     },
     /// Recording metadata failed when interacting with SQLite.
     #[error("failed to record download metadata: {source}")]
-    RecordLogSql { source: rusqlite::Error },
+    RecordLogSql {
+        /// The underlying SQLite error.
+        source: rusqlite::Error,
+    },
     /// Serializing metadata into SQLite-compatible values failed.
     #[error("failed to prepare download metadata for persistence ({what}): {source}")]
     RecordLogValue {

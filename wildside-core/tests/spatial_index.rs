@@ -1,3 +1,5 @@
+//! Integration tests for building a spatial index from points of interest.
+
 use std::collections::BTreeSet;
 
 use geo::Coord;
