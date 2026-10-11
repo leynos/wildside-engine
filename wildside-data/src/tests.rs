@@ -5,6 +5,8 @@ use rstest::{fixture, rstest};
 use std::path::PathBuf;
 use tempfile::TempPath;
 
+/// Fixture lookup, fixture decoding and float comparison, shared with the ingest
+/// integration tests through `include!` (a module file cannot carry inner docs).
 mod support {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support/mod.rs"));
 }
