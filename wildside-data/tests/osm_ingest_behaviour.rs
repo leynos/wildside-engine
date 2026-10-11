@@ -9,6 +9,7 @@ use std::{
 use tempfile::TempPath;
 use wildside_data::{OsmIngestError, OsmIngestReport, ingest_osm_pbf_report};
 
+/// Fixture lookup, fixture decoding and float comparison shared with the lib tests.
 mod support;
 
 use support::{assert_close, decode_fixture};

@@ -8,9 +8,12 @@ use std::time::Duration;
 use super::util::{sanitize_base_url, to_blocking_reader, to_sync_reader};
 use super::{BaseUrl, DumpUrl, TransportError};
 
+/// `User-Agent` header sent with dump requests unless the caller overrides it.
 pub const DEFAULT_USER_AGENT: &str = "wildside-wikidata-etl/0.1";
 const STATUS_PATH: &str = "/wikidatawiki/entities/dumpstatus.json";
 
+/// Source of Wikidata dump manifests and archives, so callers can substitute a
+/// test double for the network.
 #[async_trait(?Send)]
 pub trait DumpSource {
     /// Base URL of the dump endpoint.

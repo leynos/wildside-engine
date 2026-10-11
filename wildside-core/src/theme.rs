@@ -9,6 +9,7 @@
 //! assert_eq!(Theme::History.as_str(), "history");
 //! assert_eq!(Theme::Art.to_string(), "art");
 //! ```
+/// A broad category of interest that a point of interest can belong to.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Theme {

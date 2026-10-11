@@ -36,6 +36,11 @@ rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 serde_json = "^1.0"
 
+# Deny undocumented public items, as the workspace table does; see the note below
+# on why this package does not yet inherit the full table.
+[lints.rust]
+missing_docs = "deny"
+
 [lints.clippy]
 # This package does not yet inherit the workspace lint table; #124 tracks that
 # migration. Deny the environment-access rule here so #126's policy holds in

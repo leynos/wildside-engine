@@ -29,60 +29,81 @@ pub enum CliError {
     /// A required option is missing after configuration merging.
     #[error("missing {field} (set --{field} or {env})")]
     MissingArgument {
+        /// Name of the option or setting concerned.
         field: &'static str,
+        /// Environment variable that sets the option.
         env: &'static str,
     },
     /// The requested operation requires a missing compile-time feature.
     #[error("{action} requires the `{feature}` feature to be enabled")]
     MissingFeature {
+        /// Cargo feature that has to be enabled.
         feature: &'static str,
+        /// The operation that needs the feature.
         action: &'static str,
     },
     /// A referenced input path does not exist on disk or is not a file.
     #[error("{field} path {path:?} does not exist or is not a file")]
     MissingSourceFile {
+        /// Name of the option or setting concerned.
         field: &'static str,
+        /// The path concerned.
         path: Utf8PathBuf,
     },
     /// A referenced input path exists but is not a file.
     #[error("{field} path {path:?} exists but is not a file")]
     SourcePathNotFile {
+        /// Name of the option or setting concerned.
         field: &'static str,
+        /// The path concerned.
         path: Utf8PathBuf,
     },
     /// A referenced input path could not be accessed due to an IO error.
     #[error("failed to access {field} path {path:?}: {source}")]
     SourceFileAccess {
+        /// Name of the option or setting concerned.
         field: &'static str,
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: std::io::Error,
     },
     /// A referenced input path could not be inspected due to an IO error.
     #[error("failed to inspect {field} path {path:?}: {source}")]
     InspectSourcePath {
+        /// Name of the option or setting concerned.
         field: &'static str,
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: std::io::Error,
     },
     /// The output directory exists but is not a directory.
     #[error("output directory {path:?} is not a directory")]
-    OutputDirectoryNotDirectory { path: Utf8PathBuf },
+    OutputDirectoryNotDirectory {
+        /// The path concerned.
+        path: Utf8PathBuf,
+    },
     /// OSM ingestion failed.
     #[error("failed to ingest OSM data: {0}")]
     OsmIngest(#[from] OsmIngestError),
     /// Persisting POIs to SQLite failed.
     #[error("failed to persist POIs to {path:?}: {source}")]
     PersistPois {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: PersistPoisError,
     },
     /// Opening the Wikidata dump failed.
     #[error("failed to open Wikidata dump at {path:?}: {source}")]
     OpenWikidataDump {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: std::io::Error,
     },
@@ -92,7 +113,9 @@ pub enum CliError {
     /// Persisting Wikidata claims to SQLite failed.
     #[error("failed to persist Wikidata claims into {path:?}: {source}")]
     PersistClaims {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: PersistClaimsError,
     },
@@ -100,28 +123,36 @@ pub enum CliError {
     #[cfg(feature = "store-sqlite")]
     #[error("failed to write spatial index to {path:?}: {source}")]
     WriteSpatialIndex {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: SpatialIndexWriteError,
     },
     /// Opening the solve request file failed.
     #[error("failed to open solve request at {path:?}: {source}")]
     OpenSolveRequest {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: std::io::Error,
     },
     /// Solve request JSON could not be decoded.
     #[error("failed to parse solve request JSON at {path:?}: {source}")]
     ParseSolveRequest {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: serde_json::Error,
     },
     /// The solve request payload failed validation.
     #[error("solve request in {path:?} failed validation: {source}")]
     InvalidSolveRequest {
+        /// The path concerned.
         path: Utf8PathBuf,
+        /// The underlying error.
         #[source]
         source: SolveRequestValidationError,
     },
@@ -135,13 +166,18 @@ pub enum CliError {
     /// Constructing the travel time provider failed.
     #[error("failed to build travel time provider for {base_url:?}: {source}")]
     BuildTravelTimeProvider {
+        /// The base URL the provider was configured with.
         base_url: String,
+        /// The underlying error.
         #[source]
         source: ProviderBuildError,
     },
     /// The solver rejected the request.
     #[error("solver failed: {source}")]
-    Solve { source: SolveError },
+    Solve {
+        /// The underlying error.
+        source: SolveError,
+    },
     /// Serializing the solve response failed.
     #[error("failed to serialize solve response: {0}")]
     SerializeSolveResponse(#[source] serde_json::Error),
