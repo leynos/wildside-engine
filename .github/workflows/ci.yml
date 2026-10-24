@@ -62,6 +62,10 @@ jobs:
           features: test-support
           use-cargo-nextest: 'true'
           with-ratchet: 'true'
+          # A new path starts a new baseline: the cache entry's version hashes
+          # this path, so the restore misses the figure measured on the previous
+          # toolchain and the committed file sets the baseline.
+          baseline-rust-file: .coverage-baseline-v2.rust
           publish-artefact: 'false'
       - name: Lint Markdown
         uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0

@@ -136,6 +136,20 @@ def test_coverage_runs_the_test_features_without_the_bench_targets() -> None:
         )
 
 
+def test_coverage_runs_share_the_post_bump_baseline_path() -> None:
+    """Keep both coverage steps on the baseline committed for the toolchain bump.
+
+    The ratchet baseline lives in the Actions cache, keyed by the baseline file
+    path. Both steps must name the same committed path, or one lane would
+    compare against a baseline the other never wrote.
+    """
+    for where, step in _coverage_steps():
+        inputs = step.get("with") or {}
+        assert inputs.get("baseline-rust-file") == ".coverage-baseline-v2.rust", (
+            f"{where} must use the baseline path committed for the toolchain bump"
+        )
+
+
 def _default_features() -> set[str]:
     """Return the root package's default feature list."""
     manifest = tomllib.loads((REPOSITORY_ROOT / "Cargo.toml").read_text("utf-8"))

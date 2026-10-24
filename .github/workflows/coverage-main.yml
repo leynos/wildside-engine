@@ -60,6 +60,10 @@ jobs:
           features: test-support
           use-cargo-nextest: 'true'
           with-ratchet: 'true'
+          # A new path starts a new baseline: the cache entry's version hashes
+          # this path, so the restore misses the figure measured on the previous
+          # toolchain and the committed file sets the baseline.
+          baseline-rust-file: .coverage-baseline-v2.rust
       # The expression is evaluated before the shell starts, so this step
       # binds no secret and holds no shell conditional. With no
       # CS_ACCESS_TOKEN secret, as on a fork, the upload below skips.
