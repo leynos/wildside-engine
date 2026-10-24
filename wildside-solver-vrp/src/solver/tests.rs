@@ -63,7 +63,7 @@ fn solve_returns_route_with_positive_score() {
     };
 
     let response = solver.solve(&request).expect("solve should succeed");
-    assert!(!response.route.pois().is_empty());
+    assert_ne!(response.route.pois(), []);
     assert!(response.score > 0.0);
     assert!(response.route.total_duration() <= Duration::from_mins(10));
 }

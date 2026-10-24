@@ -130,7 +130,6 @@ fn then_respects_budget(world: &GoldenRouteWorld) {
 }
 
 #[then("an empty route with zero score is returned")]
-#[expect(clippy::float_cmp, reason = "testing exact zero score")]
 fn then_empty_route(world: &GoldenRouteWorld) {
     let borrowed_response = world.response.borrow();
     let response_ref = borrowed_response

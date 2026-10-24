@@ -41,10 +41,6 @@ fn generate_clustered_pois_handles_various_sizes(#[case] count: usize) {
 }
 
 #[rstest]
-#[expect(
-    clippy::float_cmp,
-    reason = "Determinism test requires exact float comparison"
-)]
 fn generate_clustered_pois_is_deterministic() {
     let pois1 = generate_clustered_pois(20, BENCHMARK_SEED);
     let pois2 = generate_clustered_pois(20, BENCHMARK_SEED);
@@ -184,7 +180,7 @@ fn generate_travel_time_matrix_is_deterministic() {
 fn generate_travel_time_matrix_handles_empty_input() {
     let pois: Vec<PointOfInterest> = vec![];
     let matrix = generate_travel_time_matrix(&pois, BENCHMARK_SEED);
-    assert!(matrix.is_empty());
+    assert_eq!(matrix, [] as [std::vec::Vec<std::time::Duration>; 0]);
 }
 
 #[rstest]

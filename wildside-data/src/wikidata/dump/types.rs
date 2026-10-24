@@ -5,6 +5,7 @@ use std::{
     fmt,
     ops::Deref,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use url::Url;
@@ -161,11 +162,19 @@ impl From<Url> for DumpUrl {
     }
 }
 
+impl FromStr for DumpUrl {
+    type Err = url::ParseError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Url::parse(value).map(Into::into)
+    }
+}
+
 impl TryFrom<&str> for DumpUrl {
     type Error = url::ParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Url::parse(value).map(Into::into)
+        value.parse()
     }
 }
 

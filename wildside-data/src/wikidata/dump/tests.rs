@@ -193,3 +193,23 @@ fn normalizes_root_relative_urls(base_url: BaseUrl) {
 }
 
 mod behaviour;
+
+#[rstest]
+fn dump_url_parses_an_absolute_url_through_from_str_and_try_from() {
+    let raw = "https://example.org/entities/20240909/file.json";
+    let parsed: DumpUrl = raw.parse().expect("absolute URL should parse");
+    let converted = DumpUrl::try_from(raw).expect("absolute URL should convert");
+    assert_eq!(parsed.as_ref(), raw);
+    assert_eq!(parsed, converted);
+}
+
+#[rstest]
+#[case("not a url")]
+#[case("")]
+#[case("://missing-scheme")]
+fn dump_url_rejects_malformed_input_through_from_str_and_try_from(#[case] raw: &str) {
+    let parsed = raw.parse::<DumpUrl>();
+    let converted = DumpUrl::try_from(raw);
+    assert!(parsed.is_err(), "{raw:?} must not parse");
+    assert_eq!(parsed.err(), converted.err());
+}

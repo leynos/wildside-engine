@@ -167,11 +167,7 @@ fn then_invalid_request(world: &VrpWorld) {
 }
 
 #[then("an empty route is returned")]
-#[expect(
-    clippy::expect_used,
-    clippy::float_cmp,
-    reason = "behaviour tests use expect and strict float checks for clarity"
-)]
+#[expect(clippy::expect_used, reason = "behaviour tests use expect for clarity")]
 fn then_empty_route(world: &VrpWorld) {
     let response = world.expect_outcome().expect("expected solve success");
     assert!(response.route.pois().is_empty());
