@@ -36,7 +36,6 @@ fn build_benchmark_request_uses_seed() {
 }
 
 #[rstest]
-#[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
 fn build_benchmark_request_has_correct_start_position() {
     let request = build_benchmark_request(42);
     assert_eq!(request.start.x, BENCHMARK_START.x);
@@ -74,7 +73,6 @@ fn build_benchmark_request_includes_theme_interest(#[case] theme: Theme) {
 // =============================================================================
 
 #[rstest]
-#[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
 fn create_depot_uses_correct_location() {
     let start = Coord { x: 0.05, y: 0.05 };
     let depot = create_depot(start);
@@ -103,7 +101,6 @@ fn create_depot_has_empty_tags() {
 fn create_depot_handles_various_coordinates(#[case] x: f64, #[case] y: f64) {
     let start = Coord { x, y };
     let depot = create_depot(start);
-    #[expect(clippy::float_cmp, reason = "Test compares exact literal values")]
     {
         assert_eq!(depot.location.x, x);
         assert_eq!(depot.location.y, y);
