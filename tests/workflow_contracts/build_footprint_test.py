@@ -32,7 +32,9 @@ def test_configuration_disables_metadata_embedding_through_cargo() -> None:
     """The native Cargo key is set and the old key and raw flags are absent."""
     config = tomllib.loads((ROOT / ".cargo" / "config.toml").read_text("utf-8"))
     unstable = config.get("unstable", {})
-    assert unstable.get("embed-metadata") is False
-    assert "no-embed-metadata" not in unstable
+    assert unstable.get("embed-metadata") is False, "unstable.embed-metadata must be false"
+    assert "no-embed-metadata" not in unstable, "the old no-embed-metadata key must be absent"
     rustflags = config.get("build", {}).get("rustflags", [])
-    assert not any("embed-metadata" in str(flag) for flag in rustflags)
+    assert not any("embed-metadata" in str(flag) for flag in rustflags), (
+        "metadata embedding is set through Cargo, not a rustc flag"
+    )

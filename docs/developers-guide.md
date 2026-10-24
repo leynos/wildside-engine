@@ -26,8 +26,8 @@ The Concordat `rust-dev-build-footprint` rule keeps default development builds
 small. The workspace `Cargo.toml` sets `incremental = false` and `debug = 0` in
 `[profile.dev]`, and the test profile inherits both, so builds keep no
 incremental compilation state and no debug information. The trade-off is that a
-debugger sees no symbols or line tables in a default development build and
-every rebuild recompiles whole crates. To debug, run with
+debugger sees no source-level debug information or line tables in a default
+development build and every rebuild recompiles whole crates. To debug, run with
 `CARGO_PROFILE_DEV_DEBUG=true`; to rebuild incrementally, set
 `CARGO_INCREMENTAL=1`. `.cargo/config.toml` also sets
 `[unstable] embed-metadata = false`, the native Cargo key for dated nightlies
