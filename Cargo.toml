@@ -158,3 +158,7 @@ bare_urls                           = "deny"
 invalid_html_tags                   = "deny"
 invalid_codeblock_attributes        = "deny"
 unescaped_backticks                 = "deny"
+
+[profile.dev]
+incremental = false
+debug = 0

@@ -20,6 +20,21 @@ The CI workflow uses the shared `setup-rust` action[^1] without an explicit
 `toolchain` input. The action reads `rust-toolchain.toml`, so local and CI
 builds use the same nightly and component list.
 
+## Development build footprint
+
+The Concordat `rust-dev-build-footprint` rule keeps default development builds
+small. The workspace `Cargo.toml` sets `incremental = false` and `debug = 0` in
+`[profile.dev]`, and the test profile inherits both, so builds keep no
+incremental compilation state and no debug information. The trade-off is that a
+debugger sees no source-level debug information or line tables in a default
+development build and every rebuild recompiles whole crates. To debug, run with
+`CARGO_PROFILE_DEV_DEBUG=true`; to rebuild incrementally, set
+`CARGO_INCREMENTAL=1`. `.cargo/config.toml` also sets
+`[unstable] embed-metadata = false`, the native Cargo key for dated nightlies
+from 2026-07-31, so Cargo coordinates metadata output itself. No raw rustc
+metadata flags are used. `tests/workflow_contracts/build_footprint_test.py`
+holds all three settings.
+
 ## Diagram tooling
 
 Markdown diagram validation uses Mermaid CLI, `nixie-cli`, and `merman-cli`.
