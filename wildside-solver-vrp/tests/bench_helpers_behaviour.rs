@@ -116,10 +116,6 @@ fn then_pois_have_theme_tags(world: &BenchWorld) {
 }
 
 #[then("both sets of POIs are identical")]
-#[expect(
-    clippy::float_cmp,
-    reason = "Exact equality expected for determinism test"
-)]
 fn then_both_poi_sets_identical(world: &BenchWorld) {
     let pois1 = world.pois.borrow();
     let pois2 = world.pois_second.borrow();
@@ -204,17 +200,13 @@ fn then_diagonal_is_zero(world: &BenchWorld) {
 }
 
 #[then("off-diagonal entries are positive")]
-#[expect(
-    clippy::indexing_slicing,
-    reason = "Indices bounded by matrix.len() in nested loops"
-)]
 fn then_off_diagonal_positive(world: &BenchWorld) {
     let matrix = world.matrix.borrow();
-    for i in 0..matrix.len() {
-        for j in 0..matrix.len() {
+    for (i, row) in matrix.iter().enumerate() {
+        for (j, entry) in row.iter().enumerate() {
             if i != j {
                 assert!(
-                    matrix[i][j] > Duration::ZERO,
+                    *entry > Duration::ZERO,
                     "Off-diagonal entry [{i}][{j}] should be positive"
                 );
             }
