@@ -24,7 +24,7 @@ jobs:
       - uses: leynos/shared-actions/.github/actions/setup-rust@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
         with:
           expect-cache: any
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
         with:
@@ -142,7 +142,7 @@ jobs:
       - uses: leynos/shared-actions/.github/actions/setup-rust@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
         with:
           expect-cache: any
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - name: Install cargo-nextest
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
         with:
