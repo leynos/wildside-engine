@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: leynos/shared-actions/.github/actions/setup-rust@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
+      - uses: leynos/shared-actions/.github/actions/setup-rust@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
           expect-cache: any
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
@@ -32,14 +32,14 @@ jobs:
       - name: Install mdtablefix
         # `make check-fmt` runs `mdtablefix --check --git`; 0.6.0 is the
         # first release with `--check` and `--git`.
-        uses: leynos/shared-actions/.github/actions/install-mdtablefix@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
+        uses: leynos/shared-actions/.github/actions/install-mdtablefix@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
           version: "0.6.1"
 
       - name: Check formatting
         run: make check-fmt
       - name: Install the Whitaker Dylint suite
-        uses: leynos/shared-actions/.github/actions/install-whitaker@5a99aed78ce68dcebd3052b75c31e6f173162b1e
+        uses: leynos/shared-actions/.github/actions/install-whitaker@872f59f53717b5bebe8e24b2f4a7496b089a939a
       - name: Lint
         run: make lint
       # The coverage step below (and coverage-main.yml on a push) runs every
@@ -55,7 +55,7 @@ jobs:
         # publisher. Measuring here on the push to main as well would write a
         # second baseline. tests/workflow_contracts holds the shape.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
+        uses: leynos/shared-actions/.github/actions/generate-coverage@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
           output-path: lcov.info
           format: lcov
@@ -139,7 +139,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
+      - uses: leynos/shared-actions/.github/actions/setup-rust@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
           expect-cache: any
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
