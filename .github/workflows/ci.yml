@@ -39,7 +39,7 @@ jobs:
       - name: Check formatting
         run: make check-fmt
       - name: Install the Whitaker Dylint suite
-        uses: leynos/shared-actions/.github/actions/install-whitaker@8e6a325765ba382691d1b1c65fcccf1fc1d1b00c
+        uses: leynos/shared-actions/.github/actions/install-whitaker@5a99aed78ce68dcebd3052b75c31e6f173162b1e
       - name: Lint
         run: make lint
       # The coverage step below (and coverage-main.yml on a push) runs every
