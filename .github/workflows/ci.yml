@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
       - uses: leynos/shared-actions/.github/actions/setup-rust@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
-          # The build standard links with mold on Linux (.cargo/config.toml and
+          # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
           install-mold: 'true'
           expect-cache: any
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: leynos/shared-actions/.github/actions/setup-rust@872f59f53717b5bebe8e24b2f4a7496b089a939a
         with:
-          # The build standard links with mold on Linux (.cargo/config.toml and
+          # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
           install-mold: 'true'
           expect-cache: any

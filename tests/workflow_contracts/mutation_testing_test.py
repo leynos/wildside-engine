@@ -45,8 +45,14 @@ EXPECTED_WITH = {
     ),
     "exclude-globs": "test_support.rs,bench_support.rs",
     "extra-args": "--features test-support --test-workspace=true",
-    # The build standard links with mold on Linux, so the runner needs it.
+    # The build standard links with `mold` on Linux, so the runner needs it.
     "install-mold": "true",
+    # `setup-rust` exports `-D warnings` alone; this restores the standard flags
+    # for cargo-mutants (see the caller workflow).
+    "setup-commands": (
+        'echo "RUSTFLAGS=-D warnings -Zthreads=8 -Clink-arg=-fuse-ld=mold" '
+        '>> "$GITHUB_ENV"\n'
+    ),
 }
 
 

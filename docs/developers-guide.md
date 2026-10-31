@@ -51,12 +51,20 @@ Cargo applies a single `rustflags` source rather than merging them, and an
 assigned `RUSTFLAGS` replaces every source. So each source repeats the frontend
 flag, and the Makefile's gate recipes (`test`, `test-benches` and `typecheck`)
 compose both flags onto `-D warnings` and any inherited `RUSTFLAGS` through
-`GATE_RUSTFLAGS`. The Whitaker line in `lint` keeps its own `RUSTFLAGS`,
-because Whitaker builds its lint driver on a different toolchain that must not
-inherit these flags. Coverage assigns `-D warnings` alone through `setup-rust`,
-so a measurement stays on the platform linker.
+`GATE_RUSTFLAGS`; `make build` does the same for a debug binary, while
+`make release` adds neither flag. The Whitaker line in `lint` keeps its own
+`RUSTFLAGS`, because Whitaker builds its lint driver on a different toolchain
+that must not inherit these flags.
+
+The Makefile chooses the linker flag from the host, so a gate or debug build
+that sets `CARGO_BUILD_TARGET` or passes `--target` is refused with an error;
+run `cargo` directly to cross-compile. Coverage assigns `-D warnings` alone
+through `setup-rust`, so a measurement stays on the platform linker. The
+mutation workflow's `setup-commands` writes the complete value to `GITHUB_ENV`,
+because `setup-rust` exports `-D warnings` alone and that would otherwise
+displace the configuration under `cargo-mutants`.
 `tests/workflow_contracts/build_standard_test.py` holds the configuration, the
-Makefile composition and the CI provisioning.
+Makefile composition, the target refusal and the CI provisioning.
 
 ### Cranelift is not the development backend
 

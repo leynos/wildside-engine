@@ -34,14 +34,23 @@ TYPOS_CONFIG_BUILDER = $(UV_ENV) $(UV) tool run --python 3.14 --from \
 WHITAKER ?= whitaker
 TEST_FLAGS ?=
 # The build standard (Concordat `rust-build-defaults`): the parallel `rustc`
-# frontend and, on Linux, the mold linker. An assigned `RUSTFLAGS` replaces
+# frontend and, on Linux, the `mold` linker. An assigned `RUSTFLAGS` replaces
 # every `rustflags` source in `.cargo/config.toml`, so each gate recipe that
 # assigns it composes these onto any inherited value (CI's setup-rust exports
 # one). The Whitaker line keeps its own boundary: Whitaker builds its lint
 # driver on a different toolchain, which must not inherit these flags.
 BUILD_HOST_OS := $(shell uname -s)
 STANDARD_RUSTFLAGS := -Zthreads=8$(if $(filter Linux,$(BUILD_HOST_OS)), -Clink-arg=-fuse-ld=mold)
-GATE_RUSTFLAGS = RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }-D warnings $(STANDARD_RUSTFLAGS)"
+# The linker flag is chosen from the host, so a gate that compiles for another
+# target would get the wrong one (`mold` on a non-Linux target, or none for a Linux
+# target built from another host). Refuse that rather than guess; run a
+# cross-compiling build with `cargo` directly.
+STANDARD_TARGET_GUARD = $(if $(or $(strip $(CARGO_BUILD_TARGET)),$(findstring --target,$(TEST_FLAGS) $(CLIPPY_FLAGS) $(BUILD_JOBS))),$(error the build standard picks `mold` from the host; unset CARGO_BUILD_TARGET and drop --target, or run cargo directly))
+GATE_RUSTFLAGS = $(STANDARD_TARGET_GUARD)RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }-D warnings $(STANDARD_RUSTFLAGS)"
+# Debug builds keep a caller's exported flags and add the standard ones, because
+# an inherited `RUSTFLAGS` would otherwise displace the configuration. Release
+# builds add neither (a caller's own value passes through untouched).
+DEBUG_RUSTFLAGS = $(STANDARD_TARGET_GUARD)RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }$(STANDARD_RUSTFLAGS)"
 
 build: target/debug/$(APP) ## Build debug binary
 release: target/release/$(APP) ## Build release binary
@@ -70,7 +79,7 @@ bench: ## Run performance benchmarks
 	$(CARGO) bench --package wildside-solver-vrp
 
 target/%/$(APP): ## Build binary in debug or release mode
-	$(CARGO) build $(BUILD_JOBS) $(if $(findstring release,$(@)),--release) --bin $(APP)
+	$(if $(findstring release,$(@)),,$(DEBUG_RUSTFLAGS) )$(CARGO) build $(BUILD_JOBS) $(if $(findstring release,$(@)),--release) --bin $(APP)
 
 lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
