@@ -47,7 +47,7 @@ WHOLE_SUITE = re.compile(
 )
 BENCH_STEP_COMMAND = "make test-benches"
 TEST_BENCHES_RECIPE = (
-    'RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --benches '
+    '$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --benches '
     "--features test-support -E 'kind(bench)' $(BUILD_JOBS)"
 )
 COVERAGE_ACTION = "leynos/shared-actions/.github/actions/generate-coverage@"

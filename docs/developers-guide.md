@@ -35,6 +35,57 @@ from 2026-07-31, so Cargo coordinates metadata output itself. No raw rustc
 metadata flags are used. `tests/workflow_contracts/build_footprint_test.py`
 holds all three settings.
 
+## Rust build standard
+
+The Concordat `rust-build-defaults` rule sets the estate's build defaults, and
+`.cargo/config.toml` carries them, so a bare `cargo build` gets them:
+
+- Every `rustflags` source enables the parallel `rustc` frontend with
+  `-Zthreads=8`.
+- The `cfg(target_os = "linux")` source also links with `mold`. macOS and
+  Windows keep their platform linker. CI installs `mold` through `setup-rust`'s
+  `install-mold` input, and through the mutation workflow's input of the same
+  name.
+
+Cargo applies a single `rustflags` source rather than merging them, and an
+assigned `RUSTFLAGS` replaces every source. So each source repeats the frontend
+flag, and the Makefile's gate recipes (`test`, `test-benches` and `typecheck`)
+compose both flags onto `-D warnings` and any inherited `RUSTFLAGS` through
+`GATE_RUSTFLAGS`; `make build` does the same for a debug binary, while
+`make release` adds neither flag. The Whitaker line in `lint` keeps its own
+`RUSTFLAGS`, because Whitaker builds its lint driver on a different toolchain
+that must not inherit these flags.
+
+The Makefile chooses the linker flag from the host, so a gate or debug build
+that sets `CARGO_BUILD_TARGET` or passes `--target` is refused with an error;
+run `cargo` directly to cross-compile. Coverage assigns `-D warnings` alone
+through `setup-rust`, so a measurement stays on the platform linker. The
+mutation workflow's `setup-commands` writes the complete value to `GITHUB_ENV`,
+because `setup-rust` exports `-D warnings` alone and that would otherwise
+displace the configuration under `cargo-mutants`.
+`tests/workflow_contracts/build_standard_test.py` holds the configuration, the
+Makefile composition, the target refusal and the CI provisioning.
+
+### Cranelift is not the development backend
+
+The Cranelift codegen backend is not part of this repository's standard,
+because the repository's own suite does not pass under it. Measured on
+2026-10-31 on the pinned `nightly-2026-10-22`, running `make test` with
+`CARGO_UNSTABLE_CODEGEN_BACKEND=true`,
+`CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift` and
+`CARGO_PROFILE_TEST_CODEGEN_BACKEND=cranelift` and nothing else changed,
+`wildside-cli` tests abort with `SIGABRT` (a Cranelift-compiled panic does not
+find its unwind handler). nextest's default fail-fast stopped the run after 57
+of 392 tests, with three failures:
+
+- `wildside-cli tests::solve_steps::solve_happy_path`
+- `wildside-cli tests::solve_steps::solve_invalid_request`
+- `wildside-cli tests::solve_unit::load_solve_request_decodes_json`
+
+The same suite on the LLVM backend passes. Re-run this measurement on the next
+toolchain bump, and adopt the backend, through `[unstable] codegen-backend` and
+`[profile.dev] codegen-backend = "cranelift"`, when the suite passes under it.
+
 ## Diagram tooling
 
 Markdown diagram validation uses Mermaid CLI, `nixie-cli`, and `merman-cli`.

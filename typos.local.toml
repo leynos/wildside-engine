@@ -50,6 +50,10 @@ ignore = [
   # colour off, or Clippy's diagnostics arrive unmatchable.
   'command\.env\("CARGO_TERM_COLOR", "never"\);',
   '"--color",',
+  # `mold` names the linker (https://github.com/rui314/mold), not the English
+  # word; match only the identifiers that carry it, so prose stays checked.
+  '-fuse-ld=mold',
+  '\binstall-mold\b',
   # Inline code spans are masked; the shared dictionary does not mask them yet.
   '`[^`\n]+`',
 ]

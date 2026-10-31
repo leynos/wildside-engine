@@ -43,3 +43,12 @@ jobs:
       # package's tests, so crates covered by dependent crates' tests
       # would report false survivors.
       extra-args: "--features test-support --test-workspace=true"
+      # `.cargo/config.toml` links with `mold` on Linux (the build standard), and
+      # cargo-mutants builds under it.
+      install-mold: 'true'
+      # `setup-rust` exports `RUSTFLAGS=-D warnings`, which displaces the
+      # configuration's `rustflags`, so a bare install would leave `mold` and the
+      # parallel frontend unused. The setup commands run after it and before
+      # cargo-mutants, so this restores the complete value for every later step.
+      setup-commands: |
+        echo "RUSTFLAGS=-D warnings -Zthreads=8 -Clink-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
