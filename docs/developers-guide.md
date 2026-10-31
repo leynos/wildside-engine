@@ -70,13 +70,12 @@ Makefile composition, the target refusal and the CI provisioning.
 
 The Cranelift codegen backend is not part of this repository's standard,
 because the repository's own suite does not pass under it. Measured on
-2026-10-31 on the pinned `nightly-2026-10-22`, running `make test` with
-`CARGO_UNSTABLE_CODEGEN_BACKEND=true`,
+2026-10-31 on the pinned `nightly-2026-10-30`, running `make test` with
+`TEST_FLAGS=--no-fail-fast`, `CARGO_UNSTABLE_CODEGEN_BACKEND=true`,
 `CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift` and
-`CARGO_PROFILE_TEST_CODEGEN_BACKEND=cranelift` and nothing else changed,
-`wildside-cli` tests abort with `SIGABRT` (a Cranelift-compiled panic does not
-find its unwind handler). nextest's default fail-fast stopped the run after 57
-of 392 tests, with three failures:
+`CARGO_PROFILE_TEST_CODEGEN_BACKEND=cranelift` and nothing else changed, 389 of
+392 tests pass and three `wildside-cli` tests abort with `SIGABRT` (a
+Cranelift-compiled panic does not find its unwind handler):
 
 - `wildside-cli tests::solve_steps::solve_happy_path`
 - `wildside-cli tests::solve_steps::solve_invalid_request`
