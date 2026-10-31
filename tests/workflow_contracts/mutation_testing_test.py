@@ -45,6 +45,8 @@ EXPECTED_WITH = {
     ),
     "exclude-globs": "test_support.rs,bench_support.rs",
     "extra-args": "--features test-support --test-workspace=true",
+    # The build standard links with mold on Linux, so the runner needs it.
+    "install-mold": "true",
 }
 
 

@@ -6,7 +6,8 @@ schema = 1
 stems = []
 
 [words]
-accepted = []
+# `mold` is the linker's name, not a misspelling of "mould".
+accepted = ["mold"]
 
 [words.corrections]
 

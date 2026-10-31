@@ -33,6 +33,15 @@ TYPOS_CONFIG_BUILDER = $(UV_ENV) $(UV) tool run --python 3.14 --from \
 	typos-config-builder
 WHITAKER ?= whitaker
 TEST_FLAGS ?=
+# The build standard (Concordat `rust-build-defaults`): the parallel `rustc`
+# frontend and, on Linux, the mold linker. An assigned `RUSTFLAGS` replaces
+# every `rustflags` source in `.cargo/config.toml`, so each gate recipe that
+# assigns it composes these onto any inherited value (CI's setup-rust exports
+# one). The Whitaker line keeps its own boundary: Whitaker builds its lint
+# driver on a different toolchain, which must not inherit these flags.
+BUILD_HOST_OS := $(shell uname -s)
+STANDARD_RUSTFLAGS := -Zthreads=8$(if $(filter Linux,$(BUILD_HOST_OS)), -Clink-arg=-fuse-ld=mold)
+GATE_RUSTFLAGS = RUSTFLAGS="$${RUSTFLAGS:+$$RUSTFLAGS }-D warnings $(STANDARD_RUSTFLAGS)"
 
 build: target/debug/$(APP) ## Build debug binary
 release: target/release/$(APP) ## Build release binary
@@ -43,7 +52,7 @@ clean: ## Remove build artefacts
 	$(CARGO) clean
 
 test: ## Run tests with warnings treated as errors
-	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
+	$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
 # The bench targets alone, under the same features as `test`. `--benches` also
 # selects every library, whose `bench` setting defaults to true, so the filter
@@ -51,7 +60,7 @@ test: ## Run tests with warnings treated as errors
 # coverage run already executes every other target `test` selects; see
 # tests/workflow_contracts/suite_runs_once_test.py.
 test-benches: ## Run the benchmark targets once each as tests
-	RUSTFLAGS="-D warnings" $(CARGO) nextest run --workspace --benches --features test-support -E 'kind(bench)' $(BUILD_JOBS)
+	$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --benches --features test-support -E 'kind(bench)' $(BUILD_JOBS)
 
 test-workflow-contracts: ## Validate the workflow contracts, including the CV-005 CodeScene shape
 	$(CV005_CONTRACTS) check --repository .
@@ -68,7 +77,7 @@ lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	RUSTFLAGS="-D warnings" $(WHITAKER) --all -- --all-targets --all-features
 
 typecheck: ## Typecheck the workspace
-	RUSTFLAGS="-D warnings" $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)
+	$(GATE_RUSTFLAGS) $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)
 
 fmt: ## Format Rust and Markdown sources
 	$(CARGO) fmt --all

@@ -43,3 +43,6 @@ jobs:
       # package's tests, so crates covered by dependent crates' tests
       # would report false survivors.
       extra-args: "--features test-support --test-workspace=true"
+      # `.cargo/config.toml` links with mold on Linux (the build standard), and
+      # cargo-mutants builds under it.
+      install-mold: 'true'
