@@ -48,13 +48,13 @@ impl PopularityScores {
 
     /// Return the number of scored POIs.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.scores.len()
     }
 
     /// Report whether any scores are present.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.scores.is_empty()
     }
 

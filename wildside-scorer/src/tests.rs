@@ -163,6 +163,33 @@ fn write_popularity_file_round_trips_scores() {
     assert_eq!(decoded, expected, "scores should round-trip via bincode");
 }
 
+/// Reads the length inside a `const fn`, so the build fails if `len` stops
+/// being `const`. A `const fn` may call only `const` functions.
+const fn len_in_const_context(scores: &PopularityScores) -> usize {
+    scores.len()
+}
+
+/// Reads emptiness inside a `const fn`, so the build fails if `is_empty` stops
+/// being `const`.
+const fn is_empty_in_const_context(scores: &PopularityScores) -> bool {
+    scores.is_empty()
+}
+
+#[rstest]
+#[case::empty(&[], 0, true)]
+#[case::one_score(&[(7, 1.0_f32)], 1, false)]
+#[case::two_scores(&[(1, 0.5_f32), (2, 1.0_f32)], 2, false)]
+fn the_const_accessors_report_the_scores_present(
+    #[case] entries: &[(u64, f32)],
+    #[case] expected_len: usize,
+    #[case] expected_empty: bool,
+) {
+    let scores = PopularityScores::new(entries.iter().copied().collect());
+
+    assert_eq!(len_in_const_context(&scores), expected_len);
+    assert_eq!(is_empty_in_const_context(&scores), expected_empty);
+}
+
 fn seed_database(path: &Utf8PathBuf) {
     let connection = Connection::open(path.as_std_path()).expect("open database");
     connection
