@@ -6,3 +6,14 @@ slow-timeout = { period = "60s", terminate-after = 1, grace-period = "5s" }
 # Put a hard ceiling on the whole run.
 global-timeout = "10m"
 
+
+# The Clippy environment-policy probe starts a nested `cargo clippy` over the
+# fixture crate. Run it alone so concurrent compiler children cannot contend
+# for the shared target directory or starve the rest of the run.
+[test-groups.nested-cargo]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = 'binary(clippy_env_policy_ui_tests)'
+test-group = 'nested-cargo'
+slow-timeout = { period = "120s", terminate-after = 4, grace-period = "5s" }
