@@ -45,7 +45,7 @@ def test_a_serial_group_holds_the_nested_clippy_probe() -> None:
     binaries = {
         name
         for override in _serial_overrides()
-        for name in re.findall(r"binary\((\w+)\)", override.get("filter", ""))
+        for name in re.findall(r"(?<!!)binary\((\w+)\)", override.get("filter", ""))
     }
     assert binaries, "no override places a binary in a one-thread test group"
     for name in binaries:
@@ -58,5 +58,6 @@ def test_the_group_timeout_fits_inside_the_global_timeout() -> None:
     global_timeout = _seconds(_config()["profile"][PROFILE]["global-timeout"])
     for override in _serial_overrides():
         slow = override["slow-timeout"]
-        total = _seconds(slow["period"]) * slow.get("terminate-after", 1)
+        assert "terminate-after" in slow, f"{override['filter']} never terminates a slow test"
+        total = _seconds(slow["period"]) * slow["terminate-after"]
         assert total < global_timeout, f"{override['filter']} may outlast the global timeout"
