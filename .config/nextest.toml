@@ -8,12 +8,14 @@ global-timeout = "10m"
 
 
 # The Clippy environment-policy probe starts a nested `cargo clippy` over the
-# fixture crate. Run it alone so concurrent compiler children cannot contend
-# for the shared target directory or starve the rest of the run.
+# fixture crate. The `nested-cargo` group serialises the tests placed in it, so
+# two nested compiler runs never contend for the shared fixture target
+# directory; tests outside the group still run alongside them. The override's
+# total allowance (period x terminate-after) stays below `global-timeout`.
 [test-groups.nested-cargo]
 max-threads = 1
 
 [[profile.default.overrides]]
 filter = 'binary(clippy_env_policy_ui_tests)'
 test-group = 'nested-cargo'
-slow-timeout = { period = "120s", terminate-after = 4, grace-period = "5s" }
+slow-timeout = { period = "120s", terminate-after = 2, grace-period = "5s" }
