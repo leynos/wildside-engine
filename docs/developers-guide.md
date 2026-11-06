@@ -187,6 +187,17 @@ needs a serialization group for environment reasons; a nextest group is
 justified only by a documented structural constraint such as a fixed port or a
 shared on-disk fixture.
 
+One such constraint exists: `tests/clippy_env_policy_ui_tests.rs` starts a
+nested `cargo clippy` over the fixture crate. `.config/nextest.toml` places
+that binary in the `nested-cargo` test group (`max-threads = 1`) through a
+profile override, with a slow-timeout of 120 seconds and `terminate-after = 2`,
+so a hung compile is killed after 240 seconds, inside the profile's ten minute
+`global-timeout`. The group serializes only its own members; other tests still
+run beside them. `tests/workflow_contracts/nextest_nested_cargo_test.py` parses
+the configuration and holds the property: a one-thread group includes the probe
+binary, and its allowance is above the 60 second default and below the global
+timeout. It never starts nextest or cargo.
+
 ### Contract
 
 Two test files hold the policy in place, and every assertion in both was proved

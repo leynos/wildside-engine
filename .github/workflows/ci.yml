@@ -52,6 +52,18 @@ jobs:
       # tests/workflow_contracts/suite_runs_once_test.py holds the split.
       - name: Test benchmark targets
         run: make test-benches
+      # nextest's own report of the effective test groups: the nested Clippy
+      # probe must sit in the one-thread group. This is a check on the
+      # configuration as nextest applies it, not a test.
+      - name: Check the nested-cargo test group
+        run: |
+          set -euo pipefail
+          # The report is read by awk and grep, so strip any colour codes.
+          report="$(cargo nextest show-config test-groups | sed 's/\x1b\[[0-9;]*m//g')"
+          printf '%s\n' "$report"
+          group="$(printf '%s\n' "$report" | awk '/^group: /{keep = ($0 ~ /^group: nested-cargo \(max threads = 1\)$/)} keep')"
+          test -n "$group"
+          printf '%s\n' "$group" | grep -q 'wildside-engine::clippy_env_policy_ui_tests:'
       - name: Generate coverage
         # Pull requests ratchet against the baseline coverage-main.yml writes
         # on main and never contact CodeScene; that workflow is the one
