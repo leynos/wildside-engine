@@ -26,7 +26,7 @@ def _config() -> dict:
 def _seconds(period: str) -> int:
     """Convert a nextest duration such as ``120s`` or ``10m`` to seconds."""
     match = re.fullmatch(r"(\d+)([smh])", period)
-    assert match, f"unrecognised nextest duration: {period!r}"
+    assert match, f"unrecognized nextest duration: {period!r}"
     return int(match.group(1)) * {"s": 1, "m": 60, "h": 3600}[match.group(2)]
 
 
