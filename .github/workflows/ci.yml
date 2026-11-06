@@ -61,7 +61,7 @@ jobs:
           CARGO_TERM_COLOR: never
         run: |
           set -euo pipefail
-          report="$(cargo nextest show-config test-groups)"
+          report="$(cargo nextest show-config test-groups | sed 's/\x1b\[[0-9;]*m//g')"
           printf '%s\n' "$report"
           group="$(printf '%s\n' "$report" | awk '/^group: /{keep = ($0 ~ /^group: nested-cargo \(max threads = 1\)$/)} keep')"
           test -n "$group"
