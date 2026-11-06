@@ -56,6 +56,9 @@ jobs:
       # probe must sit in the one-thread group. This is a check on the
       # configuration as nextest applies it, not a test.
       - name: Check the nested-cargo test group
+        env:
+          # The report is read by awk and grep, so it must carry no colour.
+          CARGO_TERM_COLOR: never
         run: |
           set -euo pipefail
           report="$(cargo nextest show-config test-groups)"
