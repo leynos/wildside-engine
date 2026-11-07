@@ -1,4 +1,4 @@
-.PHONY: help all clean test test-benches test-workflow-contracts bench build release lint fmt check-fmt markdownlint spelling nixie typecheck
+.PHONY: help all clean fetch test test-benches test-workflow-contracts bench build release lint fmt check-fmt markdownlint spelling nixie typecheck
 
 APP ?= wildside-engine
 CARGO ?= cargo
@@ -60,8 +60,10 @@ all: release ## Default target builds release binary
 clean: ## Remove build artefacts
 	$(CARGO) clean
 
-test: ## Run tests with warnings treated as errors
+fetch: ## Download the locked dependencies once, so nested cargo runs offline
 	$(CARGO) fetch --locked
+
+test: | fetch ## Run tests with warnings treated as errors
 	$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
 # The bench targets alone, under the same features as `test`. `--benches` also
