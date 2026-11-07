@@ -91,6 +91,9 @@ fn lint_probe(features: &str) -> Result<LintOutcome, Failure> {
     // Clippy's walk up from the fixture directory.
     command.env("CLIPPY_CONF_DIR", env!("CARGO_MANIFEST_DIR"));
     command.env("CARGO_TERM_COLOR", "never");
+    // The fixture has no dependencies, so nothing here may reach the network
+    // or wait on the index.
+    command.env("CARGO_NET_OFFLINE", "true");
     command.args([
         "clippy",
         "--color",

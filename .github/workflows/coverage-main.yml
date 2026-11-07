@@ -52,6 +52,9 @@ jobs:
         uses: leynos/shared-actions/.github/actions/setup-rust@a49fcb1b9183fdfccc5b1f87b55e01e05086875b
         with:
           expect-cache: any
+      - name: Fetch dependencies
+        # Tests start their own cargo offline; fetch once so none resolves cold.
+        run: cargo fetch --locked
       - name: Generate coverage
         uses: leynos/shared-actions/.github/actions/generate-coverage@a49fcb1b9183fdfccc5b1f87b55e01e05086875b
         with:

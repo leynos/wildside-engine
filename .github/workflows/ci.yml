@@ -61,6 +61,9 @@ jobs:
       # features and nextest profile, so running `make test` here as well
       # ran 385 tests twice. Only the bench targets are left to this step.
       # tests/workflow_contracts/suite_runs_once_test.py holds the split.
+      - name: Fetch dependencies
+        # Tests start their own cargo offline; fetch once so none resolves cold.
+        run: cargo fetch --locked
       - name: Test benchmark targets
         run: make test-benches
       # nextest's own report of the effective test groups: the nested Clippy
@@ -167,6 +170,9 @@ jobs:
         uses: taiki-e/install-action@848136c5ba4ea848a76ce75b8babe954359c4381
         with:
           tool: cargo-nextest
+      - name: Fetch dependencies
+        # Tests start their own cargo offline; fetch once so none resolves cold.
+        run: cargo fetch --locked
       - name: Test (${{ matrix.name }})
         run: |
           echo "TEST_FLAGS=${TEST_FLAGS}"
