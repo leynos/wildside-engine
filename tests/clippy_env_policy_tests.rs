@@ -142,6 +142,8 @@ fn resolved_package_names() -> Result<BTreeSet<String>, Failure> {
     let output = Command::new(env!("CARGO"))
         .args(["metadata", "--no-deps", "--format-version", "1"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
+        // `--no-deps` reads only the workspace's own manifests.
+        .env("CARGO_NET_OFFLINE", "true")
         .output()
         .map_err(|err| -> Failure { format!("run cargo metadata: {err}").into() })?;
     ensure_that(

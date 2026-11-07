@@ -61,6 +61,7 @@ clean: ## Remove build artefacts
 	$(CARGO) clean
 
 test: ## Run tests with warnings treated as errors
+	$(CARGO) fetch --locked
 	$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
 # The bench targets alone, under the same features as `test`. `--benches` also

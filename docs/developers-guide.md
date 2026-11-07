@@ -85,6 +85,24 @@ The same suite on the LLVM backend passes. Re-run this measurement on the next
 toolchain bump, and adopt the backend, through `[unstable] codegen-backend` and
 `[profile.dev] codegen-backend = "cranelift"`, when the suite passes under it.
 
+## Fetching dependencies before tests
+
+The environment-policy tests start their own `cargo` on fixture crates and on
+the workspace. Cargo resolves dependencies while it holds the package-cache
+lock in `$CARGO_HOME`, so a nested `cargo` that resolves cold can wait on
+another repository's build for many minutes. The fixture crates have no
+dependencies, and those spawns set `CARGO_NET_OFFLINE=true`.
+
+`make test` runs `cargo fetch --locked` first. `ci.yml` and `coverage-main.yml`
+run the same command as an unconditional step before their test, bench and
+coverage steps, with no `|| true`. A failed fetch stops the run. Prepare a
+direct or offline run with `cargo fetch --locked` first.
+
+The estate lint rule `nested-cargo-offline-tests` reads the workflow steps and
+the spawns. It cannot read this Makefile's `test` recipe, because the build
+standard's target guard is a `$(error ...)` text that its shell reader rejects,
+so it reports that one finding as indeterminate.
+
 ## Diagram tooling
 
 Markdown diagram validation uses Mermaid CLI, `nixie-cli`, and `merman-cli`.
