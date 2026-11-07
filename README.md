@@ -40,7 +40,8 @@ crates:
 ## Quick start
 
 You'll need the Rust toolchain (see `rust-toolchain.toml` for the exact
-version).
+version). `make lint` also needs `uv`, because it runs the Interrogate
+docstring gate through `uv tool run`.
 
 ```sh
 # Build the workspace
