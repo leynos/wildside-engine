@@ -29,6 +29,7 @@ GATE_RECIPES = ("test", "test-benches", "typecheck")
 
 
 def _config() -> dict[str, object]:
+    """Return the parsed ``.cargo/config.toml``."""
     return tomllib.loads((ROOT / ".cargo" / "config.toml").read_text("utf-8"))
 
 
@@ -138,10 +139,12 @@ def test_whitaker_keeps_its_own_flag_boundary() -> None:
 
 
 def _workflow(name: str) -> dict[str, object]:
+    """Return the parsed workflow file ``name`` from ``.github/workflows``."""
     return yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text("utf-8"))
 
 
 def _setup_rust_steps(job: dict[str, object]) -> list[dict[str, object]]:
+    """Return the job's steps that use the ``setup-rust`` action."""
     return [
         step
         for step in job["steps"]
