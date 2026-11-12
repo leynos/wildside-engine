@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: leynos/shared-actions/.github/actions/setup-rust@0eabb6bc07148981de5da395e30cd78d83f5c7c2
+      - uses: leynos/shared-actions/.github/actions/setup-rust@7f453d1cb78953489bd9da9409bf385c44b224a3
         with:
           # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
@@ -35,14 +35,14 @@ jobs:
       - name: Install mdtablefix
         # `make check-fmt` runs `mdtablefix --check --git`; 0.6.0 is the
         # first release with `--check` and `--git`.
-        uses: leynos/shared-actions/.github/actions/install-mdtablefix@0eabb6bc07148981de5da395e30cd78d83f5c7c2
+        uses: leynos/shared-actions/.github/actions/install-mdtablefix@7f453d1cb78953489bd9da9409bf385c44b224a3
         with:
           version: "0.6.1"
 
       - name: Check formatting
         run: make check-fmt
       - name: Install the Whitaker Dylint suite
-        uses: leynos/shared-actions/.github/actions/install-whitaker@0eabb6bc07148981de5da395e30cd78d83f5c7c2
+        uses: leynos/shared-actions/.github/actions/install-whitaker@7f453d1cb78953489bd9da9409bf385c44b224a3
       # `make lint` runs the docstring gate through `uv tool run`, so uv must be
       # set up before it.
       - name: Install uv
@@ -84,7 +84,7 @@ jobs:
         # publisher. Measuring here on the push to main as well would write a
         # second baseline. tests/workflow_contracts holds the shape.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@0eabb6bc07148981de5da395e30cd78d83f5c7c2
+        uses: leynos/shared-actions/.github/actions/generate-coverage@7f453d1cb78953489bd9da9409bf385c44b224a3
         with:
           output-path: lcov.info
           format: lcov
@@ -159,7 +159,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@0eabb6bc07148981de5da395e30cd78d83f5c7c2
+      - uses: leynos/shared-actions/.github/actions/setup-rust@7f453d1cb78953489bd9da9409bf385c44b224a3
         with:
           # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
