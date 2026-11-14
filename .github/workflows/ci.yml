@@ -43,6 +43,9 @@ jobs:
         run: make check-fmt
       - name: Install the Whitaker Dylint suite
         uses: leynos/shared-actions/.github/actions/install-whitaker@fc0e10220207b951bf693aba2ce4f9dafc1a0206
+        with:
+          # The repository's Cargo configuration selects Cranelift.
+          cranelift: true
       # `make lint` runs the docstring gate through `uv tool run`, so uv must be
       # set up before it.
       - name: Install uv

@@ -39,6 +39,10 @@ TEST_FLAGS ?=
 # assigns it composes these onto any inherited value (CI's setup-rust exports
 # one). The Whitaker line keeps its own boundary: Whitaker builds its lint
 # driver on a different toolchain, which must not inherit these flags.
+# Whitaker selects LLVM explicitly rather than inheriting the Cranelift
+# development default.
+WHITAKER_ENV = RUSTFLAGS="-D warnings" CARGO_UNSTABLE_CODEGEN_BACKEND=true \
+	CARGO_PROFILE_DEV_CODEGEN_BACKEND=llvm CARGO_PROFILE_TEST_CODEGEN_BACKEND=llvm
 BUILD_HOST_OS := $(shell uname -s)
 STANDARD_RUSTFLAGS := -Zthreads=8$(if $(filter Linux,$(BUILD_HOST_OS)), -Clink-arg=-fuse-ld=mold)
 # The linker flag is chosen from the host, so a gate that compiles for another
@@ -86,7 +90,7 @@ target/%/$(APP): ## Build binary in debug or release mode
 
 lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
-	RUSTFLAGS="-D warnings" $(WHITAKER) --all -- --all-targets --all-features
+	$(WHITAKER_ENV) $(WHITAKER) --all -- --all-targets --all-features
 
 typecheck: ## Typecheck the workspace
 	$(GATE_RUSTFLAGS) $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)

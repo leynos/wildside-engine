@@ -66,24 +66,35 @@ displace the configuration under `cargo-mutants`.
 `tests/workflow_contracts/build_standard_test.py` holds the configuration, the
 Makefile composition, the target refusal and the CI provisioning.
 
-### Cranelift is not the development backend
+### Cranelift
 
-The Cranelift codegen backend is not part of this repository's standard,
-because the repository's own suite does not pass under it. Measured on
-2026-10-31 on the pinned `nightly-2026-10-30`, running `make test` with
-`TEST_FLAGS=--no-fail-fast`, `CARGO_UNSTABLE_CODEGEN_BACKEND=true`,
-`CARGO_PROFILE_DEV_CODEGEN_BACKEND=cranelift` and
-`CARGO_PROFILE_TEST_CODEGEN_BACKEND=cranelift` and nothing else changed, 389 of
-392 tests pass and three `wildside-cli` tests abort with `SIGABRT` (a
-Cranelift-compiled panic does not find its unwind handler):
+Cranelift is the default backend for development builds, set in
+`.cargo/config.toml` (`[unstable] codegen-backend = true` and
+`[profile.dev] codegen-backend = "cranelift"`) on the nightly pinned in
+`rust-toolchain.toml`, which also lists the `rustc-codegen-cranelift-preview`
+component. Release builds keep LLVM, because the dev profile does not reach the
+release profile. Coverage and Whitaker select LLVM explicitly: the coverage
+action overrides the backend when it detects Cranelift, and `make lint` sets
+`CARGO_PROFILE_{DEV,TEST}_CODEGEN_BACKEND=llvm` for Whitaker. CI installs
+Whitaker with `cranelift: true`.
 
-- `wildside-cli tests::solve_steps::solve_happy_path`
-- `wildside-cli tests::solve_steps::solve_invalid_request`
-- `wildside-cli tests::solve_unit::load_solve_request_decodes_json`
+The `zmij` crate, `serde_json`'s float formatter, is built on LLVM through
+`[profile.dev.package.zmij]` and `[profile.test.package.zmij]`. On x86-64 it
+calls the SSE2 `pmulhuw` intrinsic, which Cranelift does not implement
+(`llvm.x86.sse2.pmulhu.w is not yet supported`,
+[rustc_codegen_cranelift#171](https://github.com/rust-lang/rustc_codegen_cranelift/issues/171)).
+The stub is a non-unwinding panic, so any `serde_json` float-to-string
+conversion aborted the test with `SIGABRT`. That, not unwinding, was the cause
+of the three `wildside-cli` aborts recorded on 2026-10-31
+(`tests::solve_steps::solve_happy_path`,
+`tests::solve_steps::solve_invalid_request` and
+`tests::solve_unit::load_solve_request_decodes_json`). Drop the two overrides
+when Cranelift implements the intrinsic or `zmij` stops using it.
 
-The same suite on the LLVM backend passes. Re-run this measurement on the next
-toolchain bump, and adopt the backend, through `[unstable] codegen-backend` and
-`[profile.dev] codegen-backend = "cranelift"`, when the suite passes under it.
+Measured on 2026-11-14 on `nightly-2026-11-13`: all 395 tests pass under
+Cranelift with `zmij` on LLVM. The Cranelift component does not unwind, so a
+test must not rely on a caught panic: assert on a returned error, or use
+`#[should_panic]`, which libtest handles.
 
 ## Fetching dependencies before tests
 

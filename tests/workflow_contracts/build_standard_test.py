@@ -3,9 +3,8 @@
 The Concordat ``rust-build-defaults`` rule needs the parallel ``rustc`` frontend
 in every ``rustflags`` source, ``mold`` in the Linux source only, the gate
 recipes that assign ``RUSTFLAGS`` to restate both, and a runner that has the
-linker. Cranelift is not adopted (see "Cranelift is not the development
-backend" in ``docs/developers-guide.md``), so these tests also keep the
-configuration free of it.
+linker. Cranelift is the development backend, with ``zmij`` built on LLVM (see
+"Cranelift" in ``docs/developers-guide.md``).
 
 Run via ``make test-workflow-contracts``.
 """
@@ -49,11 +48,24 @@ def test_the_linker_is_configured_for_linux_only() -> None:
     assert not others, f"unexpected target tables {others}"
 
 
-def test_cranelift_stays_out_of_the_configuration() -> None:
-    """The recorded exception holds while the configuration omits the backend."""
+def test_cranelift_is_the_development_backend_with_zmij_on_llvm() -> None:
+    """The dev profile selects Cranelift, and only ``zmij`` is built on LLVM."""
     config = _config()
-    assert "codegen-backend" not in config.get("unstable", {})
-    assert "profile" not in config, "no profile selects a backend"
+    assert config["unstable"].get("codegen-backend") is True
+    profiles = config["profile"]
+    assert profiles["dev"].get("codegen-backend") == "cranelift"
+    assert "codegen-backend" not in profiles.get("release", {})
+    for name in ("dev", "test"):
+        zmij = profiles[name]["package"]["zmij"]
+        assert zmij.get("codegen-backend") == "llvm", f"profile.{name} must keep zmij on LLVM"
+
+
+def test_whitaker_selects_llvm() -> None:
+    """Whitaker overrides the Cranelift development default."""
+    commands = _recipe_commands("lint", "Linux")
+    whitaker = [line for line in commands.splitlines() if "whitaker" in line]
+    assert whitaker, "the lint recipe must run Whitaker"
+    assert all("CARGO_PROFILE_DEV_CODEGEN_BACKEND=llvm" in line for line in whitaker)
 
 
 def _make_dry_run(

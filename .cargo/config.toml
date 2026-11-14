@@ -4,8 +4,14 @@
 # The parallel `rustc` frontend and, on Linux, the `mold` linker are the
 # defaults for every development, test, lint and typecheck build. Cargo
 # auto-discovers this file, so a bare `cargo build` gets them too. See "Rust
-# build standard" in docs/developers-guide.md for why Cranelift is not part of
-# it.
+# build standard" in docs/developers-guide.md.
+#
+# Cranelift is the development default. Only the dev profile selects it, so
+# release builds keep LLVM; coverage and Whitaker select LLVM explicitly. The
+# `zmij` crate (serde_json's float formatter) is built on LLVM, because it uses
+# the SSE2 `pmulhuw` intrinsic that Cranelift does not implement
+# (rustc_codegen_cranelift#171) and aborts at run time otherwise. Drop the
+# `zmij` overrides when that lands; see "Cranelift" in the developers' guide.
 #
 # Cargo selects a single `rustflags` source rather than merging them: a
 # matching `[target.*]` table replaces `[build] rustflags` outright, and an
@@ -15,6 +21,18 @@
 # measurement stays on the platform linker and the single-threaded frontend.
 [unstable]
 embed-metadata = false
+codegen-backend = true
+
+[profile.dev]
+codegen-backend = "cranelift"
+
+# `zmij` stays on LLVM: Cranelift lacks `llvm.x86.sse2.pmulhu.w`
+# (rustc_codegen_cranelift#171), which zmij's SSE2 path calls.
+[profile.dev.package.zmij]
+codegen-backend = "llvm"
+
+[profile.test.package.zmij]
+codegen-backend = "llvm"
 
 [build]
 rustflags = ["-Zthreads=8"]
