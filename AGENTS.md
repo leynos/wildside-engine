@@ -227,10 +227,12 @@ project:
 
     linting every target with all features enabled and denying all Clippy
     warnings, then running the Whitaker Dylint suite with warnings denied. The
-    Clippy arguments are the `CLIPPY_FLAGS` default. Clippy inherits any
-    `RUSTFLAGS` and the `.cargo/config.toml` build flags unchanged. The Whitaker
-    run assigns its own `RUSTFLAGS` and does not compose the build standard
-    flags, because its lint driver builds on a different toolchain.
+    Clippy arguments are the `CLIPPY_FLAGS` default. The recipe assigns no
+    `RUSTFLAGS`, so Cargo takes its flags from an inherited `RUSTFLAGS` when one
+    is set, which replaces the `.cargo/config.toml` build flags, and from
+    `.cargo/config.toml` otherwise. The Whitaker run assigns its own
+    `RUSTFLAGS` and does not compose the build standard flags, because its lint
+    driver builds on a different toolchain.
   - `make test` first runs `cargo fetch --locked`, then executes
     `cargo nextest run --workspace --all-targets --features test-support`. The
     test run composes `-D warnings -Zthreads=8` onto any inherited `RUSTFLAGS`,
