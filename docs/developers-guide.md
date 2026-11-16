@@ -156,7 +156,9 @@ No code in this workspace reads or mutates the process environment ambiently.
 `std::env::var`, `var_os`, `vars`, `vars_os`, `set_var` and `remove_var` are
 listed under `disallowed-methods` in [`clippy.toml`](../clippy.toml), and
 `clippy::disallowed_methods` is denied, so `make lint` rejects a direct call in
-any package, target or feature.
+any package, target or feature. `std::env::set_current_dir` is listed too: pass
+a directory in (or use `Command::current_dir` for a child process) instead of
+changing the working directory of the whole process.
 
 The rule exists for test throughput as much as for design. A test that mutates
 the parent process environment forces the whole suite that touches that
