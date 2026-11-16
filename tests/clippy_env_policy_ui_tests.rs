@@ -195,18 +195,22 @@ fn the_fixture_without_a_probe_lints_clean() -> Result<(), Failure> {
 }
 
 /// Every prohibited method, paired with the guidance `clippy.toml` gives.
-const PROHIBITED_METHODS: [(&str, &str); 6] = [
+const PROHIBITED_METHODS: [(&str, &str); 7] = [
     ("std::env::var", "inject an environment reader"),
     ("std::env::var_os", "inject an environment reader"),
     ("std::env::vars", "inject an environment reader"),
     ("std::env::vars_os", "inject an environment reader"),
     ("std::env::set_var", "use a stub environment in tests"),
     ("std::env::remove_var", "use a stub environment in tests"),
+    (
+        "std::env::set_current_dir",
+        "process-wide working directory; pass the directory in or use Command::current_dir",
+    ),
 ];
 
 /// Scenario: a contributor reads or mutates the process environment directly.
 ///
-/// Invariant: Clippy rejects every one of the six calls and names the seam to
+/// Invariant: Clippy rejects every one of the seven calls and names the seam to
 /// reach for instead, so the guidance in `clippy.toml` reaches the contributor
 /// rather than sitting unread in a configuration file.
 #[test]
