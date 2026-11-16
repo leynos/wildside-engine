@@ -232,48 +232,57 @@ impl<'a> VrpSolveContext<'a> {
         instance: &VrpInstance<'_>,
         end_location: Location,
     ) -> Result<(Vec<PointOfInterest>, f32), SolveError> {
-        let transport = Arc::new(TravelTimeTransportCost::new(instance.matrix));
-        // TODO: Preserve underlying error details once `SolveError` gains richer variants.
-        let goal = define_goal(transport.clone()).map_err(|_| SolveError::InvalidRequest)?;
-        let problem_spec = ProblemSpec {
-            candidates: instance.candidates,
-            scores: instance.scores,
-            transport,
-            goal,
-            budget_seconds: instance.budget_seconds,
-            end_location,
-        };
-        let problem =
-            Arc::new(define_problem(problem_spec).map_err(|_| SolveError::InvalidRequest)?);
-
-        let vrp_config = VrpConfigBuilder::new(problem.clone())
-            .prebuild()
-            .map_err(|_| SolveError::InvalidRequest)?
-            .with_max_generations(Some(self.config.max_generations))
-            .build()
-            .map_err(|_| SolveError::InvalidRequest)?;
-
-        let solution = vrp_core::solver::Solver::new(problem, vrp_config)
-            .solve()
-            .map_err(|_| SolveError::InvalidRequest)?;
-
-        let locations: Vec<Location> = solution.get_locations().flatten().collect();
-
-        let mut pois = Vec::new();
-        let mut chosen_scores = Vec::new();
-        for loc in locations {
-            let idx = loc;
-            if idx == 0 {
-                continue;
-            }
-            if let Some(poi) = instance.candidates.get(idx - 1) {
-                pois.push(poi.clone());
-                chosen_scores.push(instance.scores.get(idx - 1).copied().unwrap_or(0.0_f32));
-            }
-        }
-
-        let total_score: f32 = chosen_scores.into_iter().sum();
-
-        Ok((pois, total_score))
+        let problem = Arc::new(build_problem(instance, end_location)?);
+        let solution = run_solver(problem, self.config.max_generations)?;
+        Ok(collect_tour(&solution, instance))
     }
+}
+
+/// Model the instance as a `vrp-core` problem with the travel-time transport
+/// and the score-maximizing goal.
+fn build_problem(
+    instance: &VrpInstance<'_>,
+    end_location: Location,
+) -> Result<Problem, SolveError> {
+    let transport = Arc::new(TravelTimeTransportCost::new(instance.matrix));
+    // TODO: Preserve underlying error details once `SolveError` gains richer variants.
+    let goal = define_goal(transport.clone()).map_err(|_| SolveError::InvalidRequest)?;
+    let problem_spec = ProblemSpec {
+        candidates: instance.candidates,
+        scores: instance.scores,
+        transport,
+        goal,
+        budget_seconds: instance.budget_seconds,
+        end_location,
+    };
+    define_problem(problem_spec).map_err(|_| SolveError::InvalidRequest)
+}
+
+/// Run the solver on `problem`, bounded by `max_generations`.
+fn run_solver(problem: Arc<Problem>, max_generations: usize) -> Result<Solution, SolveError> {
+    let vrp_config = VrpConfigBuilder::new(problem.clone())
+        .prebuild()
+        .map_err(|_| SolveError::InvalidRequest)?
+        .with_max_generations(Some(max_generations))
+        .build()
+        .map_err(|_| SolveError::InvalidRequest)?;
+
+    vrp_core::solver::Solver::new(problem, vrp_config)
+        .solve()
+        .map_err(|_| SolveError::InvalidRequest)
+}
+
+/// Translate the solved tour back into the chosen POIs and their total score,
+/// skipping the depot (location 0) and any location without a candidate.
+fn collect_tour(solution: &Solution, instance: &VrpInstance<'_>) -> (Vec<PointOfInterest>, f32) {
+    let mut pois = Vec::new();
+    let mut chosen_scores = Vec::new();
+    for idx in solution.get_locations().flatten().filter(|idx| *idx != 0) {
+        if let Some(poi) = instance.candidates.get(idx - 1) {
+            pois.push(poi.clone());
+            chosen_scores.push(instance.scores.get(idx - 1).copied().unwrap_or(0.0_f32));
+        }
+    }
+    let total_score: f32 = chosen_scores.into_iter().sum();
+    (pois, total_score)
 }

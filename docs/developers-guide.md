@@ -156,7 +156,9 @@ No code in this workspace reads or mutates the process environment ambiently.
 `std::env::var`, `var_os`, `vars`, `vars_os`, `set_var` and `remove_var` are
 listed under `disallowed-methods` in [`clippy.toml`](../clippy.toml), and
 `clippy::disallowed_methods` is denied, so `make lint` rejects a direct call in
-any package, target or feature.
+any package, target or feature. `std::env::set_current_dir` is listed too: pass
+a directory in (or use `Command::current_dir` for a child process) instead of
+changing the working directory of the whole process.
 
 The rule exists for test throughput as much as for design. A test that mutates
 the parent process environment forces the whole suite that touches that
@@ -224,7 +226,7 @@ test each one broke.
 
 [`tests/clippy_env_policy_ui_tests.rs`](../tests/clippy_env_policy_ui_tests.rs)
 proves the lint fires. It runs Clippy over the fixture crate in
-`tests/fixtures/env_policy_probe` and reads the diagnostics: all six methods
+`tests/fixtures/env_policy_probe` and reads the diagnostics: all seven methods
 are rejected, each carrying its own guidance string; an `#[allow]` is itself
 rejected; and a reasoned `#[expect]` compiles. The fixture is excluded from the
 workspace so its deliberately offending probes never reach
@@ -232,7 +234,7 @@ workspace so its deliberately offending probes never reach
 `clippy.toml`, so the reason strings it asserts are the ones a contributor sees.
 
 [`tests/clippy_env_policy_tests.rs`](../tests/clippy_env_policy_tests.rs)
-guards the configuration that makes the lint fire. It fails if any of the six
+guards the configuration that makes the lint fire. It fails if any of the seven
 entries leaves `clippy.toml`, if the deny is downgraded, if a package joins or
 leaves the workspace, if a package stops enforcing the rule, if the Make lint
 target stops covering every target and feature, or if the CI lint step

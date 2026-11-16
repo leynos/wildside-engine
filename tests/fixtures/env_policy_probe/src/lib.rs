@@ -6,7 +6,7 @@
 
 /// Read and mutate the environment directly, once per prohibited method.
 ///
-/// Clippy must reject all six calls.
+/// Clippy must reject all seven calls.
 #[cfg(feature = "bare-read")]
 #[must_use]
 pub fn probe() -> usize {
@@ -22,6 +22,7 @@ pub fn probe() -> usize {
         std::env::set_var(name, "probe");
         std::env::remove_var(name);
     }
+    seen += usize::from(std::env::set_current_dir(".").is_ok());
     seen
 }
 

@@ -23,7 +23,7 @@
 //! - delete the `std::env::set_var` entry from `clippy.toml` —
 //!   `clippy_config_disallows_every_environment_method`, and also
 //!   `every_prohibited_method_is_rejected_with_its_guidance` in the UI tests,
-//!   because the two files guard the same six entries from different angles.
+//!   because the two files guard the same seven entries from different angles.
 //!   Deleting an entry is the one mutation that legitimately fails both;
 //! - change the workspace `disallowed_methods` deny to `"warn"` —
 //!   `workspace_lint_table_denies_disallowed_methods`;
@@ -69,13 +69,14 @@ const ROOT_MANIFEST: &str = include_str!("../Cargo.toml");
 const MAKEFILE: &str = include_str!("../Makefile");
 
 /// Environment methods that no package may call outside a composition root.
-const FORBIDDEN_ENVIRONMENT_METHODS: [&str; 6] = [
+const FORBIDDEN_ENVIRONMENT_METHODS: [&str; 7] = [
     "std::env::var",
     "std::env::var_os",
     "std::env::vars",
     "std::env::vars_os",
     "std::env::set_var",
     "std::env::remove_var",
+    "std::env::set_current_dir",
 ];
 
 /// Every package in this workspace, with its manifest embedded at compile time.
