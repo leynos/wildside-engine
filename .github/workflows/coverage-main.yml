@@ -49,14 +49,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Rust
-        uses: leynos/shared-actions/.github/actions/setup-rust@43f856c5d807eb9c2c7e6bf59c6612c618988d85
+        uses: leynos/shared-actions/.github/actions/setup-rust@8091b7cb5f9bab2d4a76ced2e749fd4c1bccdb02
         with:
           expect-cache: any
       - name: Fetch dependencies
         # Tests start their own cargo offline; fetch once so none resolves cold.
         run: cargo fetch --locked
       - name: Generate coverage
-        uses: leynos/shared-actions/.github/actions/generate-coverage@43f856c5d807eb9c2c7e6bf59c6612c618988d85
+        uses: leynos/shared-actions/.github/actions/generate-coverage@8091b7cb5f9bab2d4a76ced2e749fd4c1bccdb02
         with:
           output-path: lcov.info
           format: lcov
@@ -79,7 +79,7 @@ jobs:
         # main's. The token goes straight to the input rather than through
         # `env`, which the composite uploader would hand to its nested steps.
         if: steps.codescene-token.outputs.available == 'true' && github.ref == 'refs/heads/main'
-        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@43f856c5d807eb9c2c7e6bf59c6612c618988d85
+        uses: leynos/shared-actions/.github/actions/upload-codescene-coverage@8091b7cb5f9bab2d4a76ced2e749fd4c1bccdb02
         with:
           format: lcov
           path: lcov.info
