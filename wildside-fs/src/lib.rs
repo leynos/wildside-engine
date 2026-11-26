@@ -142,10 +142,20 @@ pub fn create_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         create_dir_all(parent)?;
     }
+    if path.file_name().is_none() {
+        // A path ending in `..` or `.` names a directory its parent now holds.
+        return cap_std::fs::Dir::open_ambient_dir(path, ambient_authority()).map(drop);
+    }
     let (dir, name) = native_dir_and_name(path)?;
     match dir.create_dir(&name) {
-        Err(err) if err.kind() != io::ErrorKind::AlreadyExists => Err(err),
-        Ok(()) | Err(_) => Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
+            // The entry exists: that is fine for a directory, or a link to one,
+            // and an error for a file or a dangling link.
+            cap_std::fs::Dir::open_ambient_dir(path, ambient_authority())
+                .map(drop)
+                .map_err(|_| err)
+        }
+        other => other,
     }
 }
 
@@ -270,6 +280,33 @@ mod tests {
         assert!(
             scratch.path().join("nested/dir").is_dir(),
             "the directory should exist under the scratch dir"
+        );
+    }
+
+    #[test]
+    fn a_path_climbing_out_of_a_missing_directory_is_created() {
+        let dir = temp();
+        let path = dir.path().join("missing/../output");
+        create_dir_all(&path).unwrap_or_else(|err| panic!("create via missing/..: {err}"));
+        assert!(
+            dir.path().join("output").is_dir() && dir.path().join("missing").is_dir(),
+            "both the missing directory and the output directory should exist"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_dangling_directory_symlink_is_an_error() {
+        let dir = temp();
+        let handle = cap_std::fs::Dir::open_ambient_dir(dir.path(), ambient_authority())
+            .unwrap_or_else(|err| panic!("open dir: {err}"));
+        handle
+            .symlink_contents(dir.path().join("nowhere"), "dangling")
+            .unwrap_or_else(|err| panic!("symlink: {err}"));
+        let result = create_dir_all(dir.path().join("dangling"));
+        assert!(
+            result.is_err(),
+            "a dangling link is not a directory, so creating it should fail"
         );
     }
 
