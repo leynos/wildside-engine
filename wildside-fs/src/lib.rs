@@ -125,33 +125,28 @@ pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {
 }
 
 /// Create the directory at `path` and any missing ancestors.
+///
+/// Each missing component is created inside its parent, which is opened by
+/// ambient path, so `..` and directory symlinks that lead outside the current
+/// directory resolve as they do for `std::fs::create_dir_all`.
 pub fn create_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
     let path = path.as_ref();
-    let (base, relative) = native_base_and_relative(path)?;
-    if relative.as_os_str().is_empty() {
+    if path.as_os_str().is_empty() {
         return Ok(());
     }
-    let dir = cap_std::fs::Dir::open_ambient_dir(&base, ambient_authority())?;
-    dir.create_dir_all(&relative)
-}
-
-/// Split a native path into the root it starts from and the rest.
-///
-/// An absolute path starts from its drive prefix and root directory; a relative
-/// one starts from the current directory.
-fn native_base_and_relative(path: &Path) -> io::Result<(PathBuf, PathBuf)> {
-    let base: PathBuf = path
-        .components()
-        .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
-        .map(Component::as_os_str)
-        .collect();
-    if base.as_os_str().is_empty() {
-        return Ok((PathBuf::from("."), path.to_path_buf()));
+    match cap_std::fs::Dir::open_ambient_dir(path, ambient_authority()) {
+        Ok(_) => return Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err),
     }
-    let relative = path
-        .strip_prefix(&base)
-        .map_err(|_| io::Error::other("failed to strip root from absolute path"))?;
-    Ok((base, relative.to_path_buf()))
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent)?;
+    }
+    let (dir, name) = native_dir_and_name(path)?;
+    match dir.create_dir(&name) {
+        Err(err) if err.kind() != io::ErrorKind::AlreadyExists => Err(err),
+        Ok(()) | Err(_) => Ok(()),
+    }
 }
 
 /// List the paths of the entries directly inside the directory `dir`.
@@ -260,6 +255,40 @@ mod tests {
             "a file in a non-UTF-8 directory should read back"
         );
         remove_file(odd.join("file")).unwrap_or_else(|err| panic!("remove: {err}"));
+    }
+
+    #[test]
+    fn a_relative_path_may_climb_out_of_the_current_directory() {
+        // Tests run with the crate directory as the current one, so `..` is the
+        // workspace root: a scratch directory made there is reached as `../name`.
+        let scratch = TempDir::new_in("..").unwrap_or_else(|err| panic!("scratch dir: {err}"));
+        let Some(name) = scratch.path().file_name() else {
+            panic!("scratch dir has a name")
+        };
+        let relative = Path::new("..").join(name).join("nested/dir");
+        create_dir_all(&relative).unwrap_or_else(|err| panic!("create via ..: {err}"));
+        assert!(
+            scratch.path().join("nested/dir").is_dir(),
+            "the directory should exist under the scratch dir"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_directory_symlink_leading_outside_is_followed_when_creating() {
+        let outside = temp();
+        let inside = temp();
+        let handle = cap_std::fs::Dir::open_ambient_dir(inside.path(), ambient_authority())
+            .unwrap_or_else(|err| panic!("open dir: {err}"));
+        handle
+            .symlink_contents(outside.path(), "link")
+            .unwrap_or_else(|err| panic!("symlink: {err}"));
+        create_dir_all(inside.path().join("link/sub/dir"))
+            .unwrap_or_else(|err| panic!("create through link: {err}"));
+        assert!(
+            outside.path().join("sub/dir").is_dir(),
+            "the directory should be created at the link's target"
+        );
     }
 
     #[cfg(unix)]

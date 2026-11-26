@@ -240,3 +240,60 @@ fn seed_claims_database(path: &Utf8PathBuf) {
         )
         .expect("insert heritage claim");
 }
+
+#[cfg(unix)]
+#[rstest]
+fn from_paths_reads_a_popularity_symlink_that_leads_outside_its_directory(
+    seeded_db_path: (TempDir, Utf8PathBuf),
+    popularity_fixture: (TempDir, PopularityFixture),
+) {
+    let (_pop_temp_dir, pop_fixture) = popularity_fixture;
+    let real = pop_fixture.with_score(1, 0.25_f32);
+    let (_db_temp_dir, db_path) = seeded_db_path;
+    let link_dir = TempDir::new().expect("link dir");
+    let link =
+        Utf8PathBuf::from_path_buf(link_dir.path().join("popularity.bin")).expect("utf8 link");
+    std::os::unix::fs::symlink(real.as_std_path(), link.as_std_path()).expect("symlink");
+
+    let built = UserRelevanceScorer::from_paths(
+        &db_path,
+        &link,
+        ThemeClaimMapping::default(),
+        ScoreWeights::default(),
+    );
+
+    assert!(
+        built.is_ok(),
+        "a popularity file behind a symlink to another directory should load, got {:?}",
+        built.err()
+    );
+}
+
+#[rstest]
+fn from_paths_reads_a_bare_popularity_file_name(
+    seeded_db_path: (TempDir, Utf8PathBuf),
+    popularity_fixture: (TempDir, PopularityFixture),
+) {
+    let (_pop_temp_dir, pop_fixture) = popularity_fixture;
+    let real = pop_fixture.with_score(1, 0.25_f32);
+    let (_db_temp_dir, db_path) = seeded_db_path;
+    // A bare name resolves against the current directory, which tests never
+    // change; the file is made there and removed after the check.
+    let bare = Utf8PathBuf::from(format!("popularity-bare-{}.bin", std::process::id()));
+    let bytes = wildside_fs::read_file(real.as_std_path()).expect("read fixture");
+    wildside_fs::write_file(bare.as_std_path(), bytes).expect("write bare fixture");
+
+    let built = UserRelevanceScorer::from_paths(
+        &db_path,
+        &bare,
+        ThemeClaimMapping::default(),
+        ScoreWeights::default(),
+    );
+    wildside_fs::remove_file(bare.as_std_path()).expect("remove bare fixture");
+
+    assert!(
+        built.is_ok(),
+        "a bare popularity file name should load, got {:?}",
+        built.err()
+    );
+}
