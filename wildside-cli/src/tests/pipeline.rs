@@ -10,7 +10,6 @@ use camino::Utf8PathBuf;
 use geo::{Coord, Rect};
 use rstest::rstest;
 use rusqlite::Connection;
-use std::fs;
 use std::io::Write;
 use tempfile::TempDir;
 use wildside_core::{PoiStore, SqlitePoiStore, Tags};
@@ -95,8 +94,8 @@ fn ingest_pipeline_creates_artefacts_with_bz2_wikidata() {
     let wikidata_plain = write_wikidata_dump(&workspace);
 
     let bz2_path = workspace.join("wikidata.json.bz2");
-    let plain = fs::read(&wikidata_plain).expect("read wikidata dump");
-    let file = fs::File::create(&bz2_path).expect("create bz2 file");
+    let plain = wildside_fs::read_file(&wikidata_plain).expect("read wikidata dump");
+    let file = wildside_fs::create_file(&bz2_path).expect("create bz2 file");
     let mut encoder = BzEncoder::new(file, Compression::default());
     encoder.write_all(&plain).expect("compress wikidata");
     encoder.finish().expect("finish compression");

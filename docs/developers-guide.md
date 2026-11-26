@@ -68,20 +68,15 @@ Makefile composition, the target refusal and the CI provisioning.
 
 ### Cognitive complexity gate
 
-Two lints gate cognitive complexity at 9, CodeScene's ceiling. Whitaker's
-experimental `macro_aware_cognitive_complexity` is the intended gate, because
-it skips branching a macro generated; `dylint.toml` opts in through the
-`experimental` key in its `[whitaker]` table. Clippy's `cognitive_complexity`
-(the workspace `deny` and `cognitive-complexity-threshold` in `clippy.toml`)
-stays until Whitaker lints the whole workspace (DF12-120): `make lint` runs
-Whitaker on the root package and its path dependencies only, so
-`wildside-scorer` is covered by Clippy alone, while Clippy reaches only the
-members that inherit the workspace lints (`wildside-cli`, `wildside-core`,
-`wildside-data` and `wildside-fs` do not). Remove the Clippy gate in the PR
-that adds `--workspace` to the Whitaker recipe. An older local `whitaker_suite`
-may not include the Whitaker lint, in which case `make lint` passes without
-that check: rerun `whitaker-installer` when upgrading from an older suite. Fix
-a finding by extracting named helpers, never by raising the threshold.
+Whitaker's experimental `macro_aware_cognitive_complexity` gates cognitive
+complexity at 9, CodeScene's ceiling, because it skips branching a macro
+generated; `dylint.toml` opts in through the `experimental` key in its
+`[whitaker]` table. `make lint` runs Whitaker on the whole workspace
+(DF12-120), so Clippy's `cognitive_complexity` gate is gone. An older local
+`whitaker_suite` may not include the Whitaker lint, in which case `make lint`
+passes without that check: rerun `whitaker-installer` when upgrading from an
+older suite. Fix a finding by extracting named helpers, never by raising the
+threshold.
 
 ### Cranelift is not the development backend
 

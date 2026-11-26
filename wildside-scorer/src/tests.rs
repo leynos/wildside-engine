@@ -155,24 +155,12 @@ fn write_popularity_file_round_trips_scores() {
 
     write_popularity_file(&db_path, &output, weights).expect("write popularity file");
 
-    let bytes = std::fs::read(output.as_std_path()).expect("read popularity file");
+    let bytes = wildside_fs::read_file(output.as_std_path()).expect("read popularity file");
     let decoded: PopularityScores = bincode_options()
         .deserialize(&bytes)
         .expect("decode popularity file");
 
     assert_eq!(decoded, expected, "scores should round-trip via bincode");
-}
-
-/// Reads the length inside a `const fn`, so the build fails if `len` stops
-/// being `const`. A `const fn` may call only `const` functions.
-const fn len_in_const_context(scores: &PopularityScores) -> usize {
-    scores.len()
-}
-
-/// Reads emptiness inside a `const fn`, so the build fails if `is_empty` stops
-/// being `const`.
-const fn is_empty_in_const_context(scores: &PopularityScores) -> bool {
-    scores.is_empty()
 }
 
 #[rstest]
@@ -186,8 +174,8 @@ fn the_const_accessors_report_the_scores_present(
 ) {
     let scores = PopularityScores::new(entries.iter().copied().collect());
 
-    assert_eq!(len_in_const_context(&scores), expected_len);
-    assert_eq!(is_empty_in_const_context(&scores), expected_empty);
+    assert_eq!(scores.len(), expected_len);
+    assert_eq!(scores.is_empty(), expected_empty);
 }
 
 fn seed_database(path: &Utf8PathBuf) {

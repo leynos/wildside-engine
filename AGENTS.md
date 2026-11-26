@@ -226,7 +226,8 @@ project:
     ```
 
     linting every target with all features enabled and denying all Clippy
-    warnings, then running the Whitaker Dylint suite with warnings denied. The
+    warnings, then running the Whitaker Dylint suite with warnings denied on
+    every workspace member. The
     Clippy arguments are the `CLIPPY_FLAGS` default. The recipe assigns no
     `RUSTFLAGS`, so Cargo takes its flags from an inherited `RUSTFLAGS` when one
     is set, which replaces the `.cargo/config.toml` build flags, and from

@@ -42,7 +42,7 @@ impl HttpDumpSource {
     /// # Errors
     ///
     /// Returns an error if the HTTP client cannot be built (for example when
-    /// the TLS backend fails to initialise).
+    /// the TLS backend fails to initialize).
     pub fn new(base_url: impl Into<String>) -> Result<Self, reqwest::Error> {
         let user_agent = DEFAULT_USER_AGENT.to_string();
         let client = Self::build_client(&user_agent)?;
