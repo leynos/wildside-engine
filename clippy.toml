@@ -1,7 +1,8 @@
 # Align with CodeScene’s ceiling. DF12-120: kept until Whitaker lints the whole
 # workspace; Whitaker's `macro_aware_cognitive_complexity` also gates the root
-# package at 9 (see `dylint.toml`). Remove this threshold with the workspace
-# `cognitive_complexity` deny once `--workspace` is in the Whitaker recipe.
+# package and its path dependencies at 9 (see `dylint.toml`). Remove this
+# threshold with the workspace `cognitive_complexity` deny once `--workspace` is
+# in the Whitaker recipe.
 cognitive-complexity-threshold = 9     # default is 25
 too-many-arguments-threshold = 4       # default is 7
 too-many-lines-threshold = 70          # default is 100

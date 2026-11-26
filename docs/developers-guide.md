@@ -74,12 +74,14 @@ it skips branching a macro generated; `dylint.toml` opts in through the
 `experimental` key in its `[whitaker]` table. Clippy's `cognitive_complexity`
 (the workspace `deny` and `cognitive-complexity-threshold` in `clippy.toml`)
 stays until Whitaker lints the whole workspace (DF12-120): `make lint` runs
-Whitaker on the root package and its path dependencies only, while Clippy
-checks every member. Remove the Clippy gate in the PR that adds `--workspace`
-to the Whitaker recipe. An older local `whitaker_suite` may not include the
-Whitaker lint, in which case `make lint` passes without that check: rerun
-`whitaker-installer` when upgrading from an older suite. Fix a finding by
-extracting named helpers, never by raising the threshold.
+Whitaker on the root package and its path dependencies only, so
+`wildside-scorer` is covered by Clippy alone, while Clippy reaches only the
+members that inherit the workspace lints (`wildside-cli`, `wildside-core`,
+`wildside-data` and `wildside-fs` do not). Remove the Clippy gate in the PR
+that adds `--workspace` to the Whitaker recipe. An older local `whitaker_suite`
+may not include the Whitaker lint, in which case `make lint` passes without
+that check: rerun `whitaker-installer` when upgrading from an older suite. Fix
+a finding by extracting named helpers, never by raising the threshold.
 
 ### Cranelift is not the development backend
 
