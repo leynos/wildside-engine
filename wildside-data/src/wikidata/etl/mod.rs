@@ -209,15 +209,7 @@ fn preprocess_json_line(line: &str) -> Option<&str> {
         return None;
     }
     let trimmed = trimmed.trim_start_matches(',').trim();
-    let trimmed = if trimmed.ends_with(',') {
-        let without_comma = trimmed.strip_suffix(',').expect(
-            "preprocess_json_line: expected trailing comma after entity object when \
-                 trimmed.ends_with(',') was true",
-        );
-        without_comma.trim()
-    } else {
-        trimmed
-    };
+    let trimmed = trimmed.strip_suffix(',').map_or(trimmed, str::trim);
     if trimmed.is_empty() || is_structural_line(trimmed) {
         None
     } else {

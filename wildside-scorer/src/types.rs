@@ -48,13 +48,21 @@ impl PopularityScores {
 
     /// Return the number of scored POIs.
     #[must_use]
-    pub const fn len(&self) -> usize {
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "Whitaker's pinned nightly cannot compile const BTreeMap::len; restore const when https://github.com/leynos/whitaker/issues/561 moves the nightly"
+    )]
+    pub fn len(&self) -> usize {
         self.scores.len()
     }
 
     /// Report whether any scores are present.
     #[must_use]
-    pub const fn is_empty(&self) -> bool {
+    #[expect(
+        clippy::missing_const_for_fn,
+        reason = "Whitaker's pinned nightly cannot compile const BTreeMap::is_empty; restore const when https://github.com/leynos/whitaker/issues/561 moves the nightly"
+    )]
+    pub fn is_empty(&self) -> bool {
         self.scores.is_empty()
     }
 

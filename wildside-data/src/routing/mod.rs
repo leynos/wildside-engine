@@ -38,12 +38,13 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod config;
+mod convert;
 mod osrm;
 mod provider;
 
 #[doc(hidden)]
 pub mod test_support;
 
-pub use provider::{
-    DEFAULT_USER_AGENT, HttpTravelTimeProvider, HttpTravelTimeProviderConfig, ProviderBuildError,
-};
+pub use config::{DEFAULT_USER_AGENT, HttpTravelTimeProviderConfig, ProviderBuildError};
+pub use provider::HttpTravelTimeProvider;

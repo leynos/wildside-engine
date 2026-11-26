@@ -2,7 +2,6 @@
 
 use simd_json::serde::from_reader;
 use std::{
-    fs,
     io::{self, BufRead, Write},
     path::Path,
 };
@@ -156,7 +155,7 @@ pub async fn download_descriptor<S: DumpSource + ?Sized>(
 
 fn prepare_output_location(output_path: &Path, overwrite: bool) -> Result<(), WikidataDumpError> {
     if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).map_err(|source| WikidataDumpError::CreateDir {
+        wildside_fs::create_dir_all(parent).map_err(|source| WikidataDumpError::CreateDir {
             source,
             path: parent.to_path_buf(),
         })?;
@@ -196,11 +195,10 @@ async fn perform_download<S: DumpSource + ?Sized>(
     temp_file: &mut NamedTempFile,
 ) -> Result<u64, WikidataDumpError> {
     let bytes_written = source
-        .download_archive(&descriptor.url, temp_file.as_file_mut())
+        .download_archive(&descriptor.url, temp_file)
         .await
         .map_err(|source| WikidataDumpError::Download { source })?;
     temp_file
-        .as_file_mut()
         .flush()
         .map_err(|source| WikidataDumpError::WriteDump {
             source,
@@ -215,7 +213,7 @@ fn finalize_download(
     overwrite: bool,
 ) -> Result<(), WikidataDumpError> {
     if overwrite && output_path.exists() {
-        fs::remove_file(output_path).map_err(|source| WikidataDumpError::WriteDump {
+        wildside_fs::remove_file(output_path).map_err(|source| WikidataDumpError::WriteDump {
             source,
             path: output_path.to_path_buf(),
         })?;

@@ -204,7 +204,6 @@ mod tests {
     use geo::Coord;
     use rstest::{fixture, rstest};
     use std::{
-        fs::File,
         io::{Read, Write},
         path::PathBuf,
     };
@@ -252,7 +251,7 @@ mod tests {
     fn load_index_entries_errors_on_invalid_magic(
         #[from(temp_index_path)] (_dir, index_path): (TempDir, PathBuf),
     ) {
-        std::fs::write(&index_path, b"BAD!").expect("write corrupt header");
+        wildside_fs::write_file(&index_path, b"BAD!").expect("write corrupt header");
 
         let error = load_index_entries(&index_path).expect_err("invalid magic should fail");
         assert!(matches!(error, SpatialIndexError::InvalidMagic { .. }));
@@ -262,7 +261,7 @@ mod tests {
     fn load_index_entries_errors_on_decode_failure(
         #[from(temp_index_path)] (_dir, index_path): (TempDir, PathBuf),
     ) {
-        let mut file = File::create(&index_path).expect("create index file");
+        let mut file = wildside_fs::create_file(&index_path).expect("create index file");
         file.write_all(&SPATIAL_INDEX_MAGIC)
             .expect("write magic header");
         file.write_all(&SPATIAL_INDEX_VERSION.to_le_bytes())
@@ -277,7 +276,7 @@ mod tests {
     fn load_index_entries_errors_on_unsupported_version(
         #[from(temp_index_path)] (_dir, index_path): (TempDir, PathBuf),
     ) {
-        let mut file = File::create(&index_path).expect("create index file");
+        let mut file = wildside_fs::create_file(&index_path).expect("create index file");
         file.write_all(&SPATIAL_INDEX_MAGIC)
             .expect("write magic header");
         let unsupported = (SPATIAL_INDEX_VERSION + 1).to_le_bytes();
@@ -297,7 +296,7 @@ mod tests {
     fn load_index_entries_errors_on_legacy_version(
         #[from(temp_index_path)] (_dir, index_path): (TempDir, PathBuf),
     ) {
-        let mut file = File::create(&index_path).expect("create index file");
+        let mut file = wildside_fs::create_file(&index_path).expect("create index file");
         file.write_all(&SPATIAL_INDEX_MAGIC)
             .expect("write magic header");
         let legacy = (SPATIAL_INDEX_VERSION - 1).to_le_bytes();
@@ -318,7 +317,7 @@ mod tests {
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_index(&index_path, &sample_pois).expect("persist index");
-        let mut file = File::open(&index_path).expect("open index");
+        let mut file = wildside_fs::open_file(&index_path).expect("open index");
         let mut magic = [0_u8; 4];
         file.read_exact(&mut magic).expect("read magic");
         assert_eq!(magic, SPATIAL_INDEX_MAGIC);

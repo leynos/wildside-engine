@@ -9,7 +9,7 @@ use crate::wikidata::dump::test_support::{StubSource, block_on_for_tests};
 use crate::wikidata::dump::{DownloadLog, DownloadReport, WikidataDumpError, download_latest_dump};
 use rstest::fixture;
 use rstest_bdd_macros::{given, scenario, then, when};
-use std::{cell::RefCell, fs, path::PathBuf};
+use std::{cell::RefCell, path::PathBuf};
 use tempfile::TempDir;
 
 const SAMPLE_ARCHIVE: &[u8] = b"sample";
@@ -132,15 +132,15 @@ fn download_latest(
     #[from(working_dir)] _dir: &TempDir,
 ) {
     let source_borrow = ctx.stub_source().borrow();
-    let stub = source_borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("stub source must be initialized"));
+    let Some(stub) = source_borrow.as_ref() else {
+        panic!("stub source must be initialized");
+    };
     let output_path = {
         let borrowed = ctx.output_path().borrow();
-        borrowed
-            .as_ref()
-            .cloned()
-            .unwrap_or_else(|| panic!("output path must be prepared"))
+        let Some(path) = borrowed.as_ref().cloned() else {
+            panic!("output path must be prepared");
+        };
+        path
     };
     let log_borrow = ctx.log_handle().borrow();
     let log_ref = log_borrow.as_ref();
@@ -151,25 +151,21 @@ fn download_latest(
 #[then("the archive is written to disk")]
 fn archive_written(#[from(dump_context)] ctx: &DumpScenarioContext) {
     let source_borrow = ctx.stub_source().borrow();
-    let expected = source_borrow
-        .as_ref()
-        .map(StubSource::archive)
-        .unwrap_or_else(|| panic!("stub source must be initialized"));
+    let Some(expected) = source_borrow.as_ref().map(StubSource::archive) else {
+        panic!("stub source must be initialized");
+    };
     let result_borrow = ctx.download_result().borrow();
-    let outcome = result_borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("download result must be captured"));
+    let Some(outcome) = result_borrow.as_ref() else {
+        panic!("download result must be captured");
+    };
     let report = match outcome {
         Ok(report) => report,
         Err(err) => panic!("download should succeed: {err}"),
     };
-    let output_path = ctx
-        .output_path()
-        .borrow()
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("output path must be prepared"));
-    let contents = match fs::read(&output_path) {
+    let Some(output_path) = ctx.output_path().borrow().as_ref().cloned() else {
+        panic!("output path must be prepared");
+    };
+    let contents = match wildside_fs::read_file(&output_path) {
         Ok(bytes) => bytes,
         Err(err) => panic!("failed to read downloaded archive: {err}"),
     };
@@ -180,9 +176,9 @@ fn archive_written(#[from(dump_context)] ctx: &DumpScenarioContext) {
 #[then("the download log records an entry")]
 fn log_records_entry(#[from(dump_context)] ctx: &DumpScenarioContext) {
     let log_borrow = ctx.log_handle().borrow();
-    let log = log_borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("download log should be initialized"));
+    let Some(log) = log_borrow.as_ref() else {
+        panic!("download log should be initialized");
+    };
     let count: i64 = match log
         .connection()
         .query_row("SELECT COUNT(*) FROM downloads", [], |row| row.get(0))
@@ -196,9 +192,9 @@ fn log_records_entry(#[from(dump_context)] ctx: &DumpScenarioContext) {
 #[then("an error about the missing dump is returned")]
 fn missing_dump_error(#[from(dump_context)] ctx: &DumpScenarioContext) {
     let result_borrow = ctx.download_result().borrow();
-    let outcome = result_borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("download result must be captured"));
+    let Some(outcome) = result_borrow.as_ref() else {
+        panic!("download result must be captured");
+    };
     match outcome {
         Ok(_) => panic!("expected an error for the missing dump"),
         Err(WikidataDumpError::MissingDump) => {}
@@ -210,7 +206,7 @@ fn missing_dump_error(#[from(dump_context)] ctx: &DumpScenarioContext) {
 fn scenario_indices_follow_feature_order() {
     let feature_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/features/download_wikidata_dump.feature");
-    let contents = match fs::read_to_string(&feature_path) {
+    let contents = match wildside_fs::read_to_string(&feature_path) {
         Ok(data) => data,
         Err(err) => panic!("failed to read feature file {feature_path:?}: {err}"),
     };

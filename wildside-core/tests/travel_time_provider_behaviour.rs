@@ -113,26 +113,29 @@ fn assert_unit_matrix(matrix: &TravelTimeMatrix, expected: usize) {
     assert!(matrix.iter().all(|row| row.len() == expected));
     for (i, row) in matrix.iter().enumerate() {
         for (j, &cell) in row.iter().enumerate() {
-            if i == j {
-                assert_eq!(cell, Duration::ZERO, "expected diagonal to be zero");
-                continue;
-            }
-
-            assert_eq!(
-                cell,
-                Duration::from_secs(1),
-                "expected off-diagonal to be one second",
-            );
-
-            if j <= i {
-                continue;
-            }
-
-            assert_eq!(
-                cell, matrix[j][i],
-                "expected symmetry at ({i},{j}) and ({j},{i})",
-            );
+            assert_unit_cell(i, j, cell);
+            assert_mirrored(matrix, i, j);
         }
+    }
+}
+
+/// The diagonal is zero and every other cell is one second.
+fn assert_unit_cell(i: usize, j: usize, cell: Duration) {
+    let expected = if i == j {
+        Duration::ZERO
+    } else {
+        Duration::from_secs(1)
+    };
+    assert_eq!(cell, expected, "unexpected travel time at ({i},{j})");
+}
+
+/// A cell above the diagonal equals its mirror below it.
+fn assert_mirrored(matrix: &TravelTimeMatrix, i: usize, j: usize) {
+    if j > i {
+        assert_eq!(
+            matrix[i][j], matrix[j][i],
+            "expected symmetry at ({i},{j}) and ({j},{i})",
+        );
     }
 }
 

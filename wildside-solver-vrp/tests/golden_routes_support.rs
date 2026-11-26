@@ -13,7 +13,6 @@
 //! constructs.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 
 use geo::Coord;
@@ -106,20 +105,22 @@ pub fn load_golden_route(name: &str) -> GoldenRoute {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/golden_routes/data")
         .join(format!("{name}.json"));
-    let content = fs::read_to_string(&path).unwrap_or_else(|e| {
-        panic!(
+    let content = match wildside_fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(e) => panic!(
             "failed to read golden route file at {}: {}",
             path.display(),
             e
-        )
-    });
-    serde_json::from_str(&content).unwrap_or_else(|e| {
-        panic!(
+        ),
+    };
+    match serde_json::from_str(&content) {
+        Ok(golden) => golden,
+        Err(e) => panic!(
             "failed to parse golden route JSON at {}: {}",
             path.display(),
             e
-        )
-    })
+        ),
+    }
 }
 
 /// Convert POI specs to domain POIs.
@@ -143,9 +144,9 @@ pub fn build_pois(specs: &[PoiSpec]) -> Vec<PointOfInterest> {
 pub fn build_request(spec: &RequestSpec) -> SolveRequest {
     let mut interests = InterestProfile::new();
     for (theme_str, weight) in &spec.interests {
-        let theme: Theme = theme_str
-            .parse()
-            .unwrap_or_else(|_| panic!("golden route contains invalid theme: {theme_str}"));
+        let Ok(theme) = theme_str.parse::<Theme>() else {
+            panic!("golden route contains invalid theme: {theme_str}");
+        };
         interests.set_weight(theme, *weight);
     }
     SolveRequest {

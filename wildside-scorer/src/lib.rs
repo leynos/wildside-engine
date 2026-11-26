@@ -29,16 +29,16 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::BufWriter;
 
 use bincode::Options;
 use camino::Utf8Path;
 use rusqlite::Connection;
-use wildside_fs::ensure_parent_dir;
+use wildside_fs::{create_file, ensure_parent_dir};
 
 mod error;
 pub(crate) mod resolver;
+mod score_weights;
 mod types;
 mod user;
 
@@ -107,7 +107,7 @@ pub fn write_popularity_file(
         source,
     })?;
     let file =
-        File::create(output_path.as_std_path()).map_err(|source| PopularityError::WriteFile {
+        create_file(output_path.as_std_path()).map_err(|source| PopularityError::WriteFile {
             path: output_path.to_path_buf(),
             source,
         })?;

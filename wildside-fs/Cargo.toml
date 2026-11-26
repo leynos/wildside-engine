@@ -8,6 +8,9 @@ publish = false
 camino = { workspace = true }
 cap-std = { workspace = true, features = ["fs_utf8"] }
 
+[dev-dependencies]
+tempfile = "3"
+
 # Deny undocumented public items, as the workspace table does; see the note below
 # on why this package does not yet inherit the full table.
 [lints.rust]

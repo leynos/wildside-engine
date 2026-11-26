@@ -200,7 +200,7 @@ fn write_popularity_scores(
     let bytes = popularity_bincode_options()
         .serialize(&scores)
         .expect("serialize popularity scores");
-    std::fs::write(path.as_std_path(), bytes).expect("write popularity file");
+    wildside_fs::write_file(path.as_std_path(), bytes).expect("write popularity file");
     *context.popularity_path.borrow_mut() = Some(path);
 }
 

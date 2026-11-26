@@ -5,7 +5,7 @@ use super::test_support::{StubSource, block_on_for_tests};
 use super::util::sanitize_base_url;
 use super::{BaseUrl, DownloadLog, DumpUrl, WikidataDumpError, download_latest_dump};
 use rstest::{fixture, rstest};
-use std::{fs, io::Cursor};
+use std::io::Cursor;
 use tempfile::TempDir;
 use wikidata_rust::{Entity, Lang, WikiId};
 
@@ -95,7 +95,7 @@ fn download_pipeline_writes_file(base_url: BaseUrl, manifest: Vec<u8>, archive: 
         .expect("download should succeed");
     let expected_len = u64::try_from(archive.len()).expect("archive length should fit in u64");
     assert_eq!(report.bytes_written, expected_len);
-    let contents = fs::read(&output).expect("dump file should be readable");
+    let contents = wildside_fs::read_file(&output).expect("dump file should be readable");
     assert_eq!(contents, archive);
 }
 

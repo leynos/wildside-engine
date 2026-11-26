@@ -38,23 +38,34 @@ pub struct HttpDumpSource {
 
 impl HttpDumpSource {
     /// Construct an HTTP-backed dump source.
-    #[must_use]
-    pub fn new(base_url: impl Into<String>) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be built (for example when
+    /// the TLS backend fails to initialize).
+    pub fn new(base_url: impl Into<String>) -> Result<Self, reqwest::Error> {
         let user_agent = DEFAULT_USER_AGENT.to_string();
-        let client = Self::build_client(&user_agent);
-        Self {
+        let client = Self::build_client(&user_agent)?;
+        Ok(Self {
             client,
             base_url: sanitize_base_url(base_url),
             user_agent,
-        }
+        })
     }
 
     /// Override the default user agent string by rebuilding the HTTP client.
-    pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP client cannot be rebuilt.
+    pub fn with_user_agent(
+        mut self,
+        user_agent: impl Into<String>,
+    ) -> Result<Self, reqwest::Error> {
         let user_agent = user_agent.into();
-        self.client = Self::build_client(&user_agent);
+        self.client = Self::build_client(&user_agent)?;
         self.user_agent = user_agent;
-        self
+        Ok(self)
     }
 
     fn status_url(&self) -> DumpUrl {
@@ -72,12 +83,11 @@ impl HttpDumpSource {
             .map_err(|err| convert_reqwest_error(err, url))
     }
 
-    fn build_client(user_agent: &str) -> Client {
+    fn build_client(user_agent: &str) -> Result<Client, reqwest::Error> {
         Client::builder()
             .user_agent(user_agent)
             .connect_timeout(Duration::from_secs(30))
             .build()
-            .expect("client builder only fails with invalid configuration")
     }
 }
 

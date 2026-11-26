@@ -116,7 +116,7 @@ fn validate_sources_reports_not_file() {
     let root = Utf8PathBuf::from_path_buf(tmp.path().to_path_buf()).expect("utf-8 workspace");
 
     let request_path = root.join("request.json");
-    std::fs::create_dir(&request_path).expect("request directory");
+    wildside_fs::create_dir_all(&request_path).expect("request directory");
 
     let config = SolveConfig {
         request_path: request_path.clone(),

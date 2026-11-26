@@ -61,24 +61,17 @@ impl OsmPoiAccumulator {
 
         let mut staged: Vec<(&'a str, &'a str)> = Vec::new();
         let mut collected: Option<PoiTags> = None;
-        let mut is_relevant = false;
 
         for (key, value) in tags_iter {
-            if is_relevant {
-                collected
-                    .as_mut()
-                    .expect("relevant nodes initialize tag collection")
-                    .insert(key.to_owned(), value.to_owned());
-                continue;
-            }
-
-            if is_relevant_key(key) {
-                is_relevant = true;
+            if let Some(tags) = collected.as_mut() {
+                tags.insert(key.to_owned(), value.to_owned());
+            } else if is_relevant_key(key) {
                 collected = Some(collect_relevant_tags(&mut staged, key, value));
             } else {
                 staged.push((key, value));
             }
         }
+        let is_relevant = collected.is_some();
 
         let Some(location) = validated_coord(coordinate.lon, coordinate.lat) else {
             if was_pending {
@@ -97,8 +90,7 @@ impl OsmPoiAccumulator {
 
         self.nodes.insert(encoded_id, location);
 
-        if is_relevant {
-            let tags = collected.expect("relevant nodes must collect tags");
+        if let Some(tags) = collected {
             self.node_pois
                 .push(PointOfInterest::new(encoded_id, location, tags));
         }

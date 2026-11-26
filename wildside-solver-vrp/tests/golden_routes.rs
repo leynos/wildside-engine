@@ -10,7 +10,6 @@
 mod golden_routes_support;
 
 use std::collections::HashSet;
-use std::fs;
 use std::time::Duration;
 
 use rstest::rstest;
@@ -25,11 +24,13 @@ use golden_routes_support::{build_pois, build_request, load_golden_route};
 fn list_golden_route_fixtures() -> Vec<String> {
     let data_dir =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden_routes/data");
-    fs::read_dir(&data_dir)
-        .unwrap_or_else(|err| panic!("failed to read golden routes data dir: {err}"))
-        .filter_map(|result| {
-            let dir_entry = result.ok()?;
-            let path = dir_entry.path();
+    let paths = match wildside_fs::list_dir(&data_dir) {
+        Ok(paths) => paths,
+        Err(err) => panic!("failed to read golden routes data dir: {err}"),
+    };
+    paths
+        .into_iter()
+        .filter_map(|path| {
             if path.extension().is_some_and(|ext| ext == "json") {
                 path.file_stem().and_then(|s| s.to_str()).map(String::from)
             } else {

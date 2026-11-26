@@ -98,16 +98,12 @@ fn persist(
     claims: &RefCell<Option<Vec<EntityClaims>>>,
     persist_result: &RefCell<Option<Result<(), PersistClaimsError>>>,
 ) {
-    let path = db_path
-        .borrow()
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialized"));
-    let claims_vec = claims
-        .borrow()
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("claims must be initialized"));
+    let Some(path) = db_path.borrow().as_ref().cloned() else {
+        panic!("database path must be initialized");
+    };
+    let Some(claims_vec) = claims.borrow().as_ref().cloned() else {
+        panic!("claims must be initialized");
+    };
     let result = persist_claims_to_path(path.clone(), &claims_vec);
     *persist_result.borrow_mut() = Some(result);
 }
@@ -118,18 +114,16 @@ fn designation_persisted(
     persist_result: &RefCell<Option<Result<(), PersistClaimsError>>>,
 ) {
     let binding = persist_result.borrow();
-    let result = binding
-        .as_ref()
-        .unwrap_or_else(|| panic!("persistence result must be recorded"));
+    let Some(result) = binding.as_ref() else {
+        panic!("persistence result must be recorded");
+    };
     if let Err(err) = result {
         panic!("expected success, got error: {err}");
     }
 
-    let path = db_path
-        .borrow()
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("database path must be initialized"));
+    let Some(path) = db_path.borrow().as_ref().cloned() else {
+        panic!("database path must be initialized");
+    };
     let connection = Connection::open(path).expect("open SQLite database");
     let mut statement = connection
         .prepare(
@@ -147,9 +141,9 @@ fn designation_persisted(
 #[then("persistence fails because the POI is missing")]
 fn missing_poi_error(persist_result: &RefCell<Option<Result<(), PersistClaimsError>>>) {
     let binding = persist_result.borrow();
-    let result = binding
-        .as_ref()
-        .unwrap_or_else(|| panic!("persistence result must be recorded"));
+    let Some(result) = binding.as_ref() else {
+        panic!("persistence result must be recorded");
+    };
     match result {
         Ok(_) => panic!("expected an error for missing POI"),
         Err(PersistClaimsError::MissingPoi { poi_id, entity_id }) => {

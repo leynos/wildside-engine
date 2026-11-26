@@ -198,7 +198,7 @@ mod tests {
     use bincode::serialize_into;
     use geo::Coord;
     use rstest::{fixture, rstest};
-    use std::{fs::File, io::Write, path::PathBuf};
+    use std::{io::Write, path::PathBuf};
     use tempfile::TempDir;
 
     fn poi(id: u64, x: f64, y: f64, name: &str) -> PointOfInterest {
@@ -295,7 +295,7 @@ mod tests {
         sample_pois: Vec<PointOfInterest>,
     ) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
-        std::fs::write(&index_path, b"BAD!").expect("write corrupt file");
+        wildside_fs::write_file(&index_path, b"BAD!").expect("write corrupt file");
 
         let error =
             SqlitePoiStore::open(&db_path, &index_path).expect_err("invalid magic should fail");
@@ -312,7 +312,7 @@ mod tests {
     ) {
         write_sqlite_database(&db_path, &sample_pois).expect("persist database");
         {
-            let mut file = File::create(&index_path).expect("create index file");
+            let mut file = wildside_fs::create_file(&index_path).expect("create index file");
             file.write_all(&SPATIAL_INDEX_MAGIC)
                 .expect("write magic header");
             file.write_all(&(SPATIAL_INDEX_VERSION + 1).to_le_bytes())

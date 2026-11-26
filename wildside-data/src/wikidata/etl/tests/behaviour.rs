@@ -57,11 +57,9 @@ fn extract_claims(
         Option<Result<Vec<EntityClaims>, WikidataEtlError>>,
     >,
 ) {
-    let links = links_cell
-        .borrow()
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| panic!("POI links must be initialized"));
+    let Some(links) = links_cell.borrow().as_ref().cloned() else {
+        panic!("POI links must be initialized");
+    };
     let bytes = bytes_cell.borrow().clone();
     let cursor = Cursor::new(bytes);
     let outcome = extract_linked_entity_claims(cursor, &links);
@@ -75,9 +73,9 @@ fn heritage_recorded(
     >,
 ) {
     let borrow = result_cell.borrow();
-    let outcome = borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("extraction result must be present"));
+    let Some(outcome) = borrow.as_ref() else {
+        panic!("extraction result must be present");
+    };
     let claims = match outcome {
         Ok(claims) => claims,
         Err(err) => panic!("expected success: {err}"),
@@ -97,9 +95,9 @@ fn parse_error(
     >,
 ) {
     let borrow = result_cell.borrow();
-    let outcome = borrow
-        .as_ref()
-        .unwrap_or_else(|| panic!("extraction result must be present"));
+    let Some(outcome) = borrow.as_ref() else {
+        panic!("extraction result must be present");
+    };
     match outcome {
         Ok(_) => panic!("expected an error for malformed JSON"),
         Err(WikidataEtlError::ParseEntity { line, .. }) => {

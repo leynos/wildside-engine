@@ -1,6 +1,9 @@
+//! Fixture lookup, fixture decoding and float comparison, shared by the ingest
+//! integration tests and the crate's unit tests.
+
 use base64::{Engine as _, engine::general_purpose};
 use std::{
-    fs,
+    fmt::Display,
     io::Write,
     path::{Path, PathBuf},
 };
@@ -14,34 +17,43 @@ pub fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
 
+/// Unwrap a fixture step, failing the test with `what` and the error.
+///
+/// Fixture helpers are not tests, so this is their single, named panic boundary.
+fn or_fail<T, E: Display>(result: Result<T, E>, what: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("failed to {what}: {error}"),
+    }
+}
+
 /// Decode a Base64-encoded fixture into a temporary `.osm.pbf` file.
 pub fn decode_fixture(dir: &Path, stem: &str) -> TempPath {
     let encoded_path = dir.join(format!("{stem}.osm.pbf.b64"));
-    let encoded = fs::read_to_string(&encoded_path).unwrap_or_else(|err| {
-        panic!("failed to read base64 fixture {encoded_path:?}: {err}");
-    });
+    let encoded = or_fail(
+        wildside_fs::read_to_string(&encoded_path),
+        &format!("read base64 fixture {encoded_path:?}"),
+    );
     let cleaned: String = encoded
         .chars()
         .filter(|ch| !ch.is_ascii_whitespace())
         .collect();
-    let decoded = general_purpose::STANDARD
-        .decode(cleaned.as_bytes())
-        .unwrap_or_else(|err| {
-            panic!("failed to decode base64 fixture {encoded_path:?}: {err}");
-        });
-    let mut tempfile = Builder::new()
-        .prefix(stem)
-        .suffix(".osm.pbf")
-        .tempfile()
-        .unwrap_or_else(|err| {
-            panic!("failed to create temporary fixture for {stem}: {err}");
-        });
-    tempfile.write_all(&decoded).unwrap_or_else(|err| {
-        panic!("failed to write decoded fixture for {stem}: {err}");
-    });
-    tempfile.flush().unwrap_or_else(|err| {
-        panic!("failed to flush decoded fixture for {stem}: {err}");
-    });
+    let decoded = or_fail(
+        general_purpose::STANDARD.decode(cleaned.as_bytes()),
+        &format!("decode base64 fixture {encoded_path:?}"),
+    );
+    let mut tempfile = or_fail(
+        Builder::new().prefix(stem).suffix(".osm.pbf").tempfile(),
+        &format!("create temporary fixture for {stem}"),
+    );
+    or_fail(
+        tempfile.write_all(&decoded),
+        &format!("write decoded fixture for {stem}"),
+    );
+    or_fail(
+        tempfile.flush(),
+        &format!("flush decoded fixture for {stem}"),
+    );
     tempfile.into_temp_path()
 }
 

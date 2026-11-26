@@ -12,11 +12,10 @@ pub fn block_on_for_tests<F>(future: F) -> F::Output
 where
     F: std::future::Future,
 {
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build Tokio runtime")
-        .block_on(future)
+    match Builder::new_current_thread().enable_all().build() {
+        Ok(runtime) => runtime.block_on(future),
+        Err(error) => panic!("failed to build Tokio runtime: {error}"),
+    }
 }
 
 /// Stub [`DumpSource`] implementation backed by in-memory data.
@@ -70,7 +69,6 @@ impl DumpSource for StubSource {
                 url: url.to_owned(),
                 source,
             })?;
-        let length = u64::try_from(self.archive.len()).expect("archive length should fit in u64");
-        Ok(length)
+        Ok(u64::try_from(self.archive.len()).unwrap_or(u64::MAX))
     }
 }

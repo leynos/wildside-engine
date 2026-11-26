@@ -3,7 +3,6 @@
 
 use clap::Parser;
 use std::{
-    fs,
     path::{Path, PathBuf},
     process,
 };
@@ -13,10 +12,20 @@ use wildside_data::wikidata::dump::{
     WikidataDumpError, download_descriptor, resolve_latest_descriptor,
 };
 
-#[tokio::main]
-async fn main() {
+/// Build the Tokio runtime explicitly so a failure is reported rather than a panic.
+fn main() {
     let args = Arguments::parse();
-    if let Err(error) = run(args).await {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("wikidata-etl: failed to build the Tokio runtime: {error}");
+            process::exit(1);
+        }
+    };
+    if let Err(error) = runtime.block_on(run(args)) {
         eprintln!("wikidata-etl: {error}");
         process::exit(1);
     }
@@ -25,7 +34,7 @@ async fn main() {
 async fn run(arguments: Arguments) -> Result<(), CliError> {
     let endpoint = arguments.endpoint.clone();
     let user_agent = arguments.user_agent.clone();
-    let source = HttpDumpSource::new(endpoint).with_user_agent(user_agent);
+    let source = HttpDumpSource::new(endpoint)?.with_user_agent(user_agent)?;
     execute(arguments, source).await
 }
 
@@ -70,7 +79,7 @@ fn initialize_log(path: Option<&Path>) -> Result<Option<DownloadLog>, CliError> 
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {
-        fs::create_dir_all(parent).map_err(|source| CliError::CreateLogDirectory {
+        wildside_fs::create_dir_all(parent).map_err(|source| CliError::CreateLogDirectory {
             source,
             path: parent.to_path_buf(),
         })?;
@@ -115,6 +124,8 @@ enum CliError {
         source: std::io::Error,
         path: PathBuf,
     },
+    #[error("failed to build the HTTP client: {0}")]
+    HttpClient(#[from] reqwest::Error),
     #[error(transparent)]
     Pipeline(#[from] WikidataDumpError),
 }
@@ -125,7 +136,6 @@ mod tests {
 
     use super::*;
     use rstest::{fixture, rstest};
-    use std::fs;
     use tempfile::TempDir;
     use wildside_data::wikidata::dump::BaseUrl;
     use wildside_data::wikidata::dump::test_support::{StubSource, block_on_for_tests};
@@ -217,9 +227,9 @@ mod tests {
         archive: Vec<u8>,
     ) {
         let output_dir = tmp.path().join("out");
-        fs::create_dir_all(&output_dir).expect("failed to create output dir");
+        wildside_fs::create_dir_all(&output_dir).expect("failed to create output dir");
         let output_file = output_dir.join("wikidatawiki-20240909-all.json.bz2");
-        fs::write(&output_file, b"existing").expect("failed to create existing file");
+        wildside_fs::write_file(&output_file, b"existing").expect("failed to create existing file");
         let args = Arguments {
             output_dir: output_dir.clone(),
             file_name: None,

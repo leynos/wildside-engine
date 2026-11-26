@@ -335,6 +335,8 @@ pub(crate) fn config_from_layers_for_test(
 
 #[cfg(test)]
 mod feature_flag_tests {
+    //! Unit coverage for the compile-time solver selection.
+
     use super::{SELECTED_SOLVER_KIND, SelectedSolverKind};
     use rstest::rstest;
 

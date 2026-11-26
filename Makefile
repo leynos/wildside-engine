@@ -86,7 +86,7 @@ target/%/$(APP): ## Build binary in debug or release mode
 
 lint: ## Run Clippy and the Whitaker Dylint suite with warnings denied
 	$(CARGO) clippy $(CLIPPY_FLAGS)
-	RUSTFLAGS="-D warnings" $(WHITAKER) --all -- --all-targets --all-features
+	RUSTFLAGS="-D warnings" $(WHITAKER) --all -- --workspace --all-targets --all-features
 
 typecheck: ## Typecheck the workspace
 	$(GATE_RUSTFLAGS) $(CARGO) check --workspace --all-targets --all-features $(BUILD_JOBS)
