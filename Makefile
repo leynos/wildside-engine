@@ -64,6 +64,11 @@ fetch: ## Download the locked dependencies once, so nested cargo runs offline
 	$(CARGO) fetch --locked
 
 test: | fetch ## Run tests with warnings treated as errors
+	# `clippy_env_policy_ui_tests` lints a fixture crate in a target directory of
+	# its own, which nothing else fills, so nextest's timer would pay for that
+	# build. Compile first, then run the test once outside the timer.
+	$(GATE_RUSTFLAGS) $(CARGO) test --no-run --workspace --all-targets --features test-support $(BUILD_JOBS)
+	$(GATE_RUSTFLAGS) $(CARGO) test --workspace --features test-support --test clippy_env_policy_ui_tests $(BUILD_JOBS)
 	$(GATE_RUSTFLAGS) $(CARGO) nextest run --workspace --all-targets --features test-support $(TEST_FLAGS) $(BUILD_JOBS)
 
 # The bench targets alone, under the same features as `test`. `--benches` also
