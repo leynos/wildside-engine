@@ -89,6 +89,11 @@ pedantic = { level = "warn", priority = -1 }
 allow_attributes                    = "deny"
 allow_attributes_without_reason     = "deny"
 blanket_clippy_restriction_lints    = "deny"
+# DF12-120: kept until Whitaker lints the whole workspace. `make lint` runs
+# Whitaker on the root package and its path dependencies only, while Clippy
+# checks every member. Remove this line in the PR that adds `--workspace` to
+# the Whitaker recipe.
+cognitive_complexity                = "deny"
 disallowed_methods                  = "deny"
 needless_pass_by_value              = "deny"
 implicit_hasher                     = "deny"
