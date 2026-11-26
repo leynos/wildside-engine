@@ -73,6 +73,12 @@ def _recipe(target: str) -> list[str]:
     return recipe
 
 
+def _test_command() -> str:
+    """Return the one nextest line of `make test`, beside its warm-up lines."""
+    (command,) = [line for line in _recipe("test") if "nextest run" in line]
+    return command
+
+
 def _features(command: str) -> list[str]:
     """Return the values of every ``--features`` option in a command."""
     words = shlex.split(command)
@@ -112,7 +118,7 @@ def test_the_build_job_runs_only_the_bench_targets() -> None:
 def test_test_benches_selects_only_bench_binaries_under_the_test_features() -> None:
     """Hold the recipe, and tie its features to `make test`'s."""
     assert _recipe("test-benches") == [TEST_BENCHES_RECIPE]
-    (test_command,) = _recipe("test")
+    test_command = _test_command()
     assert _features(test_command) == _features(TEST_BENCHES_RECIPE), (
         "test-benches must build the benches with the features test uses"
     )
@@ -120,7 +126,7 @@ def test_test_benches_selects_only_bench_binaries_under_the_test_features() -> N
 
 def test_coverage_runs_the_test_features_without_the_bench_targets() -> None:
     """Keep both coverage runs on the selection the bench step completes."""
-    (test_command,) = _recipe("test")
+    test_command = _test_command()
     steps = _coverage_steps()
     assert len(steps) == 2, f"expected two coverage steps, found {len(steps)}"
     for where, step in steps:
