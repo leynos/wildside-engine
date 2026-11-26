@@ -3,8 +3,9 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 use cap_std::{ambient_authority, fs_utf8};
+use std::ffi::OsString;
 use std::io;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 /// Open a UTF-8 file path using ambient authority.
 pub fn open_utf8_file(path: &Utf8Path) -> io::Result<fs_utf8::File> {
@@ -13,7 +14,10 @@ pub fn open_utf8_file(path: &Utf8Path) -> io::Result<fs_utf8::File> {
 
 /// Resolve an ambient directory for the given path and return the directory with the file name.
 pub fn open_dir_and_file(path: &Utf8Path) -> io::Result<(fs_utf8::Dir, String)> {
-    let parent = path.parent().unwrap_or_else(|| Utf8Path::new("."));
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_str().is_empty() => parent,
+        _ => Utf8Path::new("."),
+    };
     let file_name = path
         .file_name()
         .ok_or_else(|| io::Error::other("target should include a file name"))?
@@ -45,50 +49,113 @@ pub fn file_is_file(path: &Utf8Path) -> io::Result<bool> {
     dir.metadata(name.as_str()).map(|meta| meta.is_file())
 }
 
-/// Convert a `std` path to UTF-8, reporting an I/O error when it is not valid UTF-8.
-fn utf8_path(path: &Path) -> io::Result<&Utf8Path> {
-    Utf8Path::from_path(path).ok_or_else(|| io::Error::other("path is not valid UTF-8"))
+/// Maximum symlink hops followed when resolving the final component of a path.
+const MAX_SYMLINK_HOPS: usize = 40;
+
+/// Split `path` into an ambient base directory and the entry name inside it.
+///
+/// Native `std` paths are accepted, including ones that are not valid UTF-8, and
+/// a bare file name (`popularity.bin`) resolves against the current directory.
+fn native_dir_and_name(path: &Path) -> io::Result<(cap_std::fs::Dir, OsString)> {
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::other("target should include a file name"))?
+        .to_owned();
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    let dir = cap_std::fs::Dir::open_ambient_dir(parent, ambient_authority())?;
+    Ok((dir, name))
+}
+
+/// Resolve `path` to the directory and entry name that hold its final target.
+///
+/// A symlink as the last component is followed even when it leads outside the
+/// directory that holds it, as `std::fs` follows it: each hop is re-opened as an
+/// ambient directory of its own, so the caller keeps the ambient authority the
+/// helpers already take. At most [`MAX_SYMLINK_HOPS`] links are followed.
+fn resolve_target(path: &Path) -> io::Result<(cap_std::fs::Dir, OsString)> {
+    let mut current = path.to_path_buf();
+    for _ in 0..MAX_SYMLINK_HOPS {
+        let (dir, name) = native_dir_and_name(&current)?;
+        let is_link = dir
+            .symlink_metadata(&name)
+            .map(|meta| meta.file_type().is_symlink())
+            .unwrap_or(false);
+        if !is_link {
+            return Ok((dir, name));
+        }
+        let target = dir.read_link_contents(&name)?;
+        current = current
+            .parent()
+            .map_or_else(|| target.clone(), |parent| parent.join(&target));
+    }
+    Err(io::Error::other("too many levels of symbolic links"))
 }
 
 /// Create (or truncate) the file at `path` using ambient authority.
 pub fn create_file(path: impl AsRef<Path>) -> io::Result<fs_utf8::File> {
-    fs_utf8::File::create_ambient(utf8_path(path.as_ref())?, ambient_authority())
+    let (dir, name) = resolve_target(path.as_ref())?;
+    dir.create(&name).map(fs_utf8::File::from_cap_std)
 }
 
 /// Open the existing file at `path` for reading using ambient authority.
 pub fn open_file(path: impl AsRef<Path>) -> io::Result<fs_utf8::File> {
-    open_utf8_file(utf8_path(path.as_ref())?)
+    let (dir, name) = resolve_target(path.as_ref())?;
+    dir.open(&name).map(fs_utf8::File::from_cap_std)
 }
 
 /// Write `contents` to the file at `path`, creating or truncating it.
 pub fn write_file(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<()> {
-    let (dir, name) = open_dir_and_file(utf8_path(path.as_ref())?)?;
-    dir.write(name.as_str(), contents)
+    let (dir, name) = resolve_target(path.as_ref())?;
+    dir.write(&name, contents)
 }
 
 /// Read the whole file at `path` into a byte vector.
 pub fn read_file(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
-    let (dir, name) = open_dir_and_file(utf8_path(path.as_ref())?)?;
-    dir.read(name.as_str())
+    let (dir, name) = resolve_target(path.as_ref())?;
+    dir.read(&name)
 }
 
 /// Read the whole file at `path` into a string.
 pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {
-    let (dir, name) = open_dir_and_file(utf8_path(path.as_ref())?)?;
-    dir.read_to_string(name.as_str())
+    let (dir, name) = resolve_target(path.as_ref())?;
+    dir.read_to_string(&name)
 }
 
 /// Create the directory at `path` and any missing ancestors.
 pub fn create_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
-    let (base_dir, relative) = base_dir_and_relative(utf8_path(path.as_ref())?)?;
+    let path = path.as_ref();
+    let (base, relative) = native_base_and_relative(path)?;
     if relative.as_os_str().is_empty() {
         return Ok(());
     }
-    base_dir.create_dir_all(&relative)
+    let dir = cap_std::fs::Dir::open_ambient_dir(&base, ambient_authority())?;
+    dir.create_dir_all(&relative)
+}
+
+/// Split a native path into the root it starts from and the rest.
+///
+/// An absolute path starts from its drive prefix and root directory; a relative
+/// one starts from the current directory.
+fn native_base_and_relative(path: &Path) -> io::Result<(PathBuf, PathBuf)> {
+    let base: PathBuf = path
+        .components()
+        .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
+        .map(Component::as_os_str)
+        .collect();
+    if base.as_os_str().is_empty() {
+        return Ok((PathBuf::from("."), path.to_path_buf()));
+    }
+    let relative = path
+        .strip_prefix(&base)
+        .map_err(|_| io::Error::other("failed to strip root from absolute path"))?;
+    Ok((base, relative.to_path_buf()))
 }
 
 /// List the paths of the entries directly inside the directory `dir`.
-pub fn list_dir(dir: impl AsRef<Path>) -> io::Result<Vec<std::path::PathBuf>> {
+pub fn list_dir(dir: impl AsRef<Path>) -> io::Result<Vec<PathBuf>> {
     let dir = dir.as_ref();
     let handle = cap_std::fs::Dir::open_ambient_dir(dir, ambient_authority())?;
     handle
@@ -97,10 +164,10 @@ pub fn list_dir(dir: impl AsRef<Path>) -> io::Result<Vec<std::path::PathBuf>> {
         .collect()
 }
 
-/// Remove the file at `path`.
+/// Remove the file at `path`, or the symlink itself when it is one.
 pub fn remove_file(path: impl AsRef<Path>) -> io::Result<()> {
-    let (dir, name) = open_dir_and_file(utf8_path(path.as_ref())?)?;
-    dir.remove_file(name.as_str())
+    let (dir, name) = native_dir_and_name(path.as_ref())?;
+    dir.remove_file(&name)
 }
 
 /// Split an absolute or relative parent path into an ambient base directory and a relative suffix.
@@ -141,4 +208,74 @@ pub fn base_dir_and_relative(parent: &Utf8Path) -> io::Result<(fs_utf8::Dir, Utf
         .map_err(|_| io::Error::other("non-UTF-8 parent path"))?;
 
     Ok((dir, relative))
+}
+
+#[cfg(test)]
+mod tests {
+    //! Unit coverage for the native-path helpers.
+
+    use std::ffi::OsStr;
+    use std::path::Path;
+
+    use super::*;
+    use tempfile::TempDir;
+
+    fn temp() -> TempDir {
+        match TempDir::new() {
+            Ok(dir) => dir,
+            Err(err) => panic!("create temporary directory: {err}"),
+        }
+    }
+
+    #[test]
+    fn a_bare_file_name_resolves_against_the_current_directory() {
+        let (_dir, name) = native_dir_and_name(Path::new("popularity.bin"))
+            .unwrap_or_else(|err| panic!("a bare name should resolve: {err}"));
+        assert_eq!(name, OsStr::new("popularity.bin"), "the name is kept whole");
+        let (_dir, name) = open_dir_and_file(Utf8Path::new("popularity.bin"))
+            .unwrap_or_else(|err| panic!("a bare UTF-8 name should resolve: {err}"));
+        assert_eq!(name, "popularity.bin", "the UTF-8 name is kept whole");
+    }
+
+    #[test]
+    fn a_file_round_trips_through_write_and_read() {
+        let dir = temp();
+        let path = dir.path().join("data.bin");
+        write_file(&path, b"bytes").unwrap_or_else(|err| panic!("write: {err}"));
+        let read = read_file(&path).unwrap_or_else(|err| panic!("read: {err}"));
+        assert_eq!(read, b"bytes", "the bytes written are the bytes read");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_non_utf8_directory_name_is_accepted() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let dir = temp();
+        let odd = dir.path().join(OsStr::from_bytes(b"out\xff"));
+        create_dir_all(&odd).unwrap_or_else(|err| panic!("create non-UTF-8 dir: {err}"));
+        write_file(odd.join("file"), b"x").unwrap_or_else(|err| panic!("write: {err}"));
+        assert!(
+            read_file(odd.join("file")).is_ok(),
+            "a file in a non-UTF-8 directory should read back"
+        );
+        remove_file(odd.join("file")).unwrap_or_else(|err| panic!("remove: {err}"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_leading_outside_its_directory_is_followed() {
+        let target_dir = temp();
+        let link_dir = temp();
+        let target = target_dir.path().join("real.bin");
+        write_file(&target, b"payload").unwrap_or_else(|err| panic!("write: {err}"));
+        let handle = cap_std::fs::Dir::open_ambient_dir(link_dir.path(), ambient_authority())
+            .unwrap_or_else(|err| panic!("open link dir: {err}"));
+        handle
+            .symlink_contents(&target, "link.bin")
+            .unwrap_or_else(|err| panic!("symlink: {err}"));
+        let read = read_file(link_dir.path().join("link.bin"))
+            .unwrap_or_else(|err| panic!("read through link: {err}"));
+        assert_eq!(read, b"payload", "the link target's contents are read");
+    }
 }

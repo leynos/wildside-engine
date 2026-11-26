@@ -21,13 +21,19 @@ const TEST_VALUE: &str = "Q_TEST_ART";
 #[rstest]
 fn defaults_include_history_mapping() {
     let mapping = ThemeClaimMapping::default();
-    assert!(mapping.selectors(&Theme::History).is_some());
+    assert!(
+        mapping.selectors(&Theme::History).is_some(),
+        "the default mapping should select claims for the history theme"
+    );
 }
 
 #[rstest]
 fn selector_rejects_empty_fields() {
     let err = ClaimSelector::new("", TEST_VALUE).expect_err("empty property should error");
-    assert!(matches!(err, UserRelevanceError::InvalidSelector));
+    assert!(
+        matches!(err, UserRelevanceError::InvalidSelector),
+        "an empty property should be an InvalidSelector error, got {err:?}"
+    );
 }
 
 #[rstest]
@@ -38,7 +44,10 @@ fn weights_reject_zero_total() {
     }
     .validate()
     .expect_err("zero weights should be invalid");
-    assert!(matches!(err, UserRelevanceError::InvalidWeights));
+    assert!(
+        matches!(err, UserRelevanceError::InvalidWeights),
+        "zero total weight should be an InvalidWeights error, got {err:?}"
+    );
 }
 
 #[fixture]

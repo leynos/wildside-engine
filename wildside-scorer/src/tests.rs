@@ -174,8 +174,16 @@ fn the_const_accessors_report_the_scores_present(
 ) {
     let scores = PopularityScores::new(entries.iter().copied().collect());
 
-    assert_eq!(scores.len(), expected_len);
-    assert_eq!(scores.is_empty(), expected_empty);
+    assert_eq!(
+        scores.len(),
+        expected_len,
+        "len should report the number of scores present"
+    );
+    assert_eq!(
+        scores.is_empty(),
+        expected_empty,
+        "is_empty should report whether no scores are present"
+    );
 }
 
 fn seed_database(path: &Utf8PathBuf) {
