@@ -29,6 +29,8 @@ rstest-bdd-macros = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wildside-core = { workspace = true, features = ["test-support"] }
+# Capability-scoped file access for the golden-route fixtures.
+wildside-fs = { path = "../wildside-fs" }
 
 [features]
 test-support = ["wildside-core/test-support"]

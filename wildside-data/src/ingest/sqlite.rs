@@ -248,13 +248,14 @@ mod tests {
     }
 
     fn test_absolute_path_persistence(path: Utf8PathBuf, poi: PointOfInterest, description: &str) {
-        let _ = std::fs::remove_file(path.as_std_path());
+        let _ = wildside_fs::remove_file(&path);
 
-        persist_pois_to_sqlite(&path, &[poi])
-            .unwrap_or_else(|e| panic!("persist POIs to {description}: {e:?}"));
+        if let Err(error) = persist_pois_to_sqlite(&path, &[poi]) {
+            panic!("persist POIs to {description}: {error:?}");
+        }
 
         let exists = path.exists();
-        let _ = std::fs::remove_file(path.as_std_path());
+        let _ = wildside_fs::remove_file(&path);
         assert!(
             exists,
             "expected database file to be created at {description}"
@@ -285,7 +286,7 @@ mod tests {
                 // Clean up if the environment permits writing to root. Some CI
                 // environments run with elevated privileges, so avoid failing
                 // when permissions are relaxed.
-                let _ = std::fs::remove_file(path.as_std_path());
+                let _ = wildside_fs::remove_file(&path);
             }
             Err(other) => panic!("unexpected error when writing to root: {other:?}"),
         }

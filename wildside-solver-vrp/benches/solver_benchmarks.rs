@@ -81,8 +81,9 @@ fn bench_solve_times(c: &mut Criterion) {
     group.finish();
 }
 
-// Private module containing the criterion_group! macro invocation.
 mod group {
+    //! Private module containing the `criterion_group!` macro invocation.
+
     use super::bench_solve_times;
     use criterion::criterion_group;
 

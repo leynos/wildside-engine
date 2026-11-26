@@ -3799,6 +3799,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+ "wildside-fs",
 ]
 
 [[package]]
@@ -3903,6 +3904,7 @@ dependencies = [
  "serde_json",
  "vrp-core",
  "wildside-core",
+ "wildside-fs",
 ]
 
 [[package]]

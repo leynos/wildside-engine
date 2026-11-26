@@ -20,6 +20,8 @@ rstest = { workspace = true }
 rstest-bdd = { workspace = true }
 rstest-bdd-macros = { workspace = true }
 tempfile = "3"
+# Capability-scoped file staging for tests (the Whitaker no_std_fs_operations lint).
+wildside-fs = { path = "../wildside-fs" }
 
 [features]
 default = ["serde", "store-sqlite"]

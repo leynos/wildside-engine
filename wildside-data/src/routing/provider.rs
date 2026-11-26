@@ -27,92 +27,12 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use std::time::Duration;
-
 use reqwest::Client;
 use tokio::runtime::{Handle, Runtime, RuntimeFlavor};
 use wildside_core::{PointOfInterest, TravelTimeError, TravelTimeMatrix, TravelTimeProvider};
 
+use super::config::{HttpTravelTimeProviderConfig, ProviderBuildError};
 use super::osrm::TableResponse;
-
-/// Error type for [`HttpTravelTimeProvider`] construction failures.
-#[derive(Debug)]
-pub enum ProviderBuildError {
-    /// Failed to build the HTTP client.
-    HttpClient(reqwest::Error),
-    /// Failed to build the Tokio runtime.
-    Runtime(std::io::Error),
-}
-
-impl std::fmt::Display for ProviderBuildError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::HttpClient(err) => write!(f, "failed to build HTTP client: {err}"),
-            Self::Runtime(err) => write!(f, "failed to build Tokio runtime: {err}"),
-        }
-    }
-}
-
-impl std::error::Error for ProviderBuildError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::HttpClient(err) => Some(err),
-            Self::Runtime(err) => Some(err),
-        }
-    }
-}
-
-/// Default user agent for OSRM requests.
-pub const DEFAULT_USER_AGENT: &str = "wildside-routing/0.1";
-
-/// Default request timeout in seconds.
-const DEFAULT_TIMEOUT_SECS: u64 = 30;
-
-/// Configuration for [`HttpTravelTimeProvider`].
-#[derive(Debug, Clone)]
-pub struct HttpTravelTimeProviderConfig {
-    /// Base URL for the OSRM service (e.g., `"http://localhost:5000"`).
-    pub base_url: String,
-    /// Request timeout duration.
-    pub timeout: Duration,
-    /// User agent string for requests.
-    pub user_agent: String,
-}
-
-impl Default for HttpTravelTimeProviderConfig {
-    fn default() -> Self {
-        Self {
-            base_url: "http://localhost:5000".to_string(),
-            timeout: Duration::from_secs(DEFAULT_TIMEOUT_SECS),
-            user_agent: DEFAULT_USER_AGENT.to_string(),
-        }
-    }
-}
-
-impl HttpTravelTimeProviderConfig {
-    /// Create a new configuration with the given base URL.
-    #[must_use]
-    pub fn new(base_url: impl Into<String>) -> Self {
-        Self {
-            base_url: base_url.into(),
-            ..Default::default()
-        }
-    }
-
-    /// Set the request timeout.
-    #[must_use]
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = timeout;
-        self
-    }
-
-    /// Set the user agent string.
-    #[must_use]
-    pub fn with_user_agent(mut self, user_agent: impl Into<String>) -> Self {
-        self.user_agent = user_agent.into();
-        self
-    }
-}
 
 /// HTTP-based travel time provider using OSRM Table API.
 ///
@@ -142,7 +62,7 @@ impl HttpTravelTimeProviderConfig {
 /// start/end POIs in the request as needed.
 pub struct HttpTravelTimeProvider {
     client: Client,
-    config: HttpTravelTimeProviderConfig,
+    pub(super) config: HttpTravelTimeProviderConfig,
     runtime: Runtime,
 }
 
@@ -237,65 +157,6 @@ impl HttpTravelTimeProvider {
 
         self.convert_response(table_response)
     }
-
-    /// Convert a reqwest error to a `TravelTimeError`.
-    fn convert_reqwest_error(&self, error: &reqwest::Error, url: &str) -> TravelTimeError {
-        if error.is_timeout() {
-            return TravelTimeError::Timeout {
-                url: url.to_owned(),
-                timeout_secs: self.config.timeout.as_secs(),
-            };
-        }
-
-        if let Some(status) = error.status() {
-            return TravelTimeError::HttpError {
-                url: url.to_owned(),
-                status: status.as_u16(),
-                message: error.to_string(),
-            };
-        }
-
-        TravelTimeError::NetworkError {
-            url: url.to_owned(),
-            message: error.to_string(),
-        }
-    }
-
-    /// Convert an OSRM response to a `TravelTimeMatrix`.
-    fn convert_response(
-        &self,
-        response: TableResponse,
-    ) -> Result<TravelTimeMatrix, TravelTimeError> {
-        if !response.is_ok() {
-            return Err(TravelTimeError::ServiceError {
-                code: response.code,
-                message: response.message.unwrap_or_default(),
-            });
-        }
-
-        let durations = response
-            .durations
-            .ok_or_else(|| TravelTimeError::ParseError {
-                message: "OSRM response missing durations array".to_string(),
-            })?;
-
-        // Convert f64 seconds to Duration, treating null as Duration::MAX
-        // to indicate unreachable pairs. Invalid values (negative, NaN, infinite)
-        // are also treated as unreachable to avoid panics from Duration::from_secs_f64.
-        let matrix = durations
-            .into_iter()
-            .map(|row| {
-                row.into_iter()
-                    .map(|cell| {
-                        cell.filter(|&v| v >= 0.0 && v.is_finite())
-                            .map_or(Duration::MAX, Duration::from_secs_f64)
-                    })
-                    .collect()
-            })
-            .collect();
-
-        Ok(matrix)
-    }
 }
 
 impl TravelTimeProvider for HttpTravelTimeProvider {
@@ -338,6 +199,7 @@ mod tests {
     use super::*;
     use geo::Coord;
     use rstest::{fixture, rstest};
+    use std::time::Duration;
 
     #[fixture]
     fn sample_pois() -> Vec<PointOfInterest> {
