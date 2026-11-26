@@ -131,30 +131,43 @@ pub fn read_to_string(path: impl AsRef<Path>) -> io::Result<String> {
 /// directory resolve as they do for `std::fs::create_dir_all`.
 pub fn create_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
     let path = path.as_ref();
-    if path.as_os_str().is_empty() {
+    if path.as_os_str().is_empty() || directory_exists(path)? {
         return Ok(());
-    }
-    match cap_std::fs::Dir::open_ambient_dir(path, ambient_authority()) {
-        Ok(_) => return Ok(()),
-        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-        Err(err) => return Err(err),
     }
     if let Some(parent) = path.parent() {
         create_dir_all(parent)?;
     }
+    create_last_component(path)
+}
+
+/// Return whether `path` opens as a directory by ambient path, following links.
+fn directory_exists(path: &Path) -> io::Result<bool> {
+    match cap_std::fs::Dir::open_ambient_dir(path, ambient_authority()) {
+        Ok(_) => Ok(true),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(err),
+    }
+}
+
+/// Create the final component of `path`, whose parent exists.
+///
+/// A path ending in `..` or `.` names a directory its parent already holds. An
+/// entry that already exists is fine for a directory, or a link to one, and an
+/// error for a file or a dangling link.
+fn create_last_component(path: &Path) -> io::Result<()> {
     if path.file_name().is_none() {
-        // A path ending in `..` or `.` names a directory its parent now holds.
-        return cap_std::fs::Dir::open_ambient_dir(path, ambient_authority()).map(drop);
+        return directory_exists(path).and_then(|found| {
+            found
+                .then_some(())
+                .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
+        });
     }
     let (dir, name) = native_dir_and_name(path)?;
     match dir.create_dir(&name) {
-        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
-            // The entry exists: that is fine for a directory, or a link to one,
-            // and an error for a file or a dangling link.
-            cap_std::fs::Dir::open_ambient_dir(path, ambient_authority())
-                .map(drop)
-                .map_err(|_| err)
-        }
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => directory_exists(path)
+            .ok()
+            .filter(|found| *found)
+            .map_or(Err(err), |_| Ok(())),
         other => other,
     }
 }
