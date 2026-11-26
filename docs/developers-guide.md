@@ -66,6 +66,17 @@ displace the configuration under `cargo-mutants`.
 `tests/workflow_contracts/build_standard_test.py` holds the configuration, the
 Makefile composition, the target refusal and the CI provisioning.
 
+### Cognitive complexity gate
+
+Clippy does not gate cognitive complexity, because its `cognitive_complexity`
+lint scores code after macro expansion and counts branching a macro generated.
+Whitaker's experimental `macro_aware_cognitive_complexity` gates it at
+`max_complexity = 9`, CodeScene's ceiling; `dylint.toml` opts in through the
+`experimental` key in its `[whitaker]` table. An older local `whitaker_suite`
+may not include this lint, in which case `make lint` passes without checking
+complexity: rerun `whitaker-installer` when upgrading from an older suite. Fix
+a finding by extracting named helpers, never by raising the threshold.
+
 ### Cranelift is not the development backend
 
 The Cranelift codegen backend is not part of this repository's standard,
