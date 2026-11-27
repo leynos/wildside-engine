@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: leynos/shared-actions/.github/actions/setup-rust@01002ae632356158c0d80a366a325f90d4185f3a
+      - uses: leynos/shared-actions/.github/actions/setup-rust@a108423efa7fb83565089449f2647d34286a48a4
         with:
           # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
@@ -35,14 +35,14 @@ jobs:
       - name: Install mdtablefix
         # `make check-fmt` runs `mdtablefix --check --git`; 0.6.0 is the
         # first release with `--check` and `--git`.
-        uses: leynos/shared-actions/.github/actions/install-mdtablefix@01002ae632356158c0d80a366a325f90d4185f3a
+        uses: leynos/shared-actions/.github/actions/install-mdtablefix@a108423efa7fb83565089449f2647d34286a48a4
         with:
           version: "0.6.1"
 
       - name: Check formatting
         run: make check-fmt
       - name: Install the Whitaker Dylint suite
-        uses: leynos/shared-actions/.github/actions/install-whitaker@01002ae632356158c0d80a366a325f90d4185f3a
+        uses: leynos/shared-actions/.github/actions/install-whitaker@a108423efa7fb83565089449f2647d34286a48a4
       # `make lint` runs the docstring gate through `uv tool run`, so uv must be
       # set up before it.
       - name: Install uv
@@ -55,7 +55,7 @@ jobs:
             **/pyproject.toml
             **/uv.lock
       - name: Install the YAML lint tools
-        uses: leynos/shared-actions/.github/actions/install-yaml-lint@01002ae632356158c0d80a366a325f90d4185f3a
+        uses: leynos/shared-actions/.github/actions/install-yaml-lint@a108423efa7fb83565089449f2647d34286a48a4
       - name: Lint
         run: make lint
       # The coverage step below (and coverage-main.yml on a push) runs every
@@ -86,7 +86,7 @@ jobs:
         # publisher. Measuring here on the push to main as well would write a
         # second baseline. tests/workflow_contracts holds the shape.
         if: github.event_name == 'pull_request'
-        uses: leynos/shared-actions/.github/actions/generate-coverage@01002ae632356158c0d80a366a325f90d4185f3a
+        uses: leynos/shared-actions/.github/actions/generate-coverage@a108423efa7fb83565089449f2647d34286a48a4
         with:
           output-path: lcov.info
           format: lcov
@@ -161,7 +161,7 @@ jobs:
       # Intentional duplication with the build job keeps the matrix
       # self-contained; refactor to a composite action if this grows.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: leynos/shared-actions/.github/actions/setup-rust@01002ae632356158c0d80a366a325f90d4185f3a
+      - uses: leynos/shared-actions/.github/actions/setup-rust@a108423efa7fb83565089449f2647d34286a48a4
         with:
           # The build standard links with `mold` on Linux (.cargo/config.toml and
           # the Makefile's gate recipes), so the linker must be installed.
