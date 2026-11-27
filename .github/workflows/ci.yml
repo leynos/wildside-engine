@@ -54,6 +54,8 @@ jobs:
           cache-dependency-glob: |
             **/pyproject.toml
             **/uv.lock
+      - name: Install the YAML lint tools
+        uses: leynos/shared-actions/.github/actions/install-yaml-lint@01002ae632356158c0d80a366a325f90d4185f3a
       - name: Lint
         run: make lint
       # The coverage step below (and coverage-main.yml on a push) runs every
